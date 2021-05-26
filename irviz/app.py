@@ -1,17 +1,13 @@
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
+import numpy as np
+import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 from dash_slicer import VolumeSlicer
-import plotly.graph_objects as go
-import numpy as np
 
 from irviz.utils import open_ir_file
-
-#  ***
-#  Add vertical spanner (to show how orthogonal view is being sliced)
-#  Understand the slicer module
 
 
 app = dash.Dash(__name__, update_title=None)
