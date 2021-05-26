@@ -4,18 +4,14 @@ import dash_html_components as html
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 from dash_slicer import VolumeSlicer
-import h5py as h5
 import plotly.graph_objects as go
 import numpy as np
+
+from irviz.utils import open_ir_file
 
 #  ***
 #  Add vertical spanner (to show how orthogonal view is being sliced)
 #  Understand the slicer module
-
-
-def open_ir_file(h5_file):
-    f = h5.File(h5_file, 'r')
-    return f['irmap']['DATA']['data'][:]
 
 
 app = dash.Dash(__name__, update_title=None)
@@ -27,35 +23,39 @@ y_slicer = VolumeSlicer(app, volume, axis=1)
 x_slicer = VolumeSlicer(app, volume, axis=2)
 
 # Override some of the layout changes that VolumeSlicer does
-axes_opts = {'showgrid': True, 'showticklabels': True, 'tick0': 0, 'dtick': 1}
-z_slicer.graph.figure.update_layout(title="Title",
-                                    xaxis_title="X Axis",
-                                    yaxis_title="Y Axis",
-                                    xaxis=axes_opts,
-                                    yaxis=axes_opts,
-                                    margin=None)  # {"l": 0, "r": 0, "b": 30, "t": 0, "pad": 10})
-y_slicer.graph.figure.update_layout(title="Y Slice",
+common_opts = {'xaxis_showticklabels': True,
+               'yaxis_showticklabels': True,
+               'xaxis_showgrid': True,
+               'yaxis_showgrid': True,
+               'margin': None}
+z_slicer.graph.figure.update_layout(title="y(x)",
+                                    xaxis_title="X",
+                                    yaxis_title="Y",
+                                    # xaxis_tick0=0,
+                                    # xaxis_dtick=1,
+                                    # yaxis_tick0=0,
+                                    # xaxis_dtick=1,
+                                    **common_opts)  # {"l": 0, "r": 0, "b": 30, "t": 0, "pad": 10})
+y_slicer.graph.figure.update_layout(title="E(y)",
+                                    # xaxis_range=[0, volume.shape[2]],
+                                    xaxis_scaleanchor="y",
+                                    xaxis_scaleratio=(volume.shape[0] / volume.shape[2]),
                                     xaxis_title="X",
                                     yaxis_title="Z",
-                                    xaxis_showticklabels=True,
-                                    yaxis_showticklabels=True,
-                                    xaxis_showgrid=True,
-                                    yaxis_showgrid=True,
-                                    margin=None)
-x_slicer.graph.figure.update_layout(title="X Slice",
+                                    **common_opts
+                                    )
+x_slicer.graph.figure.update_layout(title="E(x)",
+                                    xaxis_scaleanchor="y",
+                                    xaxis_scaleratio=(volume.shape[0] / volume.shape[1]),
                                     xaxis_title="Y",
                                     yaxis_title="Z",
-                                    xaxis_showticklabels=True,
-                                    yaxis_showticklabels=True,
-                                    xaxis_showgrid=True,
-                                    yaxis_showgrid=True,
-                                    margin=None)
+                                    **common_opts)
 
-# Describe our html elements for each slicer "view"
+# Describe our html elements for each slicer
 z_view = html.Div([
     z_slicer.graph,
-    html.Div(id='pixel_info'),
     z_slicer.slider,
+    html.Div(id='pixel_info'),
     html.Div(id='debug_pixel_info'),
     *z_slicer.stores
 ])
@@ -78,7 +78,7 @@ app.layout = html.Div([
     html.Div(
         style={
             'display': 'grid',
-            'gridTemplateColumns': '40% 30% 30%',
+            'gridTemplateColumns': '33% 33% 33%',
             'gridTemplateRows': 'auto auto'
         },
         children=[
@@ -93,21 +93,21 @@ app.layout = html.Div([
 
 
 @app.callback(Output('pixel_info', 'children'),
-              [Input(z_slicer.graph.id, 'clickData')])
+              Input(z_slicer.graph.id, 'clickData'))
 def update_pixel_info(click_data):
     if click_data is not None:
         pixel = click_data['points'][0]
         x = pixel['x']
         y = pixel['y']
         z = pixel['z']['0']  # R of RGBA z value (RGB same since greyscale)
-        return f"x: {x}, y: {y}, I: {z}"
-    return "x: , y: , I: "
+        return f"DEBUG: x: {x}, y: {y}, I: {z}"
+    return "DEBUG: x: , y: , I: "
 
 
 @app.callback(Output('spectra_plot', 'figure'),
-              [Input(z_slicer.state.id, 'data'),
-               Input(y_slicer.state.id, 'data'),
-               Input(x_slicer.state.id, 'data')])
+              Input(z_slicer.state.id, 'data'),
+              Input(y_slicer.state.id, 'data'),
+              Input(x_slicer.state.id, 'data'))
 def do_thing(z_data, y_data, x_data):
     # We need all the slicer state data ready; otherwise, don't update any Graph objects
     if z_data is None or y_data is None or x_data is None:
