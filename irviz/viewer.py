@@ -101,3 +101,36 @@ class Viewer(html.Div):
                           xaxis_title="Spectra",
                           yaxis_title="Intensity")
         return fig
+
+
+def notebook_viewer(data, decomposition=None, mode='inline'):
+    was_running = True
+    import irviz
+    try:
+        from jupyter_dash import JupyterDash
+    except ImportError:
+        print("Please install jupyter-dash first.")
+    else:
+        if not irviz.app:
+            # Creating a new app means we never ran the server
+            irviz.app = JupyterDash(__name__)
+            was_running = False
+
+    app = irviz.app
+    viewer = Viewer(data.compute(), app=app)
+    # viewer2 = Viewer(data.compute(), app=app)
+
+    div = html.Div(children=[viewer])#, viewer2])
+    app.layout = div
+
+    # Prevent server from being run multiple times; only one instance allowed
+    if not was_running:
+        irviz.app.run_server(mode=mode)
+    else:
+        # Values passed here are from
+        # jupyter_app.jupyter_dash.JupyterDash.run_server
+        app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
+                                mode=mode,
+                                port=8050,
+                                width='100%',
+                                height=650)
