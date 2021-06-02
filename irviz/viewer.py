@@ -34,7 +34,7 @@ class Viewer:
         self.corner_figure = figure()
         self.corner_figure.xaxis.axis_label = 'E'
         self.corner_figure.yaxis.axis_label = 'I'
-        self.pair_plot_figure = figure()
+        self.pair_plot_figure = figure(tools="lasso_select")
         self.decomposition_figure = figure()
         self.decomposition_figure.xaxis.axis_label = 'X'
         self.decomposition_figure.yaxis.axis_label = 'Y'
@@ -101,8 +101,7 @@ class Viewer:
 
         self.pair_plot_component_1.on_change('active', lambda attr, old, new: self.show_pair_plot())
         self.pair_plot_component_2.on_change('active', lambda attr, old, new: self.show_pair_plot())
-        self.pair_plot_figure.on_event()
-
+        self.pair_plot_source.selected.on_change('indices', self.show_pair_plot_selection)
 
         # Build layout
         self.div = Div()
@@ -167,6 +166,10 @@ class Viewer:
                                            'y': np.asarray(self.decomposition[self.pair_plot_component_2.active].ravel())})
         self.pair_plot_figure.xaxis.axis_label = self.pair_plot_component_1.labels[self.pair_plot_component_1.active]
         self.pair_plot_figure.yaxis.axis_label = self.pair_plot_component_2.labels[self.pair_plot_component_2.active]
+
+    def show_pair_plot_selection(self, attr, old, new):
+        if old != new:
+            self.div.text = str(np.unravel_index(new, self.data[0].shape))
 
     def debug(self, event):
         self.div.text = f'x: {event.x:.2f}, y: {event.y:.2f}'
