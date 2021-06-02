@@ -4,6 +4,7 @@ from dask import array as da
 import dash
 import dash_html_components as html
 
+TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
 
 def open_ir_file(h5_file):
     f = h5.File(h5_file, 'r')
@@ -22,11 +23,12 @@ if __name__ == "__main__":
     except ImportError:
         _app = dash.Dash(__name__, update_title=None)
 
-    data = open_ir_file('C:\\Users\\LBL\\PycharmProjects\\Xi-CAM\\TestData\\STXM\\nexus\\ir_stxm.h5')
+    data = open_ir_file(TEST_FILE)
     viewer = Viewer(data.compute(), app=_app)
-    viewer2 = Viewer(data.compute(), app=_app)
 
-    div = html.Div(children=[viewer, viewer2])
+    div = html.Div(children=[viewer])
+    # viewer2 = Viewer(data.compute(), app=_app)
+    # div = html.Div(children=[viewer, viewer2])  # TEST for jupyter
     _app.layout = div
 
     _app.run_server(debug=True,
