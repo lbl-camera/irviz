@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import numpy as np
 from dash.exceptions import PreventUpdate
 
+# TODO: implement orthogonal views by using slice_axis kwarg
 
 class SpectraPlotGraph(dcc.Graph):
     _counter = 0
@@ -95,7 +96,7 @@ class SliceGraph(dcc.Graph):
     """
     _counter = 0
 
-    def __init__(self, data, parent):
+    def __init__(self, data, parent, slice_axis=0):
         SliceGraph._counter += 1
 
         # Cache our data and parent for use in the callbacks
@@ -142,6 +143,7 @@ class SliceGraph(dcc.Graph):
         )(self.show_slice)
 
     def _update_figure(self):
+        """ Remake the figure to force a display update """
         figure = go.Figure([self._image])
         figure.add_shape(self._h_line)
         figure.add_shape(self._v_line)

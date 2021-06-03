@@ -4,7 +4,6 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
-from dash_slicer import VolumeSlicer
 
 from irviz.graphs import SliceGraph, SpectraPlotGraph
 
@@ -12,75 +11,27 @@ from irviz.graphs import SliceGraph, SpectraPlotGraph
 class Viewer(html.Div):
     _global_slicer_counter = 0
 
-    def __init__(self, data, app, ):
+    def __init__(self, app, data, decomposition=None, bounds=None,):
         self.data = data
         self._app = app
+        self.decomposition = decomposition
+        self.bounds = bounds
 
         Viewer._global_slicer_counter += 1
 
-        # z_slicer = VolumeSlicer(self._app, self.data, axis=0)
-        # y_slicer = VolumeSlicer(self._app, self.data, axis=1)
-        # x_slicer = VolumeSlicer(self._app, self.data, axis=2)
-        #
-        # # Override some of the layout changes that VolumeSlicer does
-        # common_opts = {'xaxis_showticklabels': True,
-        #                'yaxis_showticklabels': True,
-        #                'xaxis_showgrid': True,
-        #                'yaxis_showgrid': True,
-        #                'margin': None}
-        # z_slicer.graph.figure.update_layout(title="y(x)",
-        #                                     xaxis_title="X",
-        #                                     yaxis_title="Y",
-        #                                     # xaxis_tick0=0,
-        #                                     # xaxis_dtick=1,
-        #                                     # yaxis_tick0=0,
-        #                                     # xaxis_dtick=1,
-        #                                     **common_opts)  # {"l": 0, "r": 0, "b": 30, "t": 0, "pad": 10})
-        # y_slicer.graph.figure.update_layout(title="E(y)",
-        #                                     # xaxis_range=[0, volume.shape[2]],
-        #                                     xaxis_scaleanchor="y",
-        #                                     xaxis_scaleratio=(self.data.shape[0] / self.data.shape[2]),
-        #                                     xaxis_title="X",
-        #                                     yaxis_title="Z",
-        #                                     **common_opts
-        #                                     )
-        # x_slicer.graph.figure.update_layout(title="E(x)",
-        #                                     xaxis_scaleanchor="y",
-        #                                     xaxis_scaleratio=(self.data.shape[0] / self.data.shape[1]),
-        #                                     xaxis_title="Y",
-        #                                     yaxis_title="Z",
-        #                                     **common_opts)
-        #
-        # # Describe our html elements for each slicer
-        # z_view = html.Div([
-        #     z_slicer.graph,
-        #     z_slicer.slider,
-        #     *z_slicer.stores
-        # ])
-        # y_view = html.Div([
-        #     y_slicer.graph,
-        #     y_slicer.slider,
-        #     *y_slicer.stores
-        # ])
-        # x_view = html.Div([
-        #     x_slicer.graph,
-        #     x_slicer.slider,
-        #     *x_slicer.stores
-        # ])
-
         self.spectra_graph = SpectraPlotGraph(data, self)
         self.slice_graph = SliceGraph(data, self)
+        # self.orthogonal_x_graph = SliceGraph(data, self)
+        # self.orthogonal_y_graph = SliceGraph(data, self)
+        self.decomposition_graph = SliceGraph(self.decomposition, self)
+        self.pair_plot_graph = dcc.Graph(id=f'pair_plot_{self._global_slicer_counter}')
         # TODO: better way to register callbacks
         #  (since these graphs might need to know about each other)
         self.spectra_graph.register_callbacks()
         self.slice_graph.register_callbacks()
 
-        children = html.Div([self.slice_graph, self.spectra_graph])
-
-        # children = [z_view,
-        #             y_view,
-        #             x_view,
-        #             spectra_plot]
+        # Initialize layout
+        children = html.Div([self.slice_graph, self.spectra_graph, self.decomposition_graph])
 
         super(Viewer, self).__init__(children=children,
                                      style={'display': 'grid',
@@ -88,8 +39,10 @@ class Viewer(html.Div):
                                             },
                                      )
 
+        # Initialize views (TODO)
 
-def notebook_viewer(data, decomposition=None, mode='inline'):
+
+def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
     was_running = True
     import irviz
     try:
@@ -103,7 +56,7 @@ def notebook_viewer(data, decomposition=None, mode='inline'):
             was_running = False
 
     app = irviz.app
-    viewer = Viewer(data.compute(), app=app)
+    viewer = Viewer(app, data.compute(), decomposition, bounds)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])#, viewer2])
