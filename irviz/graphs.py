@@ -30,9 +30,10 @@ class SpectraPlotGraph(dcc.Graph):
                                        y0=0,
                                        y1=1)
 
-        self._update_figure()
+        fig = self._update_figure()
 
-        super(SpectraPlotGraph, self).__init__(id=self._id())
+        super(SpectraPlotGraph, self).__init__(id=self._id(),
+                                               figure=fig)
 
     def register_callbacks(self):
         self._parent._app.callback(
@@ -100,13 +101,13 @@ class SliceGraph(dcc.Graph):
                                        yref='y',
                                        x0=0,
                                        x1=1,
-                                       y0=self._data.shape[2] / 2,
-                                       y1=self._data.shape[2] / 2)
+                                       y0=0,  # (self._data.shape[2] - 1) // 2,
+                                       y1=0)  # (self._data.shape[2] - 1) // 2)
         self._v_line = go.layout.Shape(type='line',
                                        xref='x',
                                        yref='paper',
-                                       x0=self._data.shape[1] / 2,
-                                       x1=self._data.shape[1] / 2,
+                                       x0=0,  # (self._data.shape[1] - 1) // 2,
+                                       x1=0,  # (self._data.shape[1] - 1) // 2,
                                        y0=0,
                                        y1=1)
 
