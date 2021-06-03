@@ -7,6 +7,41 @@ import numpy as np
 from dash.exceptions import PreventUpdate
 
 
+class SpectraPlotGraph(dcc.Graph):
+    _counter = 0
+
+    def __init__(self, data, parent):
+        SpectraPlotGraph._counter += 1
+
+        self._data = data
+        self._parent = parent
+
+        super(SpectraPlotGraph, self).__init__(id=self._id())
+
+    def register_callbacks(self):
+        self._parent._app.callback(
+            Output(self.id, 'figure'),
+            Input(self._parent.slice_graph.id, 'clickData'))(self._update_figure)
+
+    def _update_figure(self, click_data):
+        if click_data is None:
+            raise PreventUpdate
+        print("CLICK_DATA: ", click_data)
+
+        y_index = click_data["points"][0]["y"]
+        x_index = click_data["points"][0]["x"]
+
+        y = self._data[:, y_index, x_index]
+        x = np.arange(0, self._data.shape[0])
+        fig = go.Figure(data={'type': 'scatter', 'x': x, 'y': y})
+        fig.update_layout(title=f'Spectra Intensities @ (x: {x_index}, y: {y_index})',
+                          xaxis_title="Spectra",
+                          yaxis_title="Intensity")
+        return fig
+
+    def _id(self):
+        return f'spectraplot_{self._counter}'
+
 class SliceGraph(dcc.Graph):
     """Dash Graph for viewing 2D slices of 3D data.
 
@@ -40,6 +75,7 @@ class SliceGraph(dcc.Graph):
         super(SliceGraph, self).__init__(figure=figure,
                                          id=f'sliceview_{self._counter}')
 
+    def register_callbacks(self):
         # Set up callbacks
         # ----------------
 

@@ -6,7 +6,7 @@ from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 from dash_slicer import VolumeSlicer
 
-from irviz.graphs import SliceGraph
+from irviz.graphs import SliceGraph, SpectraPlotGraph
 
 
 class Viewer(html.Div):
@@ -67,15 +67,15 @@ class Viewer(html.Div):
         #     x_slicer.slider,
         #     *x_slicer.stores
         # ])
-        self.spectra_graph = dcc.Graph(id=f'spectra_{self._global_slicer_counter}')
-        # Describe html layout for spectral plot
-        spectra_plot = html.Div([
-            self.spectra_graph,
-        ])
 
+        self.spectra_graph = SpectraPlotGraph(data, self)
         self.slice_graph = SliceGraph(data, self)
-        slice_div = html.Div([self.slice_graph, spectra_plot])
-        children = slice_div
+        # TODO: better way to register callbacks
+        #  (since these graphs might need to know about each other)
+        self.spectra_graph.register_callbacks()
+        self.slice_graph.register_callbacks()
+
+        children = html.Div([self.slice_graph, self.spectra_graph])
 
         # children = [z_view,
         #             y_view,
@@ -87,27 +87,6 @@ class Viewer(html.Div):
                                             'gridTemplateColumns': '50% 50%',
                                             },
                                      )
-
-        self._app.callback(
-            Output(f'spectra_{self._global_slicer_counter}', 'figure'),
-            Input(self.slice_graph.id, 'clickData'))(self.update_spectra_plot_new)
-
-    def update_spectra_plot_new(self, click_data):
-        # We need all the slicer state data ready; otherwise, don't update any Graph objects
-        if click_data is None:
-            raise PreventUpdate
-        print("CLICK_DATA: ", click_data)
-
-        y_index = click_data["points"][0]["y"]
-        x_index = click_data["points"][0]["x"]
-
-        y = self.data[:, y_index, x_index]
-        x = np.arange(0, self.data.shape[0])
-        fig = go.Figure(data={'type': 'scatter', 'x': x, 'y': y})
-        fig.update_layout(title=f'Spectra Intensities @ (x: {x_index}, y: {y_index})',
-                          xaxis_title="Spectra",
-                          yaxis_title="Intensity")
-        return fig
 
 
 def notebook_viewer(data, decomposition=None, mode='inline'):
