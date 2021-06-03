@@ -162,8 +162,8 @@ class SliceGraph(dcc.Graph):
 
         # When the spectra graph is clicked, update image slicing
         if spectra_graph_click_data is not None:
-            energy_index = spectra_graph_click_data["points"][0]["x"]
-            self._image.z = numpy.asarray(self._data[energy_index])
+            slice_index = spectra_graph_click_data["points"][0]["x"]
+            self._image.z = np.asarray(self._data[slice_index])
 
         # When this SliceGraph itself is clicked, update its x,y slicer lines
         if self_click_data:
