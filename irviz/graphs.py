@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import numpy as np
 from dash.exceptions import PreventUpdate
 
+# TODO: implement orthogonal views by using slice_axis kwarg
 
 class SliceGraph(dcc.Graph):
     """Dash Graph for viewing 2D slices of 3D data.
@@ -20,7 +21,7 @@ class SliceGraph(dcc.Graph):
     """
     _counter = 0
 
-    def __init__(self, data, parent):
+    def __init__(self, data, parent, slice_axis=0):
         SliceGraph._counter += 1
 
         # Cache our data and parent for use in the callbacks
@@ -51,6 +52,7 @@ class SliceGraph(dcc.Graph):
         )(self.show_slice)
 
     def _update_figure(self):
+        """ Remake the figure to force a display update """
         figure = go.Figure([self._image])
         figure.add_shape(self._h_line)
         return figure
@@ -66,8 +68,8 @@ class SliceGraph(dcc.Graph):
         if click_data is None:
             raise PreventUpdate
 
-        energy_index = click_data["points"][0]["x"]
-        self._image.z = numpy.asarray(self._data[energy_index])
+        slice_index = click_data["points"][0]["x"]
+        self._image.z = numpy.asarray(self._data[slice_index])
         # Need to update our figure again when we update the traces
         return self._update_figure()
 
