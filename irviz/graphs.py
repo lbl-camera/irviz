@@ -8,15 +8,26 @@ from dash.exceptions import PreventUpdate
 
 
 class SliceGraph(dcc.Graph):
+    """Dash Graph for viewing 2D slices of 3D data.
 
+    Parameters
+    ----------
+    data : dask.array
+        3D data array
+    parent : dash_html_components.Div
+        The parent object that creates this Graph
+
+    """
     _counter = 0
 
     def __init__(self, data, parent):
         SliceGraph._counter += 1
 
+        # Cache our data and parent for use in the callbacks
         self._data = data
         self._parent = parent
-        # Create traces (i.e. 'glyphs')
+
+        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
         self._image = go.Heatmap(z=np.asarray(self._data[0]))
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
@@ -25,12 +36,15 @@ class SliceGraph(dcc.Graph):
                                        y0=self._data.shape[1] / 2,
                                        y1=self._data.shape[1] / 2)
 
-        # Create the figure, which has all the traces
         figure = self._update_figure()
-
         super(SliceGraph, self).__init__(figure=figure,
                                          id=f'sliceview_{self._counter}')
 
+        # Set up callbacks
+        # ----------------
+
+        # When the parent viewer's 'spectra_graph' is clicked
+        #     we need to update the internal Figure for this Graph
         self._parent._app.callback(
             Output(self.id, 'figure'),
             Input(self._parent.spectra_graph.id, 'clickData')
@@ -42,11 +56,19 @@ class SliceGraph(dcc.Graph):
         return figure
 
     def show_slice(self, click_data):
+        """Show a 2D slice at a specific energy defined in click data.
+
+        Parameters
+        ----------
+        click_data : dict
+            Dictionary that contains point info from where the input Graph was clicked.
+        """
         if click_data is None:
             raise PreventUpdate
 
         energy_index = click_data["points"][0]["x"]
         self._image.z = numpy.asarray(self._data[energy_index])
+        # Need to update our figure again when we update the traces
         return self._update_figure()
 
     def show_location(self, location):
