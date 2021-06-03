@@ -26,12 +26,11 @@ class SpectraPlotGraph(dcc.Graph):
     def _update_figure(self, click_data):
         if click_data is None:
             raise PreventUpdate
-        print("CLICK_DATA: ", click_data)
 
         y_index = click_data["points"][0]["y"]
         x_index = click_data["points"][0]["x"]
 
-        y = self._data[:, y_index, x_index]
+        y = np.asarray(self._data[:, y_index, x_index])
         x = np.arange(0, self._data.shape[0])
         fig = go.Figure(data={'type': 'scatter', 'x': x, 'y': y})
         fig.update_layout(title=f'Spectra Intensities @ (x: {x_index}, y: {y_index})',
