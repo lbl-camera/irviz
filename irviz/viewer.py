@@ -29,10 +29,10 @@ class Viewer(html.Div):
         self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
 
         # Initialize configuration bits
+        # TODO: callback for switching tabs and rendering the Card content
 
         # Switches for views
-        # Show Spectra, Show Decomposition, Show Pair Plot, Show Orthogonal Slices
-        view_checklist = dbc.FormGroup(
+        view_switches = dbc.FormGroup(
             [
                 dbc.Label("Toggle Views"),
                 dbc.Checklist(
@@ -50,10 +50,11 @@ class Viewer(html.Div):
         )
         view_selector = html.Div(
             [
-                dbc.Form([view_checklist]),
+                dbc.Form([view_switches]),
             ]
         )
 
+        # Decomposition and pair plot component selectors
         radio_kwargs = dict(className='btn-group',
                             labelClassName="btn btn-secondary",
                             labelCheckedClassName="active",
@@ -78,9 +79,9 @@ class Viewer(html.Div):
         self.decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
         self.decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
 
-        pair_plot_component_selector = html.Div(
+        pair_plot_component_selector = dbc.FormGroup(
             [
-                html.P(id="pair-plot-component-selector-p", className="card-text", children="Pair Plot Components"),
+                html.P(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
                 self.decomposition_component_1,
                 html.Br(),
                 self.decomposition_component_2,
@@ -88,37 +89,38 @@ class Viewer(html.Div):
             className='radio-group',
         )
 
-        # Configuration layout
-        config_children = html.Div(id="config-content",
+        # Settings tab layout
+        # TODO put in function so we can use with callback
+        settings_layout = dbc.Card(
+            dbc.CardBody(
                                    children=[
                                        view_selector,
                                        decomposition_selector_layout,
                                        pair_plot_component_selector
-                                   ])
+                                   ]))
 
-        config_view = dbc.Card(
-            [
-                dbc.CardHeader(
-                    dbc.Tabs(
-                        [
-                            dbc.Tab(label="Settings", tab_id="settings-tab"),
-                            dbc.Tab(label="Info", tab_id="info-tab"),
-                        ],
-                        id="config-tabs",
-                        card=True,
-                        active_tab="settings-tab",
-                    )
-                ),
-                dbc.CardBody(config_children),
-            ]
+        # Info tab layout
+        # TODO
+        info_layout = dbc.Card(
+            dbc.CardBody(
+                "info"
+            )
         )
+
+        # Create the entire configuration layout
+        config_view = dbc.Tabs(
+                        [
+                            dbc.Tab(label="Settings", tab_id="settings-tab", children=settings_layout),
+                            dbc.Tab(label="Info", tab_id="info-tab", children=info_layout),
+                        ],
+                    )
 
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
         self.slice_graph.register_callbacks()
         self.pair_plot_graph.register_callbacks()
 
-        # Initialize layout
+        # Create app layout
         children = html.Div([config_view,
                              self.slice_graph,
                              self.spectra_graph,
