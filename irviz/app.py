@@ -2,6 +2,7 @@ from irviz.viewer import Viewer
 import h5py as h5
 from dask import array as da
 import dash
+import dash_bootstrap_components as dbc
 import dash_html_components as html
 import sklearn.decomposition
 
@@ -18,14 +19,15 @@ def open_ir_file(h5_file):
 
 if __name__ == "__main__":
     _app = None
+    app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
     _jupyter_app_kwargs = dict()
     try:
         from jupyter_dash import JupyterDash
 
-        _app = JupyterDash(__name__)
+        _app = JupyterDash(__name__, **app_kwargs)
         _jupyter_app_kwargs['mode'] = 'inline'
     except ImportError:
-        _app = dash.Dash(__name__, update_title=None)
+        _app = dash.Dash(__name__, update_title=None, **app_kwargs)
 
     data, bounds = open_ir_file(TEST_FILE)
     model = sklearn.decomposition.PCA(n_components=3)

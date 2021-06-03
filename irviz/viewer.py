@@ -1,3 +1,4 @@
+import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
@@ -31,8 +32,28 @@ class Viewer(html.Div):
         self.spectra_graph.register_callbacks()
         self.slice_graph.register_callbacks()
 
+        component_selector = html.Div(
+            [
+                dbc.RadioItems(
+                    id='component-selector',
+                    className='btn-group',
+                    labelClassName="btn btn-secondary",
+                    labelCheckedClassName="active",
+                    options=[
+                        {'label': 'Component 1', 'value': 0},
+                        {'label': 'Component 2', 'value': 1},
+                        {'label': 'Component 3', 'value': 2}
+                    ],
+                    value=0),
+            ],
+            className='radio-group'
+        )
+
         # Initialize layout
-        children = html.Div([self.slice_graph, self.spectra_graph, self.decomposition_graph])
+        children = html.Div([self.slice_graph,
+                             self.spectra_graph,
+                             component_selector,
+                             self.decomposition_graph,])
 
         super(Viewer, self).__init__(children=children,
                                      style={'display': 'grid',

@@ -112,13 +112,13 @@ class SliceGraph(dcc.Graph):
                                        yref='y',
                                        x0=0,
                                        x1=1,
-                                       y0=(self._data.shape[2] - 1) // 2,
-                                       y1=(self._data.shape[2] - 1) // 2)
+                                       y0=(self._data.shape[1] - 1) // 2,
+                                       y1=(self._data.shape[1] - 1) // 2)
         self._v_line = go.layout.Shape(type='line',
                                        xref='x',
                                        yref='paper',
-                                       x0=(self._data.shape[1] - 1) // 2,
-                                       x1=(self._data.shape[1] - 1) // 2,
+                                       x0=(self._data.shape[2] - 1) // 2,
+                                       x1=(self._data.shape[2] - 1) // 2,
                                        y0=0,
                                        y1=1)
 
