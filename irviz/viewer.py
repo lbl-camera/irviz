@@ -4,7 +4,8 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
-from irviz.graphs import SliceGraph
+
+from irviz.graphs import SliceGraph, SpectraPlotGraph
 
 
 class Viewer(html.Div):
@@ -16,13 +17,19 @@ class Viewer(html.Div):
         self.decomposition = decomposition
         self.bounds = bounds
 
+        Viewer._global_slicer_counter += 1
+
         # Initialize graphs
-        self.spectra_graph = dcc.Graph(id=f'spectra_{self._global_slicer_counter}')
+        self.spectra_graph = SpectraPlotGraph(data, self)
         self.slice_graph = SliceGraph(data, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         self.decomposition_graph = SliceGraph(self.decomposition, self)
         self.pair_plot_graph = dcc.Graph(id=f'pair_plot_{self._global_slicer_counter}')
+        
+        # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
+        self.spectra_graph.register_callbacks()
+        self.slice_graph.register_callbacks()
 
         # Initialize layout
         children = html.Div([self.slice_graph, self.spectra_graph, self.decomposition_graph])
@@ -32,30 +39,6 @@ class Viewer(html.Div):
                                             'gridTemplateColumns': '50% 50%',
                                             },
                                      )
-
-        # Bind callbacks
-        self._app.callback(
-            Output(f'spectra_{self._global_slicer_counter}', 'figure'),
-            Input(self.slice_graph.id, 'clickData'))(self.update_spectra_plot_new)
-
-        # Initialize views (TODO)
-
-    def update_spectra_plot_new(self, click_data):
-        # We need all the slicer state data ready; otherwise, don't update any Graph objects
-        if click_data is None:
-            raise PreventUpdate
-        print("CLICK_DATA: ", click_data)
-
-        y_index = click_data["points"][0]["y"]
-        x_index = click_data["points"][0]["x"]
-
-        y = self.data[:, y_index, x_index]
-        x = np.arange(0, self.data.shape[0])
-        fig = go.Figure(data={'type': 'scatter', 'x': x, 'y': y})
-        fig.update_layout(title=f'Spectra Intensities @ (x: {x_index}, y: {y_index})',
-                          xaxis_title="Spectra",
-                          yaxis_title="Intensity")
-        return fig
 
 
 def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
