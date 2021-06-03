@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from irviz.graphs import SliceGraph, SpectraPlotGraph
+from irviz.graphs import SliceGraph, SpectraPlotGraph, PairPlotGraph
 
 
 class Viewer(html.Div):
@@ -26,34 +26,39 @@ class Viewer(html.Div):
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         self.decomposition_graph = SliceGraph(self.decomposition, self)
-        self.pair_plot_graph = dcc.Graph(id=f'pair_plot_{self._global_slicer_counter}')
+        self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
+
+        # Initialize configuration bits
+        radio_kwargs = dict(className='btn-group',
+                            labelClassName="btn btn-secondary",
+                            labelCheckedClassName="active",
+                            options=[
+                                {'label': 'Component 1', 'value': 0},
+                                {'label': 'Component 2', 'value': 1},
+                                {'label': 'Component 3', 'value': 2}
+                            ])
+
+        self.decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
+        self.decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
         
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
         self.slice_graph.register_callbacks()
+        self.pair_plot_graph.register_callbacks()
 
         component_selector = html.Div(
-            [
-                dbc.RadioItems(
-                    id='component-selector',
-                    className='btn-group',
-                    labelClassName="btn btn-secondary",
-                    labelCheckedClassName="active",
-                    options=[
-                        {'label': 'Component 1', 'value': 0},
-                        {'label': 'Component 2', 'value': 1},
-                        {'label': 'Component 3', 'value': 2}
-                    ],
-                    value=0),
-            ],
-            className='radio-group'
+            [self.decomposition_component_1,
+             self.decomposition_component_2,
+             ],
+            className='radio-group',
         )
 
         # Initialize layout
         children = html.Div([self.slice_graph,
                              self.spectra_graph,
                              component_selector,
-                             self.decomposition_graph,])
+                             self.decomposition_graph,
+                             self.pair_plot_graph])
 
         super(Viewer, self).__init__(children=children,
                                      style={'display': 'grid',

@@ -175,3 +175,47 @@ class SliceGraph(dcc.Graph):
 
         # Need to update our figure again when we update the traces
         return self._update_figure()
+
+
+class PairPlotGraph(dcc.Graph):
+    _counter = 0
+
+    def __init__(self, data, parent):
+        SliceGraph._counter += 1
+
+        # Cache our data and parent for use in the callbacks
+        self._data = data
+        self._parent = parent
+
+        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
+        self._scatter = go.Scatter(x=[], y=[], mode='markers+text')
+
+        figure = self._update_figure()
+        super(PairPlotGraph, self).__init__(figure=figure,
+                                         id=f'pair_plot_{self._counter}')
+
+    def register_callbacks(self):
+        # Set up callbacks
+        # ----------------
+
+        # When the parent viewer's 'spectra_graph' is clicked
+        #     we need to update the internal Figure for this Graph
+        self._parent._app.callback(
+            Output(self.id, 'figure'),
+            Input(self._parent.decomposition_component_1.id, 'value'),
+            Input(self._parent.decomposition_component_2.id, 'value'),
+        )(self.show_pair_plot)
+
+    def _update_figure(self):
+        """ Remake the figure to force a display update """
+        figure = go.Figure([self._scatter])
+        return figure
+
+    def show_pair_plot(self, component1, component2):
+        if component1 is None and component2 is None:
+            raise PreventUpdate
+
+        self._scatter.x = np.asarray(self._data[component1].ravel())
+        self._scatter.y = np.asarray(self._data[component2].ravel())
+
+        return self._update_figure()
