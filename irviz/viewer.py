@@ -19,14 +19,15 @@ class Viewer(html.Div):
 
         Viewer._global_slicer_counter += 1
 
+        # Initialize graphs
         self.spectra_graph = SpectraPlotGraph(data, self)
         self.slice_graph = SliceGraph(data, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         self.decomposition_graph = SliceGraph(self.decomposition, self)
         self.pair_plot_graph = dcc.Graph(id=f'pair_plot_{self._global_slicer_counter}')
-        # TODO: better way to register callbacks
-        #  (since these graphs might need to know about each other)
+        
+        # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
         self.slice_graph.register_callbacks()
 
@@ -38,8 +39,6 @@ class Viewer(html.Div):
                                             'gridTemplateColumns': '50% 50%',
                                             },
                                      )
-
-        # Initialize views (TODO)
 
 
 def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
