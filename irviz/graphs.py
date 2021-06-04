@@ -107,7 +107,10 @@ class SliceGraph(dcc.Graph):
         default_energy_index = (self._data.shape[0] - 1) // 2  # TODO: Refactor these classes with a base
 
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
-        self._image = go.Heatmap(z=np.asarray(self._data[default_energy_index]))
+        self._image = go.Heatmap(z=np.asarray(self._data[default_energy_index]), colorscale='gray')
+        # self._component_mask = go.Image(z=np.zeros((*self._data[0].shape, 4)), colormodel='rgba')
+        self._component_mask = go.Heatmap(z=np.zeros(self._data[0].shape), colorscale='reds', opacity=0.3, showscale=False)
+
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
                                        xref='paper',
@@ -142,18 +145,21 @@ class SliceGraph(dcc.Graph):
             Output(self.id, 'figure'),
             Input(self._parent.spectra_graph.id, 'clickData'),
             Input(self.id, 'clickData'),
-            Input(self._parent.decomposition_graph.id, 'clickData')
+            Input(self._parent.decomposition_graph.id, 'clickData'),
+            Input(self._parent.pair_plot_graph.id, 'selectedData')
         )(self.show_slice)
 
     def _update_figure(self):
         """ Remake the figure to force a display update """
         figure = go.Figure([self._image])
+        figure.add_trace(self._component_mask)
+
         figure.add_shape(self._h_line)
         figure.add_shape(self._v_line)
         figure.update_yaxes(scaleanchor="x", scaleratio=1)
         return figure
 
-    def show_slice(self, spectra_graph_click_data, self_click_data, decomposition_click_data):
+    def show_slice(self, spectra_graph_click_data, self_click_data, decomposition_click_data, pair_plot_selection):
         """Show a 2D slice at a specific energy defined in click data.
 
         Parameters
@@ -177,6 +183,9 @@ class SliceGraph(dcc.Graph):
         if self._parent.decomposition_graph.id in triggered[0]['prop_id']:
             self._show_click(decomposition_click_data)
 
+        if self._parent.pair_plot_graph.id in triggered[0]['prop_id']:
+            self._show_component_mask(pair_plot_selection)
+
         # Need to update our figure again when we update the traces
         return self._update_figure()
 
@@ -187,6 +196,17 @@ class SliceGraph(dcc.Graph):
         self._h_line.y1 = y_index
         self._v_line.x0 = x_index
         self._v_line.x1 = x_index
+
+    def _show_component_mask(self, selection):
+        # Get x,y from the raveled indexes
+        raveled_indexes = list(map(lambda point: point['pointIndex'], selection['points']))
+        mask = np.zeros(self._data[0].shape)
+        mask.fill(np.NaN)
+        mask.ravel()[raveled_indexes] = 1
+        # Create overlay
+        self._component_mask.z = mask
+        # overlay = np.dstack([mask * 255, np.zeros_like(mask), np.zeros_like(mask), mask * 255 * .3])
+        # self._component_mask.z = overlay
 
 
 class PairPlotGraph(dcc.Graph):
