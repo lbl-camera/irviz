@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from irviz.graphs import SliceGraph, SpectraPlotGraph, PairPlotGraph
+from irviz.graphs import SliceGraph, SpectraPlotGraph, PairPlotGraph, DecompositionGraph
 
 
 class Viewer(html.Div):
@@ -25,7 +25,7 @@ class Viewer(html.Div):
         self.slice_graph = SliceGraph(data, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
-        self.decomposition_graph = SliceGraph(self.decomposition, self)
+        self.decomposition_graph = DecompositionGraph(self.decomposition, self)
         self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
 
         # Initialize configuration bits
@@ -34,7 +34,7 @@ class Viewer(html.Div):
         # Switches for views
         view_switches = dbc.FormGroup(
             [
-                dbc.Label("Toggle Views"),
+                html.H3("Toggle Views"),
                 dbc.Checklist(
                     options=[
                         {"label": "Show Spectra", "value": "show_spectra"},
@@ -48,11 +48,7 @@ class Viewer(html.Div):
                 )
             ]
         )
-        view_selector = html.Div(
-            [
-                dbc.Form([view_switches]),
-            ]
-        )
+        view_selector = dbc.Form([view_switches])
 
         # Decomposition and pair plot component selectors
         radio_kwargs = dict(className='btn-group',
@@ -69,7 +65,7 @@ class Viewer(html.Div):
 
         decomposition_selector_layout = html.Div(
             [
-                html.P(id="decomposition-component-selector-p", className="card-text",
+                html.H3(id="decomposition-component-selector-p", className="card-text",
                        children="Decomposition Component"),
                 self.decomposition_component_selector
             ],
@@ -81,7 +77,7 @@ class Viewer(html.Div):
 
         pair_plot_component_selector = dbc.FormGroup(
             [
-                html.P(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
+                html.H3(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
                 self.decomposition_component_1,
                 html.Br(),
                 self.decomposition_component_2,
@@ -93,19 +89,15 @@ class Viewer(html.Div):
         # TODO put in function so we can use with callback
         settings_layout = dbc.Card(
             dbc.CardBody(
-                                   children=[
-                                       view_selector,
-                                       decomposition_selector_layout,
-                                       pair_plot_component_selector
-                                   ]))
+                children=[
+                    view_selector,
+                    decomposition_selector_layout,
+                    pair_plot_component_selector,
+                ]))
 
         # Info tab layout
         # TODO
-        info_layout = dbc.Card(
-            dbc.CardBody(
-                "info"
-            )
-        )
+        info_layout = dbc.Card(dbc.CardBody("info"))
 
         # Create the entire configuration layout
         config_view = dbc.Tabs(
@@ -119,13 +111,14 @@ class Viewer(html.Div):
         self.spectra_graph.register_callbacks()
         self.slice_graph.register_callbacks()
         self.pair_plot_graph.register_callbacks()
+        self.decomposition_graph.register_callbacks()
 
-        # Create app layout
-        children = html.Div([config_view,
-                             self.slice_graph,
+        # Initialize layout
+        children = [html.Div([self.slice_graph,
                              self.spectra_graph,
-                             self.decomposition_graph,
-                             self.pair_plot_graph])
+                             self.decomposition_graph,]),
+                    html.Div([config_view,
+                             self.pair_plot_graph])]
 
         super(Viewer, self).__init__(children=children,
                                      style={'display': 'grid',
