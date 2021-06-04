@@ -109,7 +109,7 @@ class SliceGraph(dcc.Graph):
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
         self._image = go.Heatmap(z=np.asarray(self._data[default_energy_index]), colorscale='gray')
         # self._component_mask = go.Image(z=np.zeros((*self._data[0].shape, 4)), colormodel='rgba')
-        self._component_mask = go.Heatmap(z=np.zeros(self._data[0].shape), colorscale='reds', opacity=0.3, showscale=False)
+        self._component_mask = go.Heatmap(z=np.ones(self._data[0].shape) * np.NaN, colorscale='reds', opacity=0.3, showscale=False)
 
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
