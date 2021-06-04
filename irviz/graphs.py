@@ -1,3 +1,4 @@
+import dash
 from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
@@ -103,7 +104,7 @@ class SliceGraph(dcc.Graph):
         self._parent = parent
         self._instance_index = next(self._counter)
 
-        default_energy_index = (self._data.shape[0] - 1) // 2
+        default_energy_index = (self._data.shape[0] - 1) // 2  # TODO: Refactor these classes with a base
 
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
         self._image = go.Heatmap(z=np.asarray(self._data[default_energy_index]))
@@ -137,12 +138,11 @@ class SliceGraph(dcc.Graph):
         # When the parent viewer's 'spectra_graph' is clicked
         #     we need to update the internal Figure for this Graph
 
-        print('ids:', self.id, self._parent.spectra_graph.id)
-
         self._parent._app.callback(
             Output(self.id, 'figure'),
             Input(self._parent.spectra_graph.id, 'clickData'),
-            Input(self.id, 'clickData')
+            Input(self.id, 'clickData'),
+            Input(self._parent.decomposition_graph.id, 'clickData')
         )(self.show_slice)
 
     def _update_figure(self):
@@ -150,9 +150,10 @@ class SliceGraph(dcc.Graph):
         figure = go.Figure([self._image])
         figure.add_shape(self._h_line)
         figure.add_shape(self._v_line)
+        figure.update_yaxes(scaleanchor="x", scaleratio=1)
         return figure
 
-    def show_slice(self, spectra_graph_click_data, self_click_data):
+    def show_slice(self, spectra_graph_click_data, self_click_data, decomposition_click_data):
         """Show a 2D slice at a specific energy defined in click data.
 
         Parameters
@@ -160,25 +161,32 @@ class SliceGraph(dcc.Graph):
         spectra_graph_click_data : dict
             Dictionary that contains point info from where the input Graph was clicked.
         """
-        if spectra_graph_click_data is None and self_click_data is None:
+        triggered = dash.callback_context.triggered
+        if not triggered:
             raise PreventUpdate
 
         # When the spectra graph is clicked, update image slicing
-        if spectra_graph_click_data is not None:
+        if self._parent.spectra_graph.id in triggered[0]['prop_id']:
             slice_index = spectra_graph_click_data["points"][0]["x"]
             self._image.z = np.asarray(self._data[slice_index])
 
         # When this SliceGraph itself is clicked, update its x,y slicer lines
-        if self_click_data:
-            y_index = self_click_data["points"][0]["y"]
-            x_index = self_click_data["points"][0]["x"]
-            self._h_line.y0 = y_index
-            self._h_line.y1 = y_index
-            self._v_line.x0 = x_index
-            self._v_line.x1 = x_index
+        if self.id in triggered[0]['prop_id']:
+            self._show_click(self_click_data)
+
+        if self._parent.decomposition_graph.id in triggered[0]['prop_id']:
+            self._show_click(decomposition_click_data)
 
         # Need to update our figure again when we update the traces
         return self._update_figure()
+
+    def _show_click(self, click_data):
+        y_index = click_data["points"][0]["y"]
+        x_index = click_data["points"][0]["x"]
+        self._h_line.y0 = y_index
+        self._h_line.y1 = y_index
+        self._v_line.x0 = x_index
+        self._v_line.x1 = x_index
 
 
 class PairPlotGraph(dcc.Graph):
@@ -233,14 +241,14 @@ class DecompositionGraph(SliceGraph):
 
         # When the parent viewer's 'spectra_graph' is clicked
         #     we need to update the internal Figure for this Graph
-        print('ids:', self.id, self._parent.decomposition_component_selector.id)
         self._parent._app.callback(
             Output(self.id, 'figure'),
             Input(self.id, 'clickData'),
-            Input(self._parent.decomposition_component_selector.id, 'value')
+            Input(self._parent.decomposition_component_selector.id, 'value'),
+            Input(self._parent.slice_graph.id, 'clickData')
         )(self.show_slice)
 
-    def show_slice(self, self_click_data, component_index):
+    def show_slice(self, self_click_data, component_index, slice_click_data):
         """Show a 2D slice at a specific energy defined in click data.
 
         Parameters
@@ -248,23 +256,20 @@ class DecompositionGraph(SliceGraph):
         spectra_graph_click_data : dict
             Dictionary that contains point info from where the input Graph was clicked.
         """
-
-        print('test')
-        if component_index is None and self_click_data is None:
+        triggered = dash.callback_context.triggered
+        if not triggered:
             raise PreventUpdate
 
-            # When the spectra graph is clicked, update image slicing
-        if component_index is not None:
+        # When the decomposition_component_selector is clicked, update image slicing
+        if self._parent.decomposition_component_selector.id in triggered[0]['prop_id']:
             self._image.z = np.asarray(self._data[component_index])
 
-        # When this SliceGraph itself is clicked, update its x,y slicer lines
-        if self_click_data:
-            y_index = self_click_data["points"][0]["y"]
-            x_index = self_click_data["points"][0]["x"]
-            self._h_line.y0 = y_index
-            self._h_line.y1 = y_index
-            self._v_line.x0 = x_index
-            self._v_line.x1 = x_index
+        # When this DecompositionGraph itself is clicked, update its x,y slicer lines
+        if self.id in triggered[0]['prop_id']:
+            self._show_click(self_click_data)
 
-            # Need to update our figure again when we update the traces
+        if self._parent.slice_graph.id in triggered[0]['prop_id']:
+            self._show_click(slice_click_data)
+
+        # Need to update our figure again when we update the traces
         return self._update_figure()
