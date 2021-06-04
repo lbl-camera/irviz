@@ -210,6 +210,17 @@ class PairPlotGraph(dcc.Graph):
             Input(self._parent.decomposition_component_2.id, 'value'),
         )(self.show_pair_plot)
 
+        # Set up selection tool callbacks
+        self._parent._app.callback(
+            Output(self._parent.info_content.id, 'children'),
+            Input(self.id, 'selectedData')
+        )(self._show_selection_info)
+
+    def _show_selection_info(self, selected_data):
+        if not selected_data:
+            return "info"
+        return str(list(map(lambda point: point['pointIndex'], selected_data['points'])))
+
     def _update_figure(self):
         """ Remake the figure to force a display update """
         figure = go.Figure([self._scatter])

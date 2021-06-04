@@ -97,15 +97,17 @@ class Viewer(html.Div):
 
         # Info tab layout
         # TODO
-        info_layout = dbc.Card(dbc.CardBody("info"))
+        self.info_content = html.Div(id='info-content', children=["info"])
+        info_layout = dbc.Card(dbc.CardBody(children=[self.info_content]))
 
         # Create the entire configuration layout
-        config_view = dbc.Tabs(
-                        [
-                            dbc.Tab(label="Settings", tab_id="settings-tab", children=settings_layout),
-                            dbc.Tab(label="Info", tab_id="info-tab", children=info_layout),
-                        ],
-                    )
+        config_view = dbc.Tabs(id='config-view',
+                               children=[
+                                   dbc.Tab(label="Settings", tab_id="settings-tab",
+                                           children=settings_layout),
+                                   dbc.Tab(label="Info", tab_id="info-tab", children=info_layout),
+                               ],
+                               )
 
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
