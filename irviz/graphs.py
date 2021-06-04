@@ -1,11 +1,13 @@
+from itertools import count
+
 import dash
-from dash.dependencies import Input, Output
 import dash_core_components as dcc
 import dash_html_components as html
-import plotly.graph_objects as go
 import numpy as np
+import plotly.graph_objects as go
+from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
-from itertools import count
+
 
 # TODO: implement orthogonal views by using slice_axis kwarg
 
@@ -33,13 +35,13 @@ class SpectraPlotGraph(dcc.Graph):
         # x coords positioned relative to the x-axis values
         # y coords positioned according to the plot height (0 = bottom, 1.0 = top)
         self._energy_line = go.layout.Shape(type='line',
-                                       # width=3,
-                                      xref='x',
-                                      yref='paper',
-                                       x0=default_energy_index,
-                                       x1=default_energy_index,
-                                       y0=0,
-                                       y1=1)
+                                            # width=3,
+                                            xref='x',
+                                            yref='paper',
+                                            x0=default_energy_index,
+                                            x1=default_energy_index,
+                                            y0=0,
+                                            y1=1)
 
         fig = self._update_figure()
 
@@ -109,7 +111,10 @@ class SliceGraph(dcc.Graph):
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
         self._image = go.Heatmap(z=np.asarray(self._data[default_energy_index]), colorscale='gray')
         # self._component_mask = go.Image(z=np.zeros((*self._data[0].shape, 4)), colormodel='rgba')
-        self._component_mask = go.Heatmap(z=np.ones(self._data[0].shape) * np.NaN, colorscale='reds', opacity=0.3, showscale=False)
+        self._component_mask = go.Heatmap(z=np.ones(self._data[0].shape) * np.NaN,
+                                          colorscale='reds',
+                                          opacity=0.3,
+                                          showscale=False)
 
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
@@ -201,12 +206,11 @@ class SliceGraph(dcc.Graph):
         # Get x,y from the raveled indexes
         raveled_indexes = list(map(lambda point: point['pointIndex'], selection['points']))
         mask = np.zeros(self._data[0].shape)
+        # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
         mask.fill(np.NaN)
         mask.ravel()[raveled_indexes] = 1
         # Create overlay
         self._component_mask.z = mask
-        # overlay = np.dstack([mask * 255, np.zeros_like(mask), np.zeros_like(mask), mask * 255 * .3])
-        # self._component_mask.z = overlay
 
 
 class PairPlotGraph(dcc.Graph):
@@ -223,8 +227,7 @@ class PairPlotGraph(dcc.Graph):
         self._scatter = go.Scatter(x=[], y=[], mode='markers+text')
 
         figure = self._update_figure()
-        super(PairPlotGraph, self).__init__(figure=figure,
-                                         id=f'pair_plot_{self._instance_index}')
+        super(PairPlotGraph, self).__init__(figure=figure, id=f'pair_plot_{self._instance_index}')
 
     def register_callbacks(self):
         # Set up callbacks
