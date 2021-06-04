@@ -4,15 +4,16 @@ import dash_html_components as html
 import plotly.graph_objects as go
 import numpy as np
 from dash.exceptions import PreventUpdate
+from itertools import count
 
 # TODO: implement orthogonal views by using slice_axis kwarg
 
+
 class SpectraPlotGraph(dcc.Graph):
-    _counter = 0
+    _counter = count(0)
 
     def __init__(self, data, parent):
-        SpectraPlotGraph._counter += 1
-
+        self._instance_index = next(self._counter)
         self._data = data
         self._parent = parent
 
@@ -79,7 +80,7 @@ class SpectraPlotGraph(dcc.Graph):
         return self._update_figure()
 
     def _id(self):
-        return f'spectraplot_{self._counter}'
+        return f'spectraplot_{self._instance_index}'
 
 
 class SliceGraph(dcc.Graph):
@@ -89,18 +90,18 @@ class SliceGraph(dcc.Graph):
     ----------
     data : dask.array
         3D data array
-    parent : dash_html_components.Div
+    parent : html.Div
         The parent object that creates this Graph
 
     """
-    _counter = 0
+    _counter = count(0)
 
     def __init__(self, data, parent, slice_axis=0):
-        SliceGraph._counter += 1
 
         # Cache our data and parent for use in the callbacks
         self._data = data
         self._parent = parent
+        self._instance_index = next(self._counter)
 
         default_energy_index = (self._data.shape[0] - 1) // 2
 
@@ -127,7 +128,7 @@ class SliceGraph(dcc.Graph):
                                          id=self._id())
 
     def _id(self):
-        return f'slicegraph_{self._counter}'
+        return f'slicegraph_{self._instance_index}'
 
     def register_callbacks(self):
         # Set up callbacks
@@ -135,6 +136,9 @@ class SliceGraph(dcc.Graph):
 
         # When the parent viewer's 'spectra_graph' is clicked
         #     we need to update the internal Figure for this Graph
+
+        print('ids:', self.id, self._parent.spectra_graph.id)
+
         self._parent._app.callback(
             Output(self.id, 'figure'),
             Input(self._parent.spectra_graph.id, 'clickData'),
@@ -178,10 +182,10 @@ class SliceGraph(dcc.Graph):
 
 
 class PairPlotGraph(dcc.Graph):
-    _counter = 0
+    _counter = count(0)
 
     def __init__(self, data, parent):
-        SliceGraph._counter += 1
+        self._instance_index = next(self._counter)
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -192,7 +196,7 @@ class PairPlotGraph(dcc.Graph):
 
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
-                                         id=f'pair_plot_{self._counter}')
+                                         id=f'pair_plot_{self._instance_index}')
 
     def register_callbacks(self):
         # Set up callbacks
@@ -218,4 +222,49 @@ class PairPlotGraph(dcc.Graph):
         self._scatter.x = np.asarray(self._data[component1].ravel())
         self._scatter.y = np.asarray(self._data[component2].ravel())
 
+        return self._update_figure()
+
+
+class DecompositionGraph(SliceGraph):
+
+    def register_callbacks(self):
+        # Set up callbacks
+        # ----------------
+
+        # When the parent viewer's 'spectra_graph' is clicked
+        #     we need to update the internal Figure for this Graph
+        print('ids:', self.id, self._parent.decomposition_component_selector.id)
+        self._parent._app.callback(
+            Output(self.id, 'figure'),
+            Input(self.id, 'clickData'),
+            Input(self._parent.decomposition_component_selector.id, 'value')
+        )(self.show_slice)
+
+    def show_slice(self, self_click_data, component_index):
+        """Show a 2D slice at a specific energy defined in click data.
+
+        Parameters
+        ----------
+        spectra_graph_click_data : dict
+            Dictionary that contains point info from where the input Graph was clicked.
+        """
+
+        print('test')
+        if component_index is None and self_click_data is None:
+            raise PreventUpdate
+
+            # When the spectra graph is clicked, update image slicing
+        if component_index is not None:
+            self._image.z = np.asarray(self._data[component_index])
+
+        # When this SliceGraph itself is clicked, update its x,y slicer lines
+        if self_click_data:
+            y_index = self_click_data["points"][0]["y"]
+            x_index = self_click_data["points"][0]["x"]
+            self._h_line.y0 = y_index
+            self._h_line.y1 = y_index
+            self._v_line.x0 = x_index
+            self._v_line.x1 = x_index
+
+            # Need to update our figure again when we update the traces
         return self._update_figure()
