@@ -6,7 +6,7 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
-from irviz.graphs import SliceGraph, SpectraPlotGraph, PairPlotGraph, DecompositionGraph
+from irviz.graphs import MapGraph, SpectraPlotGraph, PairPlotGraph, DecompositionGraph
 
 
 class Viewer(html.Div):
@@ -22,7 +22,7 @@ class Viewer(html.Div):
 
         # Initialize graphs
         self.spectra_graph = SpectraPlotGraph(data, self)
-        self.slice_graph = SliceGraph(data, self)
+        self.map_graph = MapGraph(data, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         self.decomposition_graph = DecompositionGraph(self.decomposition, self)
@@ -111,12 +111,12 @@ class Viewer(html.Div):
 
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
-        self.slice_graph.register_callbacks()
+        self.map_graph.register_callbacks()
         self.pair_plot_graph.register_callbacks()
         self.decomposition_graph.register_callbacks()
 
         # Initialize layout
-        children = [html.Div([self.slice_graph,
+        children = [html.Div([self.map_graph,
                              self.spectra_graph,
                              self.decomposition_graph,]),
                     html.Div([config_view,
