@@ -11,14 +11,18 @@ from dash.exceptions import PreventUpdate
 
 # TODO: implement orthogonal views by using slice_axis kwarg
 
+def nearest_bin(x, bounds, bin_count):
+    return int((x-bounds[0])/(bounds[1]-bounds[0])*bin_count)
+
 
 class SpectraPlotGraph(dcc.Graph):
     _counter = count(0)
 
-    def __init__(self, data, parent):
+    def __init__(self, data, bounds, parent):
         self._instance_index = next(self._counter)
         self._data = data
         self._parent = parent
+        self._bounds = bounds
 
         # Define starting point for energy index (for the slicer line trace)
         default_energy_index = (self._data.shape[0] - 1) // 2
@@ -29,7 +33,7 @@ class SpectraPlotGraph(dcc.Graph):
         x_index = (self._data.shape[2] - 1) // 2
 
         y = np.asarray(self._data[:, y_index, x_index])
-        x = np.arange(0, self._data.shape[0])
+        x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
         self._plot = go.Scatter(x=x, y=y)
 
         # x coords positioned relative to the x-axis values
@@ -73,7 +77,7 @@ class SpectraPlotGraph(dcc.Graph):
     def _update_figure(self):
         fig = go.Figure(self._plot)
         fig.update_layout(title=f'Spectra Intensities',
-                          xaxis_title="Spectra",
+                          xaxis_title="Wavenumber (cm⁻¹)",
                           yaxis_title="Intensity")
         fig.add_shape(self._energy_line)
         return fig
@@ -99,10 +103,11 @@ class SpectraPlotGraph(dcc.Graph):
         return self._update_figure()
 
     def _show_click(self, click_data):
-        y_index = click_data["points"][0]["y"]
-        x_index = click_data["points"][0]["x"]
+        y = click_data["points"][0]["y"]
+        x = click_data["points"][0]["x"]
+        x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
+        y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
         self._plot.y = np.asarray(self._data[:, y_index, x_index])
-        self._plot.x = np.arange(0, self._data.shape[0])
 
     def _id(self):
         return f'spectraplot_{self._instance_index}'
@@ -131,6 +136,7 @@ class SliceGraph(dcc.Graph):
         # Cache our data and parent for use in the callbacks
         self._data = data
         self._parent = parent
+        self._bounds = bounds
         self._instance_index = next(self._counter)
         self._traces = traces or []
         self._shapes = shapes or []
@@ -138,7 +144,13 @@ class SliceGraph(dcc.Graph):
         default_slice_index = self._init_slice_index()  # TODO: Refactor these classes with a base
 
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
-        self._image = go.Heatmap(z=np.asarray(self._data[default_slice_index]), colorscale='gray')
+        self._image = go.Heatmap(z=np.asarray(self._data[default_slice_index]),
+                                 colorscale='gray',
+                                 y0=bounds[1][0],
+                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                                 x0=bounds[2][0],
+                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
+                                 )
 
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
@@ -146,13 +158,13 @@ class SliceGraph(dcc.Graph):
                                        yref='y',
                                        x0=0,
                                        x1=1,
-                                       y0=(self._data.shape[1] - 1) // 2,
-                                       y1=(self._data.shape[1] - 1) // 2)
+                                       y0=(bounds[1][1]+bounds[1][0])/2,
+                                       y1=(bounds[1][1]+bounds[1][0])/2)
         self._v_line = go.layout.Shape(type='line',
                                        xref='x',
                                        yref='paper',
-                                       x0=(self._data.shape[2] - 1) // 2,
-                                       x1=(self._data.shape[2] - 1) // 2,
+                                       x0=(bounds[2][1]+bounds[2][0])/2,
+                                       x1=(bounds[2][1]+bounds[2][0])/2,
                                        y0=0,
                                        y1=1)
 
@@ -206,13 +218,17 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, parent, slice_axis=0, traces=None, shapes=None):
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
         self._selection_mask = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
                                           colorscale='reds',
                                           opacity=0.3,
-                                          showscale=False)
+                                          showscale=False,
+                                          y0=bounds[1][0],
+                                          dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                                          x0=bounds[2][0],
+                                          dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
         traces = (traces or []) + [self._selection_mask]
-        super(MapGraph, self).__init__(data, parent, slice_axis=0, traces=traces, shapes=shapes)
+        super(MapGraph, self).__init__(data, bounds, parent, slice_axis=0, traces=traces, shapes=shapes)
 
     def register_callbacks(self):
         # Set up callbacks
@@ -243,7 +259,8 @@ class MapGraph(SliceGraph):
 
         # When the spectra graph is clicked, update image slicing
         if self._parent.spectra_graph.id in triggered[0]['prop_id']:
-            slice_index = spectra_graph_click_data["points"][0]["x"]
+            slice = spectra_graph_click_data["points"][0]["x"]
+            slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
             self._image.z = np.asarray(self._data[slice_index])
 
         # When this SliceGraph itself is clicked, update its x,y slicer lines

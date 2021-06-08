@@ -21,11 +21,11 @@ class Viewer(html.Div):
         Viewer._global_slicer_counter += 1
 
         # Initialize graphs
-        self.spectra_graph = SpectraPlotGraph(data, self)
-        self.map_graph = MapGraph(data, self)
+        self.spectra_graph = SpectraPlotGraph(data, bounds, self)
+        self.map_graph = MapGraph(data, bounds, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
-        self.decomposition_graph = DecompositionGraph(self.decomposition, self)
+        self.decomposition_graph = DecompositionGraph(self.decomposition, bounds, self)
         self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
 
         # Initialize configuration bits
