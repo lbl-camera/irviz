@@ -46,14 +46,29 @@ class SpectraPlotGraph(dcc.Graph):
         fig = self._update_figure()
 
         super(SpectraPlotGraph, self).__init__(id=self._id(),
-                                               figure=fig)
+                                               figure=fig,
+                                               className='col-lg-12')
 
     def register_callbacks(self):
         self._parent._app.callback(
             Output(self.id, 'figure'),
             Input(self._parent.map_graph.id, 'clickData'),
-            Input(self.id, 'clickData')
+            Input(self.id, 'clickData'),
+            Input(self._parent.decomposition_graph.id, 'clickData')
         )(self._show_plot)
+
+        # Wire-up visibility toggle
+        self._parent._app.callback(
+            Output(self.id, 'style'),
+            Input(self._parent.graph_toggles.id, 'value')
+        )(self._set_visibility)
+
+    @staticmethod
+    def _set_visibility(switches_value):
+        if 'show_spectra' in switches_value:
+            return {'display':'block'}
+        else:
+            return {'display':'none'}
 
     def _update_figure(self):
         fig = go.Figure(self._plot)
@@ -63,24 +78,31 @@ class SpectraPlotGraph(dcc.Graph):
         fig.add_shape(self._energy_line)
         return fig
 
-    def _show_plot(self, slice_graph_click_data, self_click_data):
-        if slice_graph_click_data is None and self_click_data is None:
+    def _show_plot(self, slice_graph_click_data, self_click_data, decomposition_click_data):
+        triggered = dash.callback_context.triggered
+        if not triggered:
             raise PreventUpdate
 
         # When the slice graph is clicked, update plot with the clicked x,y coord
-        if slice_graph_click_data is not None:
-            y_index = slice_graph_click_data["points"][0]["y"]
-            x_index = slice_graph_click_data["points"][0]["x"]
-            self._plot.y = np.asarray(self._data[:, y_index, x_index])
-            self._plot.x = np.arange(0, self._data.shape[0])
+        if self._parent.map_graph.id in triggered[0]['prop_id']:
+            self._show_click(slice_graph_click_data)
+
+        elif self._parent.decomposition_graph.id in triggered[0]['prop_id']:
+            self._show_click(decomposition_click_data)
 
         # When this SpectraGraph itself is clicked, update the energy slicer line
-        if self_click_data is not None:
+        elif self_click_data is not None:
             energy_index = self_click_data["points"][0]["x"]
             self._energy_line.x0 = energy_index
             self._energy_line.x1 = energy_index
 
         return self._update_figure()
+
+    def _show_click(self, click_data):
+        y_index = click_data["points"][0]["y"]
+        x_index = click_data["points"][0]["x"]
+        self._plot.y = np.asarray(self._data[:, y_index, x_index])
+        self._plot.x = np.arange(0, self._data.shape[0])
 
     def _id(self):
         return f'spectraplot_{self._instance_index}'
@@ -104,7 +126,7 @@ class SliceGraph(dcc.Graph):
     yaxis_title = 'Y'
     aspect_locked = True
 
-    def __init__(self, data, parent, slice_axis=0, traces=None, shapes=None):
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -139,7 +161,8 @@ class SliceGraph(dcc.Graph):
 
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
-                                         id=self._id())
+                                         id=self._id(),
+                                         className='col-lg-4')
 
     def _id(self):
         return f'slicegraph_{self._instance_index}'
@@ -268,6 +291,12 @@ class DecompositionGraph(SliceGraph):
             Input(self._parent.map_graph.id, 'clickData')
         )(self.show_slice)
 
+        # Wire-up visibility toggle
+        self._parent._app.callback(
+            Output(self.id, 'style'),
+            Input(self._parent.graph_toggles.id, 'value')
+        )(self._set_visibility)
+
     def show_slice(self, self_click_data, component_index, slice_click_data):
         """Show a 2D slice at a specific energy defined in click data.
 
@@ -297,6 +326,13 @@ class DecompositionGraph(SliceGraph):
     def _init_slice_index(self):
         return 0
 
+    @staticmethod
+    def _set_visibility(switches_value):
+        if 'show_decomposition' in switches_value:
+            return {'display':'block'}
+        else:
+            return {'display':'none'}
+
 
 class PairPlotGraph(dcc.Graph):
     _counter = count(0)
@@ -313,7 +349,9 @@ class PairPlotGraph(dcc.Graph):
         self._scatter = go.Scatter(x=[], y=[], mode='markers+text')
 
         figure = self._update_figure()
-        super(PairPlotGraph, self).__init__(figure=figure, id=f'pair_plot_{self._instance_index}')
+        super(PairPlotGraph, self).__init__(figure=figure,
+                                            id=f'pair_plot_{self._instance_index}',
+                                            className='col-lg-4')
 
     def register_callbacks(self):
         # Set up callbacks
@@ -332,6 +370,12 @@ class PairPlotGraph(dcc.Graph):
             Output(self._parent.info_content.id, 'children'),
             Input(self.id, 'selectedData')
         )(self._show_selection_info)
+
+        # Wire-up visibility toggle
+        self._parent._app.callback(
+            Output(self.id, 'style'),
+            Input(self._parent.graph_toggles.id, 'value')
+        )(self._set_visibility)
 
     def _show_selection_info(self, selected_data):
         if not selected_data:
@@ -356,3 +400,10 @@ class PairPlotGraph(dcc.Graph):
         self._component2 = component2
 
         return self._update_figure()
+
+    @staticmethod
+    def _set_visibility(switches_value):
+        if 'show_pair_plot' in switches_value:
+            return {'display':'block'}
+        else:
+            return {'display':'none'}
