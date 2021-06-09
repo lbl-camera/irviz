@@ -6,18 +6,20 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 import sklearn.decomposition
 
+TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
 TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 
 
 def open_map_file(h5_file):
     f = h5.File(h5_file, 'r')
     data = f[next(iter(f.keys()))]['data']['image']['image_cube']
-    wavenumbers = f[next(iter(f.keys()))]['data']['wavenumbers']
-    xy = f[next(iter(f.keys()))]['data']['xy']
-    bounds = [(wavenumbers[:].min(), wavenumbers[:].max()),
-              (xy[:].T[1].min(), xy[:].T[1].max()),
-              (xy[:].T[0].min(), xy[:].T[0].max())]
+    wavenumbers = f[next(iter(f.keys()))]['data']['wavenumbers'][:]
+    xy = f[next(iter(f.keys()))]['data']['xy'][:]
+    bounds = [(wavenumbers.min(), wavenumbers.max()),
+              (xy.T[1].min(), xy.T[1].max()),
+              (xy.T[0].min(), xy.T[0].max())]
     return da.from_array(data), bounds
+
 
 def open_ir_file(h5_file):
     f = h5.File(h5_file, 'r')
