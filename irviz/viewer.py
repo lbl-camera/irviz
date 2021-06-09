@@ -21,31 +21,32 @@ class Viewer(html.Div):
         Viewer._global_slicer_counter += 1
 
         # Initialize graphs
-        self.spectra_graph = SpectraPlotGraph(data, self)
-        self.map_graph = MapGraph(data, self)
+        self.spectra_graph = SpectraPlotGraph(data, bounds, self)
+        self.map_graph = MapGraph(data, bounds, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
-        self.decomposition_graph = DecompositionGraph(self.decomposition, self)
+        self.decomposition_graph = DecompositionGraph(self.decomposition, bounds, self)
         self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
 
         # Initialize configuration bits
         # TODO: callback for switching tabs and rendering the Card content
 
         # Switches for views
+        self.graph_toggles = dbc.Checklist(
+            options=[
+                {"label": "Show Spectra", "value": "show_spectra"},
+                {"label": "Show Decomposition", "value": "show_decomposition"},
+                {"label": "Show Pair Plot", "value": "show_pair_plot"},
+                {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"}
+            ],
+            value=["show_spectra", "show_decomposition", "show_pair_plot"],
+            id="view-checklist",
+            switch=True,
+        )
         view_switches = dbc.FormGroup(
             [
                 html.H3("Toggle Views"),
-                dbc.Checklist(
-                    options=[
-                        {"label": "Show Spectra", "value": "show_spectra"},
-                        {"label": "Show Decomposition", "value": "show_decomposition"},
-                        {"label": "Show Pair Plot", "value": "show_pair_plot"},
-                        {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"}
-                    ],
-                    value=["show_spectra", "show_decomposition", "show_pair_plot"],
-                    id="view-checklist",
-                    switch=True,
-                )
+                self.graph_toggles
             ]
         )
         view_selector = dbc.Form([view_switches])
@@ -116,16 +117,15 @@ class Viewer(html.Div):
         self.decomposition_graph.register_callbacks()
 
         # Initialize layout
-        children = [html.Div([self.map_graph,
+        children = html.Div([self.map_graph,
+                             self.decomposition_graph,
+                             config_view,
                              self.spectra_graph,
-                             self.decomposition_graph,]),
-                    html.Div([config_view,
-                             self.pair_plot_graph])]
+                             self.pair_plot_graph],
+                            className='row well')
 
         super(Viewer, self).__init__(children=children,
-                                     style={'display': 'grid',
-                                            'gridTemplateColumns': '50% 50%',
-                                            },
+                                     className='container-fluid',
                                      )
 
 
