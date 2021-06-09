@@ -12,7 +12,7 @@ def open_ir_file(h5_file):
     f = h5.File(h5_file, 'r')
     data = f['irmap']['DATA']['data']
     bounds_grid = f['irmap']['DATA']['energy'][:], f['irmap']['DATA']['sample_y'][:], f['irmap']['DATA']['sample_x'][:]
-    bounds = list(map(lambda grid: (grid.min(), grid.max()-grid.min()), bounds_grid))
+    bounds = list(map(lambda grid: (grid.min(), grid.max()), bounds_grid))
     print(bounds)
     return da.from_array(data), bounds
 
@@ -34,6 +34,9 @@ if __name__ == "__main__":
     decomposition = model.fit_transform(data.transpose(1,2,0).reshape(-1, data.shape[0])).T.reshape(-1, *data.shape[1:])
 
     viewer = Viewer(_app, data.compute(), decomposition=decomposition, bounds=bounds)
+
+    # Testing None decomposition
+    # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)
 
     div = html.Div(children=[viewer])
     # viewer2 = Viewer(data.compute(), app=_app)

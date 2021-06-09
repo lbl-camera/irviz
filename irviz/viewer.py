@@ -1,12 +1,8 @@
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
 import dash_html_components as html
-import numpy as np
-import plotly.graph_objects as go
-from dash.dependencies import Input, Output
-from dash.exceptions import PreventUpdate
+from dash_core_components import Graph
 
-from irviz.graphs import MapGraph, SpectraPlotGraph, PairPlotGraph, DecompositionGraph
+from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph
 
 
 class Viewer(html.Div):
@@ -25,21 +21,28 @@ class Viewer(html.Div):
         self.map_graph = MapGraph(data, bounds, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
-        self.decomposition_graph = DecompositionGraph(self.decomposition, bounds, self)
-        self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
+        if self.decomposition is not None:
+            self.decomposition_graph = DecompositionGraph(self.decomposition, bounds, self)
+            self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
+        else:
+            self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
+            self.pair_plot_graph = Graph(id='empty-pair-plot-graph', style={'display': 'none'})
 
         # Initialize configuration bits
         # TODO: callback for switching tabs and rendering the Card content
 
         # Switches for views
+        initial_views = ["show_spectra"]
+        if self.decomposition is not None:
+            initial_views.extend(["show_decomposition", "show_pair_plot"])
         self.graph_toggles = dbc.Checklist(
             options=[
                 {"label": "Show Spectra", "value": "show_spectra"},
-                {"label": "Show Decomposition", "value": "show_decomposition"},
-                {"label": "Show Pair Plot", "value": "show_pair_plot"},
+                {"label": "Show Decomposition", "value": "show_decomposition", "disabled": self.decomposition is None},
+                {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": self.decomposition is None},
                 {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"}
             ],
-            value=["show_spectra", "show_decomposition", "show_pair_plot"],
+            value=initial_views,
             id="view-checklist",
             switch=True,
         )
@@ -52,49 +55,51 @@ class Viewer(html.Div):
         view_selector = dbc.Form([view_switches])
 
         # Decomposition and pair plot component selectors
-        radio_kwargs = dict(className='btn-group',
-                            labelClassName="btn btn-secondary",
-                            labelCheckedClassName="active",
-                            options=[
-                                {'label': 'Component 1', 'value': 0},
-                                {'label': 'Component 2', 'value': 1},
-                                {'label': 'Component 3', 'value': 2}
-                            ])
+        decomposition_selector_layout = html.Div()
+        pair_plot_component_selector = html.Div()
+        if self.decomposition is not None:
+            radio_kwargs = dict(className='btn-group',
+                                labelClassName="btn btn-secondary",
+                                labelCheckedClassName="active",
+                                options=[
+                                    {'label': 'Component 1', 'value': 0},
+                                    {'label': 'Component 2', 'value': 1},
+                                    {'label': 'Component 3', 'value': 2}
+                                ])
 
-        self.decomposition_component_selector = dbc.RadioItems(id='decomposition-component-selector', value=0,
-                                                               **radio_kwargs)
+            self.decomposition_component_selector = dbc.RadioItems(id='decomposition-component-selector', value=0,
+                                                                   **radio_kwargs)
 
-        decomposition_selector_layout = html.Div(
-            [
-                html.H3(id="decomposition-component-selector-p", className="card-text",
-                       children="Decomposition Component"),
-                self.decomposition_component_selector
-            ],
-            className='radio-group'
-        )
+            decomposition_selector_layout = html.Div(
+                [
+                    html.H3(id="decomposition-component-selector-p", className="card-text",
+                           children="Decomposition Component"),
+                    self.decomposition_component_selector
+                ],
+                className='radio-group'
+            )
 
-        self.decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
-        self.decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
+            self.decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
+            self.decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
 
-        pair_plot_component_selector = dbc.FormGroup(
-            [
-                html.H3(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
-                self.decomposition_component_1,
-                html.Br(),
-                self.decomposition_component_2,
-            ],
-            className='radio-group',
-        )
+            pair_plot_component_selector = dbc.FormGroup(
+                [
+                    html.H3(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
+                    self.decomposition_component_1,
+                    html.Br(),
+                    self.decomposition_component_2,
+                ],
+                className='radio-group',
+            )
 
         # Settings tab layout
         # TODO put in function so we can use with callback
+        settings_children = [view_selector]
+        if decomposition is not None:
+            settings_children.extend([decomposition_selector_layout, pair_plot_component_selector])
         settings_layout = dbc.Card(
-            dbc.CardBody(
-                children=[
-                    view_selector,
-                    decomposition_selector_layout,
-                    pair_plot_component_selector,
-                ]))
+            dbc.CardBody(children=settings_children)
+        )
 
         # Info tab layout
         # TODO
@@ -110,19 +115,21 @@ class Viewer(html.Div):
                                ],
                                )
 
+        # Initialize layout
+        layout_div_children = [self.map_graph,
+                               self.decomposition_graph,
+                               config_view,
+                               self.spectra_graph,
+                               self.pair_plot_graph]
+        children = html.Div(children=layout_div_children,
+                            className='row well')
+
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
         self.map_graph.register_callbacks()
-        self.pair_plot_graph.register_callbacks()
-        self.decomposition_graph.register_callbacks()
-
-        # Initialize layout
-        children = html.Div([self.map_graph,
-                             self.decomposition_graph,
-                             config_view,
-                             self.spectra_graph,
-                             self.pair_plot_graph],
-                            className='row well')
+        if self.decomposition is not None:
+            self.pair_plot_graph.register_callbacks()
+            self.decomposition_graph.register_callbacks()
 
         super(Viewer, self).__init__(children=children,
                                      className='container-fluid',
