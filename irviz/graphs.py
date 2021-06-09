@@ -363,7 +363,7 @@ class PairPlotGraph(dcc.Graph):
         self._component1 = self._component2 = 0
 
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
-        self._scatter = go.Scattergl(x=[], y=[], mode='markers+text')
+        self._scatter = go.Scattergl(x=[], y=[], mode='markers')
 
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
@@ -411,15 +411,8 @@ class PairPlotGraph(dcc.Graph):
         if component1 is None and component2 is None:
             raise PreventUpdate
 
-        # See https://dash.plotly.com/performance for details about performance
-        #  - can potentially memoize w/ Redis
-        # Using Scattergl makes the initial draw fast;
-        #  however, using lasso tool requires redraws of the graph as you continue your selection
-        #  and dash/plotly is re-drawing the entire graph as you extend the selection
-        # x = self._data[component1]
-        # y = self._data[component2]
-        x = self._data[component1][::3, ::3]
-        y = self._data[component2][::3, ::3]
+        x = self._data[component1]
+        y = self._data[component2]
         self._scatter.x = np.asarray(x.ravel())
         self._scatter.y = np.asarray(y.ravel())
         self._component1 = component1
