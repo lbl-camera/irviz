@@ -8,6 +8,9 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
+from dash.development.base_component import Component
+import dask
+
 
 # TODO: implement orthogonal views by using slice_axis kwarg
 
@@ -18,11 +21,31 @@ def nearest_bin(x, bounds, bin_count):
 class SpectraPlotGraph(dcc.Graph):
     _counter = count(0)
 
-    def __init__(self, data, bounds, parent):
+    title = ''
+    xaxis_title = 'Spectral Unit'
+    yaxis_title = 'Intensity'
+
+    def __init__(self, data, bounds, parent, labels=None):
+        """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
+
+        Parameters
+        ----------
+        data : dask array
+            3D array containing data with axes E (or wave-number), y, and x for displaying in the Graph
+        bounds : ndarray-like
+            3D array defining the bounds (min & max) pairs for E (or wave-number), y, and x data
+        parent : Component
+            Reference to Component that created this Graph (for registering callbacks)
+        labels : dict[str, str]
+            Optional dictionary with keys `xaxis_title`, `yaxis_title`, and `title` that define the Graph's labels
+        """
         self._instance_index = next(self._counter)
         self._data = data
         self._parent = parent
         self._bounds = bounds
+        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
+        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
+        self.title = labels.get('title', self.title)
 
         # Define starting point for energy index (for the slicer line trace)
         default_energy_index = (bounds[0][1]+bounds[0][0])/2
@@ -67,6 +90,16 @@ class SpectraPlotGraph(dcc.Graph):
             Input(self._parent.graph_toggles.id, 'value')
         )(self._set_visibility)
 
+    @property
+    def spectra_slice(self):
+        """Returns a dictionary of the labels mapped to their respective data.
+
+        Provides x, y, and energy (wave-number) data.
+        """
+        return {self.xaxis_title: self._plot.x,
+                self.yaxis_title: self._plot.y,
+                self.title: self._energy_line.x0}
+
     @staticmethod
     def _set_visibility(switches_value):
         if 'show_spectra' in switches_value:
@@ -76,9 +109,9 @@ class SpectraPlotGraph(dcc.Graph):
 
     def _update_figure(self):
         fig = go.Figure(self._plot)
-        fig.update_layout(title=f'Spectra Intensities',
-                          xaxis_title="Wavenumber (cm⁻¹)",
-                          yaxis_title="Intensity")
+        fig.update_layout(title=self.title,
+                          xaxis_title=self.xaxis_title,
+                          yaxis_title=self.yaxis_title)
         fig.add_shape(self._energy_line)
         return fig
 
