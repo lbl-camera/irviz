@@ -9,10 +9,9 @@ from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
 from dash.development.base_component import Component
-import dask
-
 
 # TODO: implement orthogonal views by using slice_axis kwarg
+
 
 def nearest_bin(x, bounds, bin_count):
     return int((x-bounds[0])/(bounds[1]-bounds[0])*bin_count)
@@ -21,7 +20,7 @@ def nearest_bin(x, bounds, bin_count):
 class SpectraPlotGraph(dcc.Graph):
     _counter = count(0)
 
-    title = ''
+    title = 'Spectra Intensities'
     xaxis_title = 'Spectral Unit'
     yaxis_title = 'Intensity'
 
@@ -43,6 +42,7 @@ class SpectraPlotGraph(dcc.Graph):
         self._data = data
         self._parent = parent
         self._bounds = bounds
+        labels = labels or dict()
         self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
         self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
         self.title = labels.get('title', self.title)
@@ -98,7 +98,7 @@ class SpectraPlotGraph(dcc.Graph):
         """
         return {self.xaxis_title: self._plot.x,
                 self.yaxis_title: self._plot.y,
-                self.title: self._energy_line.x0}
+                'slice': self._energy_line.x0}
 
     @staticmethod
     def _set_visibility(switches_value):

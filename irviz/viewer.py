@@ -17,7 +17,8 @@ class Viewer(html.Div):
         Viewer._global_slicer_counter += 1
 
         # Initialize graphs
-        self.spectra_graph = SpectraPlotGraph(data, bounds, self)
+        spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
+        self.spectra_graph = SpectraPlotGraph(data, bounds, self, labels=spectra_graph_labels)
         self.map_graph = MapGraph(data, bounds, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
