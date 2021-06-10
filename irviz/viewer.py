@@ -8,7 +8,7 @@ from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlo
 class Viewer(html.Div):
     _global_slicer_counter = 0
 
-    def __init__(self, app, data, decomposition=None, bounds=None, ):
+    def __init__(self, app, data, bounds, decomposition=None):
         self.data = data
         self._app = app
         self.decomposition = decomposition
@@ -136,7 +136,7 @@ class Viewer(html.Div):
                                      )
 
 
-def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
+def notebook_viewer(data, bounds, decomposition=None, mode='inline'):
     was_running = True
     import irviz
     try:
@@ -144,13 +144,14 @@ def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
     except ImportError:
         print("Please install jupyter-dash first.")
     else:
-        if not irviz.app:
+        if not irviz.app_instance:
             # Creating a new app means we never ran the server
-            irviz.app = JupyterDash(__name__)
+            kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
+            irviz.app_instance = JupyterDash(__name__, **kwargs)
             was_running = False
 
-    app = irviz.app
-    viewer = Viewer(app, data.compute(), decomposition, bounds)
+    app = irviz.app_instance
+    viewer = Viewer(app, data, bounds, decomposition)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
@@ -158,7 +159,7 @@ def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
 
     # Prevent server from being run multiple times; only one instance allowed
     if not was_running:
-        irviz.app.run_server(mode=mode)
+        app.run_server(mode=mode)
     else:
         # Values passed here are from
         # jupyter_app.jupyter_dash.JupyterDash.run_server
