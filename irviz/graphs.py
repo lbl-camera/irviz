@@ -25,7 +25,7 @@ class SpectraPlotGraph(dcc.Graph):
         self._bounds = bounds
 
         # Define starting point for energy index (for the slicer line trace)
-        default_energy_index = (self._data.shape[0] - 1) // 2
+        default_energy_index = (bounds[0][1]+bounds[0][0])/2
 
         # Cache the x,y coordinates for slicing into the data for the plot
         #  (default to middle x,y)
