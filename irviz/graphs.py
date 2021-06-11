@@ -8,8 +8,10 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 
+from dash.development.base_component import Component
 
 # TODO: implement orthogonal views by using slice_axis kwarg
+
 
 def nearest_bin(x, bounds, bin_count):
     return int((x-bounds[0])/(bounds[1]-bounds[0])*bin_count)
@@ -18,23 +20,45 @@ def nearest_bin(x, bounds, bin_count):
 class SpectraPlotGraph(dcc.Graph):
     _counter = count(0)
 
-    def __init__(self, data, bounds, parent):
+    title = 'Spectra Intensities'
+    xaxis_title = 'Spectral Unit'
+    yaxis_title = 'Intensity'
+
+    def __init__(self, data, bounds, parent, labels=None):
+        """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
+
+        Parameters
+        ----------
+        data : dask array
+            3D array containing data with axes E (or wave-number), y, and x for displaying in the Graph
+        bounds : ndarray-like
+            3D array defining the bounds (min & max) pairs for E (or wave-number), y, and x data
+        parent : Component
+            Reference to Component that created this Graph (for registering callbacks)
+        labels : dict[str, str]
+            Optional dictionary with keys `xaxis_title`, `yaxis_title`, and `title` that define the Graph's labels
+        """
         self._instance_index = next(self._counter)
         self._data = data
         self._parent = parent
         self._bounds = bounds
+        labels = labels or dict()
+        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
+        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
+        self.title = labels.get('title', self.title)
 
-        # Define starting point for energy index (for the slicer line trace)
-        default_energy_index = (bounds[0][1]+bounds[0][0])/2
+        #  default to middle x,y
+        _y_index = (self._data.shape[1] - 1) // 2
+        _x_index = (self._data.shape[2] - 1) // 2
 
-        # Cache the x,y coordinates for slicing into the data for the plot
-        #  (default to middle x,y)
-        y_index = (self._data.shape[1] - 1) // 2
-        x_index = (self._data.shape[2] - 1) // 2
-
-        y = np.asarray(self._data[:, y_index, x_index])
+        y = np.asarray(self._data[:, _y_index, _x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
         self._plot = go.Scatter(x=x, y=y)
+
+        # Define starting point for energy index (for the slicer line trace)
+        default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
+        # Find the closest wavenumber / energy value to use
+        default_slice_index = x[np.abs(np.array(x) - default_slice_index).argmin()]
 
         # x coords positioned relative to the x-axis values
         # y coords positioned according to the plot height (0 = bottom, 1.0 = top)
@@ -42,8 +66,8 @@ class SpectraPlotGraph(dcc.Graph):
                                             # width=3,
                                             xref='x',
                                             yref='paper',
-                                            x0=default_energy_index,
-                                            x1=default_energy_index,
+                                            x0=default_slice_index,
+                                            x1=default_slice_index,
                                             y0=0,
                                             y1=1)
 
@@ -66,6 +90,32 @@ class SpectraPlotGraph(dcc.Graph):
             Output(self.id, 'style'),
             Input(self._parent.graph_toggles.id, 'value')
         )(self._set_visibility)
+        
+    @property
+    def spectrum(self):
+        """The currently shown spectrum energy/wavenumber and intensity values"""
+        return self._plot.x, self._plot.y
+
+    @property
+    def spectral_value(self):
+        """The current value of the crosshair position in energy/wavenumber"""
+        return self._energy_line.x0
+        
+    @property
+    def spectral_index(self):
+        """The current index of the crosshair position along the energy/wavenumber domain"""
+        return self._plot.x.tolist().index(self._energy_line.x0)
+
+    @property
+    def intensity(self):
+        """The intensity value of the crosshair position"""
+        intensity_index = self._plot.x.tolist().index(self._energy_line.x0)
+        return self._plot.y[intensity_index]
+    
+    @property
+    def position(self):
+        """The spatial position of the current spectrum"""
+        return self._parent.map_graph.position
 
     @staticmethod
     def _set_visibility(switches_value):
@@ -76,9 +126,9 @@ class SpectraPlotGraph(dcc.Graph):
 
     def _update_figure(self):
         fig = go.Figure(self._plot)
-        fig.update_layout(title=f'Spectra Intensities',
-                          xaxis_title="Wavenumber (cm⁻¹)",
-                          yaxis_title="Intensity")
+        fig.update_layout(title=self.title,
+                          xaxis_title=self.xaxis_title,
+                          yaxis_title=self.yaxis_title)
         fig.add_shape(self._energy_line)
         return fig
 
@@ -96,18 +146,18 @@ class SpectraPlotGraph(dcc.Graph):
 
         # When this SpectraGraph itself is clicked, update the energy slicer line
         elif self_click_data is not None:
-            energy_index = self_click_data["points"][0]["x"]
-            self._energy_line.x0 = energy_index
-            self._energy_line.x1 = energy_index
+            e = self_click_data["points"][0]["x"]
+            self._energy_line.x0 = e
+            self._energy_line.x1 = e
 
         return self._update_figure()
 
     def _show_click(self, click_data):
         y = click_data["points"][0]["y"]
         x = click_data["points"][0]["x"]
-        x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
-        y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
-        self._plot.y = np.asarray(self._data[:, y_index, x_index])
+        _x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
+        _y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
+        self._plot.y = np.asarray(self._data[:, _y_index, _x_index])
 
     def _id(self):
         return f'spectraplot_{self._instance_index}'
@@ -203,6 +253,11 @@ class SliceGraph(dcc.Graph):
         self._h_line.y1 = y_index
         self._v_line.x0 = x_index
         self._v_line.x1 = x_index
+        
+    @property
+    def position(self):
+        """The current spatial position of the crosshair"""
+        return self._v_line.x0, self._h_line.y0
 
 
 class MapGraph(SliceGraph):
