@@ -91,23 +91,32 @@ class SpectraPlotGraph(dcc.Graph):
             Output(self.id, 'style'),
             Input(self._parent.graph_toggles.id, 'value')
         )(self._set_visibility)
+        
+    @property
+    def spectrum(self):
+        """The currently shown spectrum energy/wavenumber and intensity values"""
+        return self._plot.x, self._plot.y
 
     @property
-    def current_spectra_wave(self):
-        """Returns a dictionary of the current plot data (x and y)."""
-        return {self.xaxis_title: self._plot.x,
-                self.yaxis_title: self._plot.y}
+    def spectral_value(self):
+        """The current value of the crosshair position in energy/wavenumber"""
+        return self._energy_line.x0
+        
+    @property
+    def spectral_index(self):
+        """The current index of the crosshair position along the energy/wavenumber domain"""
+        return self._plot.x.tolist().index(self._energy_line.x0)
 
     @property
-    def current_spectra_position(self):
-        """Returns a dictionary of the current x and y slice used to generate this spectra plot,
-        and also includes the current wave number (or energy) value and intensity value.
-        """
+    def intensity(self):
+        """The intensity value of the crosshair position"""
         intensity_index = self._plot.x.tolist().index(self._energy_line.x0)
-        return {f'x_slice': self._x_index,
-                f'y_slice': self._y_index,
-                f'current_x': self._energy_line.x0,
-                f'{self.yaxis_title}': self._plot.y[intensity_index]}
+        return self._plot.y[intensity_index]
+    
+    @property
+    def position(self):
+        """The spatial position of the current spectrum"""
+        return self._parent.map_graph.position
 
     @staticmethod
     def _set_visibility(switches_value):
@@ -245,6 +254,11 @@ class SliceGraph(dcc.Graph):
         self._h_line.y1 = y_index
         self._v_line.x0 = x_index
         self._v_line.x1 = x_index
+        
+    @property
+    def position(self):
+        """The current spatial position of the crosshair"""
+        return self._v_line.x0, self._h_line.y0
 
 
 class MapGraph(SliceGraph):
