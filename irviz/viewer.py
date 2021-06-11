@@ -134,15 +134,31 @@ class Viewer(html.Div):
 
         super(Viewer, self).__init__(children=children,
                                      className='container-fluid',
-                                     )
+                                     )   @property
+        
+    def spectrum(self):
+        """The currently shown spectrum energy/wavenumber and intensity values"""
+        return self.spectra_graph.spectrum
 
     @property
-    def current_spectra_wave(self):
-        return self.spectra_graph.current_spectra_wave
+    def spectral_value(self):
+        """The current value of the crosshair position in energy/wavenumber"""
+        return self.spectra_graph.spectral_value
 
     @property
-    def current_spectra_position(self):
-        return self.spectra_graph.current_Spectra_position
+    def spectral_index(self):
+        """The current index of the crosshair position along the energy/wavenumber domain"""
+        return self.spectra_graph.spectral_index
+
+    @property
+    def intensity(self):
+        """The intensity value of the crosshair position"""
+        return self.spectra_graph.intensity
+
+    @property
+    def position(self):
+        """The spatial position of the current spectrum"""
+        return self.spectra_graph.position
 
 def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
     was_running = True
