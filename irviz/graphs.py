@@ -47,12 +47,11 @@ class SpectraPlotGraph(dcc.Graph):
         self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
         self.title = labels.get('title', self.title)
 
-        # Cache the x,y coordinates (from map graph) for slicing into the data for the plot
-        #  (default to middle x,y)
-        self._y_index = (self._data.shape[1] - 1) // 2
-        self._x_index = (self._data.shape[2] - 1) // 2
+        #  default to middle x,y
+        _y_index = (self._data.shape[1] - 1) // 2
+        _x_index = (self._data.shape[2] - 1) // 2
 
-        y = np.asarray(self._data[:, self._y_index, self._x_index])
+        y = np.asarray(self._data[:, _y_index, _x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
         self._plot = go.Scatter(x=x, y=y)
 
@@ -156,9 +155,9 @@ class SpectraPlotGraph(dcc.Graph):
     def _show_click(self, click_data):
         y = click_data["points"][0]["y"]
         x = click_data["points"][0]["x"]
-        self._x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
-        self._y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
-        self._plot.y = np.asarray(self._data[:, self._y_index, self._x_index])
+        _x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
+        _y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
+        self._plot.y = np.asarray(self._data[:, _y_index, _x_index])
 
     def _id(self):
         return f'spectraplot_{self._instance_index}'
