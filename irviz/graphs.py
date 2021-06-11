@@ -47,17 +47,19 @@ class SpectraPlotGraph(dcc.Graph):
         self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
         self.title = labels.get('title', self.title)
 
-        # Define starting point for energy index (for the slicer line trace)
-        default_energy_index = (bounds[0][1]+bounds[0][0])/2
-
-        # Cache the x,y coordinates for slicing into the data for the plot
+        # Cache the x,y coordinates (from map graph) for slicing into the data for the plot
         #  (default to middle x,y)
-        y_index = (self._data.shape[1] - 1) // 2
-        x_index = (self._data.shape[2] - 1) // 2
+        self._y_index = (self._data.shape[1] - 1) // 2
+        self._x_index = (self._data.shape[2] - 1) // 2
 
-        y = np.asarray(self._data[:, y_index, x_index])
+        y = np.asarray(self._data[:, self._y_index, self._x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
         self._plot = go.Scatter(x=x, y=y)
+
+        # Define starting point for energy index (for the slicer line trace)
+        default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
+        # Find the closest wavenumber / energy value to use
+        default_slice_index = x[np.abs(np.array(x) - default_slice_index).argmin()]
 
         # x coords positioned relative to the x-axis values
         # y coords positioned according to the plot height (0 = bottom, 1.0 = top)
@@ -65,8 +67,8 @@ class SpectraPlotGraph(dcc.Graph):
                                             # width=3,
                                             xref='x',
                                             yref='paper',
-                                            x0=default_energy_index,
-                                            x1=default_energy_index,
+                                            x0=default_slice_index,
+                                            x1=default_slice_index,
                                             y0=0,
                                             y1=1)
 
@@ -91,14 +93,18 @@ class SpectraPlotGraph(dcc.Graph):
         )(self._set_visibility)
 
     @property
-    def spectra_slice(self):
-        """Returns a dictionary of the labels mapped to their respective data.
-
-        Provides x, y, and energy (wave-number) data.
-        """
+    def current_spectra_wave(self):
+        """Returns a dictionary of the current plot data (x and y)."""
         return {self.xaxis_title: self._plot.x,
-                self.yaxis_title: self._plot.y,
-                'slice': self._energy_line.x0}
+                self.yaxis_title: self._plot.y}
+
+    @property
+    def current_position(self):
+        intensity_index = self._plot.x.tolist().index(self._energy_line.x0)
+        return {f'x_slice': self._x_index,
+                f'y_slice': self._y_index,
+                f'current_x': self._energy_line.x0,
+                f'{self.yaxis_title}': self._plot.y[intensity_index]}
 
     @staticmethod
     def _set_visibility(switches_value):
@@ -129,18 +135,19 @@ class SpectraPlotGraph(dcc.Graph):
 
         # When this SpectraGraph itself is clicked, update the energy slicer line
         elif self_click_data is not None:
-            energy_index = self_click_data["points"][0]["x"]
-            self._energy_line.x0 = energy_index
-            self._energy_line.x1 = energy_index
+            e = self_click_data["points"][0]["x"]
+            # e = self._plot.x[np.abs(np.array(self._plot.x) - energy_index).argmin()]
+            self._energy_line.x0 = e
+            self._energy_line.x1 = e
 
         return self._update_figure()
 
     def _show_click(self, click_data):
         y = click_data["points"][0]["y"]
         x = click_data["points"][0]["x"]
-        x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
-        y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
-        self._plot.y = np.asarray(self._data[:, y_index, x_index])
+        self._x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
+        self._y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
+        self._plot.y = np.asarray(self._data[:, self._y_index, self._x_index])
 
     def _id(self):
         return f'spectraplot_{self._instance_index}'
