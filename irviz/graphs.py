@@ -99,7 +99,10 @@ class SpectraPlotGraph(dcc.Graph):
                 self.yaxis_title: self._plot.y}
 
     @property
-    def current_position(self):
+    def current_spectra_position(self):
+        """Returns a dictionary of the current x and y slice used to generate this spectra plot,
+        and also includes the current wave number (or energy) value and intensity value.
+        """
         intensity_index = self._plot.x.tolist().index(self._energy_line.x0)
         return {f'x_slice': self._x_index,
                 f'y_slice': self._y_index,
@@ -136,7 +139,6 @@ class SpectraPlotGraph(dcc.Graph):
         # When this SpectraGraph itself is clicked, update the energy slicer line
         elif self_click_data is not None:
             e = self_click_data["points"][0]["x"]
-            # e = self._plot.x[np.abs(np.array(self._plot.x) - energy_index).argmin()]
             self._energy_line.x0 = e
             self._energy_line.x1 = e
 

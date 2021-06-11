@@ -136,6 +136,13 @@ class Viewer(html.Div):
                                      className='container-fluid',
                                      )
 
+    @property
+    def current_spectra_wave(self):
+        return self.spectra_graph.current_spectra_wave
+
+    @property
+    def current_spectra_position(self):
+        return self.spectra_graph.current_Spectra_position
 
 def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
     was_running = True
