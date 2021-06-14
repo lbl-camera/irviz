@@ -18,16 +18,16 @@ class Viewer(html.Div):
 
         # Initialize graphs
         spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
-        self.spectra_graph = SpectraPlotGraph(data, bounds, self, labels=spectra_graph_labels)
-        map_graph_labels = {'xaxis_title': 'X (μ)', 'yaxis_title': 'Y (μ)'}
-        self.map_graph = MapGraph(data, bounds, self, labels=map_graph_labels)
+        self.spectra_graph = SpectraPlotGraph(data, self, bounds=bounds, labels=spectra_graph_labels)
+        map_graph_labels = {'xaxis_title': 'X (μm)', 'yaxis_title': 'Y (μm)'}
+        self.map_graph = MapGraph(data, self, bounds=bounds, labels=map_graph_labels)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
             decomposition_graph_labels = map_graph_labels
             self.decomposition_graph = DecompositionGraph(self.decomposition,
-                                                          bounds,
                                                           self,
+                                                          bounds=bounds,
                                                           labels=decomposition_graph_labels)
             self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
         else:
@@ -165,6 +165,7 @@ class Viewer(html.Div):
     def position(self):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
+
 
 def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
     was_running = True

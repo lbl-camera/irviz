@@ -24,7 +24,7 @@ class SpectraPlotGraph(dcc.Graph):
     xaxis_title = 'Spectral Unit'
     yaxis_title = 'Intensity'
 
-    def __init__(self, data, bounds, parent, labels=None):
+    def __init__(self, data, parent, bounds=None, labels=None):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -32,7 +32,8 @@ class SpectraPlotGraph(dcc.Graph):
         data : dask array
             3D array containing data with axes E (or wave-number), y, and x for displaying in the Graph
         bounds : ndarray-like
-            3D array defining the bounds (min & max) pairs for E (or wave-number), y, and x data
+            Collection that defines the bounds (min & max) pairs for E / Wave-number, y, and x data
+            (e.g. a list that contains 3 min/max pairs)
         parent : Component
             Reference to Component that created this Graph (for registering callbacks)
         labels : dict[str, str]
@@ -41,7 +42,13 @@ class SpectraPlotGraph(dcc.Graph):
         self._instance_index = next(self._counter)
         self._data = data
         self._parent = parent
-        self._bounds = bounds
+
+        self._bounds = np.asarray(bounds)
+        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self._bounds = [[0, self._data.shape[0] - 1],
+                            [0, self._data.shape[1] - 1],
+                            [0, self._data.shape[2] - 1]]
+
         labels = labels or dict()
         self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
         self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
@@ -181,7 +188,7 @@ class SliceGraph(dcc.Graph):
     yaxis_title = 'Y'
     aspect_locked = True
 
-    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, labels=None):
+    def __init__(self, data, parent, slice_axis=0, bounds=None, traces=None, shapes=None, labels=None):
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -190,6 +197,13 @@ class SliceGraph(dcc.Graph):
         self._instance_index = next(self._counter)
         self._traces = traces or []
         self._shapes = shapes or []
+
+        self._bounds = np.asarray(bounds)
+        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self._bounds = [[0, self._data.shape[0] - 1],
+                            [0, self._data.shape[1] - 1],
+                            [0, self._data.shape[2] - 1]]
+
         labels = labels or dict()
         self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
         self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
@@ -277,7 +291,19 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, labels=None):
+    def __init__(self, data, parent, slice_axis=0, bounds=None, traces=None, shapes=None, labels=None):
+
+        self._bounds = np.asarray(bounds)
+        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self._bounds = [[0, self._data.shape[0] - 1],
+                            [0, self._data.shape[1] - 1],
+                            [0, self._data.shape[2] - 1]]
+
+        labels = labels or dict()
+        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
+        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
+        self.title = labels.get('title', self.title)
+
         self._selection_mask = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
                                           colorscale='reds',
                                           opacity=0.3,
@@ -286,12 +312,10 @@ class MapGraph(SliceGraph):
                                           dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
                                           x0=bounds[2][0],
                                           dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
+
         traces = (traces or []) + [self._selection_mask]
-        labels = labels or dict()
-        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
-        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
-        self.title = labels.get('title', self.title)
-        super(MapGraph, self).__init__(data, bounds, parent, slice_axis=0, traces=traces, shapes=shapes, labels=labels)
+
+        super(MapGraph, self).__init__(data, parent, slice_axis=0, bounds=bounds, traces=traces, shapes=shapes, labels=labels)
 
     def register_callbacks(self):
         # Set up callbacks
