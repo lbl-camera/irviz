@@ -181,7 +181,7 @@ class SliceGraph(dcc.Graph):
     yaxis_title = 'Y'
     aspect_locked = True
 
-    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, labels=None):
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -190,6 +190,10 @@ class SliceGraph(dcc.Graph):
         self._instance_index = next(self._counter)
         self._traces = traces or []
         self._shapes = shapes or []
+        labels = labels or dict()
+        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
+        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
+        self.title = labels.get('title', self.title)
 
         default_slice_index = self._init_slice_index()  # TODO: Refactor these classes with a base
 
@@ -273,7 +277,7 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, labels=None):
         self._selection_mask = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
                                           colorscale='reds',
                                           opacity=0.3,
@@ -283,7 +287,11 @@ class MapGraph(SliceGraph):
                                           x0=bounds[2][0],
                                           dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
         traces = (traces or []) + [self._selection_mask]
-        super(MapGraph, self).__init__(data, bounds, parent, slice_axis=0, traces=traces, shapes=shapes)
+        labels = labels or dict()
+        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
+        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
+        self.title = labels.get('title', self.title)
+        super(MapGraph, self).__init__(data, bounds, parent, slice_axis=0, traces=traces, shapes=shapes, labels=labels)
 
     def register_callbacks(self):
         # Set up callbacks
@@ -408,6 +416,7 @@ class DecompositionGraph(SliceGraph):
 
 class PairPlotGraph(dcc.Graph):
     _counter = count(0)
+    title = 'Pair Plot'
 
     def __init__(self, data, parent):
         self._instance_index = next(self._counter)
@@ -457,7 +466,7 @@ class PairPlotGraph(dcc.Graph):
     def _update_figure(self):
         """ Remake the figure to force a display update """
         fig = go.Figure([self._scatter])
-        fig.update_layout(title=f'Pair Plot',
+        fig.update_layout(title=self.title,
                           xaxis_title=f'Component #{self._component1+1}',
                           yaxis_title=f'Component #{self._component2+1}')
         return fig

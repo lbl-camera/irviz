@@ -8,7 +8,7 @@ from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlo
 class Viewer(html.Div):
     _global_slicer_counter = 0
 
-    def __init__(self, app, data, decomposition=None, bounds=None, ):
+    def __init__(self, app, data, decomposition=None, bounds=None):
         self.data = data
         self._app = app
         self.decomposition = decomposition
@@ -19,11 +19,16 @@ class Viewer(html.Div):
         # Initialize graphs
         spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
         self.spectra_graph = SpectraPlotGraph(data, bounds, self, labels=spectra_graph_labels)
-        self.map_graph = MapGraph(data, bounds, self)
+        map_graph_labels = {'xaxis_title': 'X (μ)', 'yaxis_title': 'Y (μ)'}
+        self.map_graph = MapGraph(data, bounds, self, labels=map_graph_labels)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
-            self.decomposition_graph = DecompositionGraph(self.decomposition, bounds, self)
+            decomposition_graph_labels = map_graph_labels
+            self.decomposition_graph = DecompositionGraph(self.decomposition,
+                                                          bounds,
+                                                          self,
+                                                          labels=decomposition_graph_labels)
             self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
         else:
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
@@ -134,8 +139,9 @@ class Viewer(html.Div):
 
         super(Viewer, self).__init__(children=children,
                                      className='container-fluid',
-                                     )   @property
-        
+                                     )
+
+    @property
     def spectrum(self):
         """The currently shown spectrum energy/wavenumber and intensity values"""
         return self.spectra_graph.spectrum
