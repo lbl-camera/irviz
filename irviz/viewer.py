@@ -6,9 +6,26 @@ from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlo
 
 
 class Viewer(html.Div):
+    """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
+
     _global_slicer_counter = 0
 
-    def __init__(self, app, data, decomposition=None, bounds=None, ):
+    def __init__(self, app, data, decomposition=None, bounds=None):
+        """Viewer on the Dash app.
+
+        Provides some properties for accessing visualized data (e.g. the current spectrum).
+
+        Parameters
+        ----------
+        app : dash.Dash or jupyter_dash.JupyterDash
+            Reference to the Dash application to add components to
+        data : dask.array
+            3D array data (with axes E/wave-number, Y, and X)
+        decomposition : np.ndarray like
+            (optional) Decomposition of the data
+        bounds : List
+            List of min, max pairs that define each axis's lower and upper bounds
+        """
         self.data = data
         self._app = app
         self.decomposition = decomposition
@@ -134,8 +151,9 @@ class Viewer(html.Div):
 
         super(Viewer, self).__init__(children=children,
                                      className='container-fluid',
-                                     )   @property
-        
+                                     )
+
+    @property
     def spectrum(self):
         """The currently shown spectrum energy/wavenumber and intensity values"""
         return self.spectra_graph.spectrum
@@ -160,21 +178,43 @@ class Viewer(html.Div):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
 
+
 def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
+    """Creates and returns a new IRVIZ viewer.
+
+    Parameters
+    ----------
+    data : dask array
+        3D data to visualize in the view/app
+    decomposition : np.ndarray
+        (optional) Component values for the decomposed data
+    bounds : Collection
+        (optional) List of min, max pairs that define each axis's lower and upper bounds
+    mode : str
+        (optional) Change where the app is displayed
+
+    Returns
+    -------
+    Viewer
+        Returns the viewer that is created, which provides data access through its properties
+        (See `irviz.Viewer` documentation for more information)
+
+    """
     was_running = True
+    app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
     import irviz
     try:
         from jupyter_dash import JupyterDash
     except ImportError:
         print("Please install jupyter-dash first.")
     else:
-        if not irviz.app:
+        if not irviz._app:
             # Creating a new app means we never ran the server
-            irviz.app = JupyterDash(__name__)
+            irviz._app = JupyterDash(__name__, **app_kwargs)
             was_running = False
 
-    app = irviz.app
-    viewer = Viewer(app, data.compute(), decomposition, bounds)
+    app = irviz._app
+    viewer = Viewer(app, data.compute(), decomposition, bounds=bounds)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
@@ -182,7 +222,7 @@ def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
 
     # Prevent server from being run multiple times; only one instance allowed
     if not was_running:
-        irviz.app.run_server(mode=mode)
+        app.run_server(mode=mode)
     else:
         # Values passed here are from
         # jupyter_app.jupyter_dash.JupyterDash.run_server
@@ -191,3 +231,5 @@ def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
                                 port=8050,
                                 width='100%',
                                 height=650)
+
+    return viewer
