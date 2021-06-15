@@ -31,10 +31,18 @@ class Viewer(html.Div):
             Reference to the Dash application to add components to
         data : dask.array
             3D array data (with axes E/wave-number, Y, and X)
-        decomposition : np.ndarray like
+        decomposition : np.ndarray
             (optional) Decomposition of the data
-        bounds : List
+        bounds : list
             List of min, max pairs that define each axis's lower and upper bounds
+        x_axis_title : str
+            Title of the x-axis for the rendered data and decomposition figures
+        y_axis_title : str
+            Title of the y-axis for the rendered data and decomposition figures
+        spectra_axis_title : str
+            Title for the spectra axis in the rendered spectra plot
+        intensity_axis_title : str
+            Title for the intensity axis in the rendered spectra plot
         """
 
         Viewer._global_slicer_counter += 1
@@ -246,55 +254,36 @@ def notebook_viewer(data,
                     mode='inline',
                     width='100%',
                     height=650):
-    """Creates and returns a new IRVIZ viewer.
-
-            Parameters
-            ----------
-            data : dask array
-                3D data to visualize in the view/app
-            decomposition : np.ndarray
-                (optional) Component values for the decomposed data
-            bounds : Collection
-                (optional) List of min, max pairs that define each axis's lower and upper bounds
-            mode : str
-                (optional) Change where the app is displayed
-
-            Returns
-            -------
-            Viewer
-                Returns the viewer that is created, which provides data access through its properties
-                (See `irviz.Viewer` documentation for more information)
-                """
     """Create a Viewer inside of a Jupyter Notebook or Lab environment.
 
     Parameters
     ----------
-    data
-        Data (for now 3D) to visualize in the Viewer
-    decomposition
-        Data decomposition array
-    bounds
-        2D array that contains min, max pairs for each of the data's axes
-    spectra_axis_title
-        Title for the spectra axis in the rendered spectra plot
-    intensity_axis_title
-        Title for the intensity axis in the rendered spectra plot
-    x_axis_title
+    data : dask.array
+        3D data to visualize in the Viewer
+    decomposition : np.ndarray
+        Component values for the decomposed data
+    bounds : list
+        List of min, max pairs that define each axis's lower and upper bounds
+    x_axis_title : str
         Title of the x-axis for the rendered data and decomposition figures
-    y_axis_title
+    y_axis_title : str
         Title of the y-axis for the rendered data and decomposition figures
+    spectra_axis_title : str
+        Title for the spectra axis in the rendered spectra plot
+    intensity_axis_title : str
+        Title for the intensity axis in the rendered spectra plot
     mode : str
         Defines where the Viewer app is displayed (default is 'inline')
-    width
+    width : int or str
         CSS-style width value that defines the width of the rendered Viewer app
-    height
-        CSS-style height value that defines the height of the renedered Viewer app
+    height : int or str
+        CSS-style height value that defines the height of the rendered Viewer app
 
     Returns
     -------
     viewer
-        Returns a reference to the created Viewer.
-        This is useful for accessing data inside of the Viewer (see Viewer's documentation).
+        Returns a reference to the created Viewer, which acts as a handle to the Dash app.
+        This is useful for accessing data inside of the Viewer (via its properties).
 
     """
     was_running = True
@@ -314,10 +303,10 @@ def notebook_viewer(data,
                     data.compute(),
                     decomposition=decomposition,
                     bounds=bounds,
-                    spectra_axis_title='Wavenumber (cm⁻¹)',
-                    intensity_axis_title='Intensity',
-                    x_axis_title='X (μm)',
-                    y_axis_title='Y (μm)')
+                    x_axis_title=x_axis_title,
+                    y_axis_title=y_axis_title,
+                    spectra_axis_title=spectra_axis_title,
+                    intensity_axis_title=intensity_axis_title)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
@@ -330,9 +319,9 @@ def notebook_viewer(data,
         # Values passed here are from
         # jupyter_app.jupyter_dash.JupyterDash.run_server
         irdash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
-                                mode=mode,
-                                port=8050,
-                                width=width,
-                                height=height)
+                                       mode=mode,
+                                       port=8050,
+                                       width=width,
+                                       height=height)
 
     return viewer
