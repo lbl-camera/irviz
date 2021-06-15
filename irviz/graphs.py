@@ -8,7 +8,6 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output, ALL
 from dash.exceptions import PreventUpdate
 from dash.development.base_component import Component
-from dask.array import flip
 
 from irviz.utils.dash import targeted_callback
 
@@ -58,8 +57,7 @@ class SpectraPlotGraph(dcc.Graph):
         self._instance_index = next(self._counter)
         self._data = data
         self._invert_spectra_axis = invert_spectra_axis
-        if self._invert_spectra_axis:
-            self._data = flip(self._data, axis=2)
+
         self._parent = parent
         self._bounds = bounds
 
