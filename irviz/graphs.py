@@ -406,22 +406,32 @@ class DecompositionGraph(SliceGraph):
                           Input({'type': 'component-opacity', 'index': ALL}, 'value'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
+        
+        # Disable sliders when their component is hidden
+        targeted_callback(self.disable_sliders,
+                          Input(self._parent.decomposition_component_selector.id, 'value'),
+                          Output(self._parent.component_opacity_sliders.id, 'children'),
+                          app=self._parent._app)
 
+        # Show components when selected
         targeted_callback(self.show_components,
                           Input(self._parent.decomposition_component_selector.id, 'value'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # Show clicked position when this graph is clicked
         targeted_callback(self.show_click,
                           Input(self.id, 'clickData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # Show clicked position when map graph is clicked
         targeted_callback(self.show_click,
                           Input(self._parent.map_graph.id, 'clickData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # Update the color scale when new item is selected
         targeted_callback(self.set_color_scale,
                           Input({'type':'color-scale-selector', 'index': ALL}, 'label'),
                           Output(self.id, 'figure'),
@@ -456,10 +466,12 @@ class DecompositionGraph(SliceGraph):
         # Set each trace's opacity to a value proportional to its weight; always set first visible trace's opacity to 1
         bg_set = False
         for i, trace in enumerate(self._traces):
-            if not bg_set and trace.visible:
-                trace.opacity = 1
-                bg_set = True
-            else:
+            if trace.visible:
+                if not bg_set:
+                    trace.opacity = 1
+                    bg_set = True
+                    continue
+
                 trace.opacity = self._opacity_slider(i).value / total
 
     def show_components(self, component_indices):
@@ -471,6 +483,13 @@ class DecompositionGraph(SliceGraph):
         self._update_opacity()
 
         return self._update_figure()
+    
+    def disable_sliders(self, component_indices):
+        for i, trace in enumerate(self._traces):
+            self._opacity_slider(i).disabled = not (i in component_indices)  # TODO: set this in a separate callback that outputs to the slider
+
+        return self._parent.component_opacity_sliders.children
+        
 
     @staticmethod
     def _set_visibility(switches_value):

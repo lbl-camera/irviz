@@ -8,6 +8,8 @@ from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlo
 
 
 class Viewer(html.Div):
+    """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
+
     _global_slicer_counter = 0
 
     def __init__(self,
@@ -19,8 +21,23 @@ class Viewer(html.Div):
                  y_axis_title='',
                  spectra_axis_title='',
                  intensity_axis_title=''):
-        Viewer._global_slicer_counter += 1
+        """Viewer on the Dash app.
 
+        Provides some properties for accessing visualized data (e.g. the current spectrum).
+
+        Parameters
+        ----------
+        app : dash.Dash or jupyter_dash.JupyterDash
+            Reference to the Dash application to add components to
+        data : dask.array
+            3D array data (with axes E/wave-number, Y, and X)
+        decomposition : np.ndarray like
+            (optional) Decomposition of the data
+        bounds : List
+            List of min, max pairs that define each axis's lower and upper bounds
+        """
+
+        Viewer._global_slicer_counter += 1
         self.data = data
         self._app = app
         self.decomposition = decomposition
@@ -98,10 +115,12 @@ class Viewer(html.Div):
                     max=1,
                     step=.1,
                     value=.5 if i else 1,
-                    className='centered-slider'
+                    className='centered-slider',
+                    disabled=True if i else False
                 ) for i in range(self.decomposition.shape[0])],
                 className='col-sm',
-                style={'paddingLeft':0, 'paddingRight':0}
+                style={'paddingLeft':0, 'paddingRight':0},
+                id='component-opacity-sliders'
             )
 
             self.component_color_scale_selectors = html.Div(
@@ -227,6 +246,25 @@ def notebook_viewer(data,
                     mode='inline',
                     width='100%',
                     height=650):
+    """Creates and returns a new IRVIZ viewer.
+
+            Parameters
+            ----------
+            data : dask array
+                3D data to visualize in the view/app
+            decomposition : np.ndarray
+                (optional) Component values for the decomposed data
+            bounds : Collection
+                (optional) List of min, max pairs that define each axis's lower and upper bounds
+            mode : str
+                (optional) Change where the app is displayed
+
+            Returns
+            -------
+            Viewer
+                Returns the viewer that is created, which provides data access through its properties
+                (See `irviz.Viewer` documentation for more information)
+                """
     """Create a Viewer inside of a Jupyter Notebook or Lab environment.
 
     Parameters
@@ -260,6 +298,7 @@ def notebook_viewer(data,
 
     """
     was_running = True
+    app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
     from irviz.utils import dash as irdash
     try:
         from jupyter_dash import JupyterDash
@@ -268,7 +307,7 @@ def notebook_viewer(data,
     else:
         if not irdash.app:
             # Creating a new app means we never ran the server
-            irdash.app = JupyterDash(__name__)
+            irdash.app = JupyterDash(__name__, **app_kwargs)
             was_running = False
 
     viewer = Viewer(irdash.app,
@@ -295,3 +334,5 @@ def notebook_viewer(data,
                                 port=8050,
                                 width=width,
                                 height=height)
+
+    return viewer
