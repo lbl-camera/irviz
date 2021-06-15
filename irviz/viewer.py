@@ -19,10 +19,10 @@ class Viewer(html.Div):
                  bounds=None,
                  cluster_labels=None,
                  cluster_label_names=None,
-                 x_axis_title='',
-                 y_axis_title='',
-                 spectra_axis_title='',
-                 intensity_axis_title='',
+                 x_axis_title='X',
+                 y_axis_title='Y',
+                 spectra_axis_title='Spectral Units',
+                 intensity_axis_title='Intensity',
                  invert_spectra_axis=False):
         """Viewer on the Dash app.
 
