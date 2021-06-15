@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output, ALL
 from dash.exceptions import PreventUpdate
 from dash.development.base_component import Component
+from dask.array import flip
+
 from irviz.utils.dash import targeted_callback
 
 
@@ -40,7 +42,7 @@ class SpectraPlotGraph(dcc.Graph):
 
     title = 'Spectra Intensities'
 
-    def __init__(self, data, bounds, parent, **kwargs):
+    def __init__(self, data, bounds, parent, invert_spectra_axis=False, **kwargs):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -55,6 +57,9 @@ class SpectraPlotGraph(dcc.Graph):
         """
         self._instance_index = next(self._counter)
         self._data = data
+        self._invert_spectra_axis = invert_spectra_axis
+        if self._invert_spectra_axis:
+            self._data = flip(self._data, axis=2)
         self._parent = parent
         self._bounds = bounds
 
@@ -143,6 +148,8 @@ class SpectraPlotGraph(dcc.Graph):
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title)
+        if self._invert_spectra_axis:
+            fig.update_xaxes(autorange="reversed")
         fig.add_shape(self._energy_line)
         return fig
 

@@ -54,7 +54,8 @@ if __name__ == "__main__":
                     spectra_axis_title='Wavenumber (cm⁻¹)',
                     intensity_axis_title='Intensity',
                     x_axis_title='X (μm)',
-                    y_axis_title='Y (μm)')
+                    y_axis_title='Y (μm)',
+                    invert_spectra_axis=True)
 
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)

@@ -2,6 +2,7 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
 from dash_core_components import Graph, Slider
+from dask.array import flip
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
@@ -20,7 +21,8 @@ class Viewer(html.Div):
                  x_axis_title='',
                  y_axis_title='',
                  spectra_axis_title='',
-                 intensity_axis_title=''):
+                 intensity_axis_title='',
+                 invert_spectra_axis=False):
         """Viewer on the Dash app.
 
         Provides some properties for accessing visualized data (e.g. the current spectrum).
@@ -43,6 +45,8 @@ class Viewer(html.Div):
             Title for the spectra axis in the rendered spectra plot
         intensity_axis_title : str
             Title for the intensity axis in the rendered spectra plot
+        invert_spectra_axis : bool
+            Whether or not to invert the spectra axis on the spectra plot
         """
 
         Viewer._global_slicer_counter += 1
@@ -53,11 +57,16 @@ class Viewer(html.Div):
         self.bounds = np.asarray(bounds)
         if self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
             self.bounds = [[0, self._data.shape[0] - 1],
-                            [0, self._data.shape[1] - 1],
-                            [0, self._data.shape[2] - 1]]
+                           [0, self._data.shape[1] - 1],
+                           [0, self._data.shape[2] - 1]]
 
         # Initialize graphs
-        self.spectra_graph = SpectraPlotGraph(data, self.bounds, self, xaxis_title=spectra_axis_title, yaxis_title=intensity_axis_title)
+        self.spectra_graph = SpectraPlotGraph(data,
+                                              self.bounds,
+                                              self,
+                                              xaxis_title=spectra_axis_title,
+                                              yaxis_title=intensity_axis_title,
+                                              invert_spectra_axis=invert_spectra_axis)
         self.map_graph = MapGraph(data, self.bounds, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
@@ -251,6 +260,7 @@ def notebook_viewer(data,
                     intensity_axis_title='',
                     x_axis_title='',
                     y_axis_title='',
+                    invert_spectra_axis=False,
                     mode='inline',
                     width='100%',
                     height=650):
@@ -272,6 +282,8 @@ def notebook_viewer(data,
         Title for the spectra axis in the rendered spectra plot
     intensity_axis_title : str
         Title for the intensity axis in the rendered spectra plot
+    invert_spectra_axis : bool
+        Whether or not to invert the spectra axis on the spectra plot
     mode : str
         Defines where the Viewer app is displayed (default is 'inline')
     width : int or str
@@ -306,7 +318,8 @@ def notebook_viewer(data,
                     x_axis_title=x_axis_title,
                     y_axis_title=y_axis_title,
                     spectra_axis_title=spectra_axis_title,
-                    intensity_axis_title=intensity_axis_title)
+                    intensity_axis_title=intensity_axis_title,
+                    invert_spectra_axis=invert_spectra_axis)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
