@@ -11,7 +11,7 @@ class Viewer(html.Div):
 
     _global_slicer_counter = 0
 
-    def __init__(self, app, data, decomposition=None, bounds=None):
+    def __init__(self, app, data, decomposition=None, cluster_labels=None, cluster_label_names=None, bounds=None):
         """Viewer on the Dash app.
 
         Provides some properties for accessing visualized data (e.g. the current spectrum).
@@ -37,7 +37,7 @@ class Viewer(html.Div):
         # Initialize graphs
         spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
         self.spectra_graph = SpectraPlotGraph(data, bounds, self, labels=spectra_graph_labels)
-        self.map_graph = MapGraph(data, bounds, self)
+        self.map_graph = MapGraph(data, bounds, cluster_labels, cluster_label_names, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
@@ -54,12 +54,15 @@ class Viewer(html.Div):
         initial_views = ["show_spectra"]
         if self.decomposition is not None:
             initial_views.extend(["show_decomposition", "show_pair_plot"])
+        if cluster_labels is not None:
+            initial_views.append('show_clusters')
         self.graph_toggles = dbc.Checklist(
             options=[
                 {"label": "Show Spectra", "value": "show_spectra"},
                 {"label": "Show Decomposition", "value": "show_decomposition", "disabled": self.decomposition is None},
                 {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": self.decomposition is None},
-                {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"}
+                {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"},
+                {"label": "Show Cluster Labels", "value": "show_clusters", "disabled": cluster_labels is None}
             ],
             value=initial_views,
             id="view-checklist",

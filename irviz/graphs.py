@@ -278,25 +278,37 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
+    def __init__(self, data, bounds, cluster_labels, cluster_label_names, parent, slice_axis=0, traces=None, shapes=None):
         default_slice_index = (data.shape[0] - 1) // 2
 
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
+        graph_bounds = dict(y0=bounds[1][0],
+                            dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                            x0=bounds[2][0],
+                            dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
+        # Template for custom hover text
+        xlabel='x'
+        ylabel='y'
+        ilabel='i'
+        extra_kwargs = {}
+        if cluster_label_names is not None and cluster_labels is not None:
+            extra_kwargs['text'] = np.asarray(cluster_label_names)[cluster_labels]
+            hovertemplate = f'{xlabel}: %{{x}}<br />{ylabel}: %{{y}}<br />{ilabel}: %{{z}}<br />Label: %{{text}}<extra></extra>'
+        else:
+            hovertemplate = f'{xlabel}: %{{x}}<br />{ylabel}: %{{y}}<br />{ilabel}: %{{z}}<extra></extra>'
         self._image = go.Heatmap(z=np.asarray(data[default_slice_index]),
                                  colorscale='gray',
-                                 y0=bounds[1][0],
-                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
-                                 x0=bounds[2][0],
-                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
+                                 hovertemplate=hovertemplate,
+                                 **graph_bounds,
+                                 **extra_kwargs
                                  )
         self._selection_mask = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
                                           colorscale='reds',
                                           opacity=0.3,
                                           showscale=False,
-                                          y0=bounds[1][0],
-                                          dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
-                                          x0=bounds[2][0],
-                                          dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
+                                          hoverinfo='skip',
+                                          **graph_bounds
+                                          )
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2], endpoint=False),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1], endpoint=False))
 
@@ -304,9 +316,22 @@ class MapGraph(SliceGraph):
         self._dummy_scatter = go.Scattergl(x=x.ravel(),
                                            y=y.ravel(),
                                            mode='markers',
-                                           marker={'color': 'rgba(0,0,0,0)'}
+                                           marker={'color': 'rgba(0,0,0,0)'},
+                                           hoverinfo='skip'
                                            )
-        traces = (traces or []) + [self._image, self._selection_mask, self._dummy_scatter]
+        # Add another transparent heatmap overlay for labels
+        self._clusters = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
+                                    colorscale='Portland',
+                                    **graph_bounds,
+                                    opacity=0.3,
+                                    showscale=False,
+                                    hoverinfo='skip',
+                                    )
+        if cluster_labels is not None:
+            self._clusters.z = cluster_labels  # NaNs are transparent
+
+
+        traces = (traces or []) + [self._image, self._selection_mask, self._dummy_scatter, self._clusters]
 
         super(MapGraph, self).__init__(data,
                                        bounds,
@@ -347,6 +372,17 @@ class MapGraph(SliceGraph):
                           Input(self.id, 'selectedData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
+
+        # Bind the labels toggle to its trace's visibility
+        targeted_callback(self.set_clusters_visibility,
+                          Input(self._parent.graph_toggles.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+    def set_clusters_visibility(self, value):
+        self._clusters.visible = 'show_clusters' in value
+
+        return self._update_figure()
 
     def update_slice(self, spectra_graph_click_data):
         slice = spectra_graph_click_data["points"][0]["x"]
