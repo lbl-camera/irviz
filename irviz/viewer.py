@@ -1,14 +1,15 @@
 import dash_bootstrap_components as dbc
 import dash_html_components as html
-from dash_core_components import Graph
+from dash_core_components import Graph, Slider
 
-from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph
+from irviz.components import ColorScaleSelector
+from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
 
 
 class Viewer(html.Div):
     _global_slicer_counter = 0
 
-    def __init__(self, app, data, decomposition=None, bounds=None, ):
+    def __init__(self, app, data, decomposition=None, bounds=None):
         self.data = data
         self._app = app
         self.decomposition = decomposition
@@ -56,29 +57,65 @@ class Viewer(html.Div):
         view_selector = dbc.Form([view_switches])
 
         # Decomposition and pair plot component selectors
-        decomposition_selector_layout = html.Div()
         pair_plot_component_selector = html.Div()
         if self.decomposition is not None:
-            radio_kwargs = dict(className='btn-group',
+            radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
                                 labelClassName="btn btn-secondary",
                                 labelCheckedClassName="active",
-                                options=[
-                                    {'label': 'Component 1', 'value': 0},
-                                    {'label': 'Component 2', 'value': 1},
-                                    {'label': 'Component 3', 'value': 2}
-                                ])
+                                options=[{'label': f'{i+1}', 'value': i}
+                                         for i in range(decomposition.shape[0])]
 
-            self.decomposition_component_selector = dbc.RadioItems(id='decomposition-component-selector', value=0,
-                                                                   **radio_kwargs)
+                                )
+
+            self.decomposition_component_selector = dbc.Checklist(id='decomposition-component-selector',
+                                                                  value=[0],
+                                                                  style={'paddingLeft':0, 'paddingRight':0},
+                                                                  **radio_kwargs)
+
+            self.component_opacity_sliders = html.Div(
+                [Slider(
+                    id={'type': 'component-opacity',
+                        'index': i},
+                    min=0,
+                    max=1,
+                    step=.1,
+                    value=.5 if i else 1,
+                    className='centered-slider'
+                ) for i in range(self.decomposition.shape[0])],
+                className='col-sm',
+                style={'paddingLeft':0, 'paddingRight':0}
+            )
+
+            self.component_color_scale_selectors = html.Div(
+                [ColorScaleSelector(app,
+                                    {'type':'color-scale-selector',
+                                    'index': i},
+                                    values=decomposition_color_scales,
+                                    value=decomposition_color_scales[i % len(decomposition_color_scales)]
+                                    )
+                 for i in range(self.decomposition.shape[0])],
+                className='col-sm-auto',
+                style={'paddingLeft':0, 'paddingRight':0, 'marginTop':2.5},
+            )
 
             decomposition_selector_layout = html.Div(
                 [
                     html.H3(id="decomposition-component-selector-p", className="card-text",
-                           children="Decomposition Component"),
-                    self.decomposition_component_selector
+                            children="Decomposition Component"),
+                    html.Div([
+                        html.Div([self.decomposition_component_selector,
+                                  self.component_color_scale_selectors,
+                                  self.component_opacity_sliders,],
+                                 className='row well'
+                                 ),
+                    ],
+                    className='container'
+                    ),
                 ],
                 className='radio-group'
             )
+
+            radio_kwargs['className'] = 'btn-group'  # wipe out other classes
 
             self.decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
             self.decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
@@ -160,34 +197,33 @@ class Viewer(html.Div):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
 
-def notebook_viewer(data, decomposition=None, bounds=None, mode='inline'):
+def notebook_viewer(data, decomposition=None, bounds=None, mode='inline', width='100%', height=650):
     was_running = True
-    import irviz
+    from irviz.utils import dash as irdash
     try:
         from jupyter_dash import JupyterDash
     except ImportError:
         print("Please install jupyter-dash first.")
     else:
-        if not irviz.app:
+        if not irdash.app:
             # Creating a new app means we never ran the server
-            irviz.app = JupyterDash(__name__)
+            irdash.app = JupyterDash(__name__)
             was_running = False
 
-    app = irviz.app
-    viewer = Viewer(app, data.compute(), decomposition, bounds)
+    viewer = Viewer(irdash.app, data.compute(), decomposition, bounds)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
-    app.layout = div
+    irdash.app.layout = div
 
     # Prevent server from being run multiple times; only one instance allowed
     if not was_running:
-        irviz.app.run_server(mode=mode)
+        irdash.app.run_server(mode=mode)
     else:
         # Values passed here are from
         # jupyter_app.jupyter_dash.JupyterDash.run_server
-        app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
+        irdash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
                                 mode=mode,
                                 port=8050,
-                                width='100%',
-                                height=650)
+                                width=width,
+                                height=height)

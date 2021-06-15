@@ -1,16 +1,34 @@
 from itertools import count
-
+import re
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, ALL
 from dash.exceptions import PreventUpdate
-
 from dash.development.base_component import Component
+from irviz.utils.dash import targeted_callback
 
-# TODO: implement orthogonal views by using slice_axis kwarg
+
+transparent_color_scales = {'TransparentRed': [[0, "rgba(255, 0, 0, 0)"],
+                                               [1, "rgba(255, 0, 0, 255)"]],
+                            'TransparentGreen': [[0, "rgba(0, 255, 0, 0)"],
+                                                [1, "rgba(0, 255, 0, 255)"]],
+                            'TransparentBlue': [[0, "rgba(0, 0, 255, 0)"],
+                                                [1, "rgba(0, 0, 255, 255)"]],
+                            'TransparentYellow': [[0, "rgba(255, 255, 0, 0)"],
+                                                  [1, "rgba(255, 255, 0, 255)"]],
+                            'TransparentOrange': [[0, "rgba(255, 69, 0, 0)"],
+                                                  [1, "rgba(255, 69, 0, 255)"]],
+                            'TransparentPurple': [[0, "rgba(255, 0, 255, 0)"],
+                                                  [1, "rgba(255, 0, 255, 255)"]],
+                            'TransparentCyan': [[0, "rgba(0, 255, 255, 0)"],
+                                                [1, "rgba(0, 255, 255, 255)"]]
+                            }
+
+
+decomposition_color_scales = ['gray']+list(transparent_color_scales.keys())
 
 
 def nearest_bin(x, bounds, bin_count):
@@ -191,17 +209,6 @@ class SliceGraph(dcc.Graph):
         self._traces = traces or []
         self._shapes = shapes or []
 
-        default_slice_index = self._init_slice_index()  # TODO: Refactor these classes with a base
-
-        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
-        self._image = go.Heatmap(z=np.asarray(self._data[default_slice_index]),
-                                 colorscale='gray',
-                                 y0=bounds[1][0],
-                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
-                                 x0=bounds[2][0],
-                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
-                                 )
-
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
                                        xref='paper',
@@ -218,7 +225,6 @@ class SliceGraph(dcc.Graph):
                                        y0=0,
                                        y1=1)
 
-        self._traces.insert(0, self._image)
         self._shapes.extend([self._h_line, self._v_line])
 
         figure = self._update_figure()
@@ -228,9 +234,6 @@ class SliceGraph(dcc.Graph):
 
     def _id(self):
         return f'slicegraph_{self._instance_index}'
-
-    def _init_slice_index(self):
-        ...
 
     def register_callbacks(self):
         ...
@@ -274,6 +277,16 @@ class MapGraph(SliceGraph):
     title = 'IR Spectral Map'
 
     def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
+        default_slice_index = (data.shape[0] - 1) // 2
+
+        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
+        self._image = go.Heatmap(z=np.asarray(data[default_slice_index]),
+                                 colorscale='gray',
+                                 y0=bounds[1][0],
+                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                                 x0=bounds[2][0],
+                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
+                                 )
         self._selection_mask = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
                                           colorscale='reds',
                                           opacity=0.3,
@@ -282,7 +295,7 @@ class MapGraph(SliceGraph):
                                           dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
                                           x0=bounds[2][0],
                                           dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
-        traces = (traces or []) + [self._selection_mask]
+        traces = (traces or []) + [self._image, self._selection_mask]
         super(MapGraph, self).__init__(data, bounds, parent, slice_axis=0, traces=traces, shapes=shapes)
 
     def register_callbacks(self):
@@ -343,25 +356,33 @@ class MapGraph(SliceGraph):
         # Create overlay
         self._selection_mask.z = mask
 
-    def _init_slice_index(self):
-        return (self._data.shape[0] - 1) // 2
-
 
 class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
+    def __init__(self, data, bounds, parent, *args, **kwargs):
+        traces = []
+        for i in range(data.shape[0]):
+            color_scale = decomposition_color_scales[i % len(decomposition_color_scales)]
+            color_scale = transparent_color_scales.get(color_scale, color_scale)
+
+            traces.append(go.Heatmap(z=np.asarray(data[i]),
+                                 colorscale=color_scale,
+                                 y0=bounds[1][0],
+                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                                 x0=bounds[2][0],
+                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
+                                 visible=(i==0),
+                                 opacity=.5 if i else 1,
+                                 ))
+
+        kwargs['traces'] = traces
+
+        super(DecompositionGraph, self).__init__(data, bounds, parent, *args, **kwargs)
+
     def register_callbacks(self):
         # Set up callbacks
         # ----------------
-
-        # When the parent viewer's 'spectra_graph' is clicked
-        #     we need to update the internal Figure for this Graph
-        self._parent._app.callback(
-            Output(self.id, 'figure'),
-            Input(self.id, 'clickData'),
-            Input(self._parent.decomposition_component_selector.id, 'value'),
-            Input(self._parent.map_graph.id, 'clickData')
-        )(self.show_slice)
 
         # Wire-up visibility toggle
         self._parent._app.callback(
@@ -369,34 +390,81 @@ class DecompositionGraph(SliceGraph):
             Input(self._parent.graph_toggles.id, 'value')
         )(self._set_visibility)
 
-    def show_slice(self, self_click_data, component_index, slice_click_data):
-        """Show a 2D slice at a specific energy defined in click data.
+        # Wire-up opacity sliders
+        targeted_callback(self.set_component_opacity,
+                          Input({'type': 'component-opacity', 'index': ALL}, 'value'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        Parameters
-        ----------
-        spectra_graph_click_data : dict
-            Dictionary that contains point info from where the input Graph was clicked.
-        """
-        triggered = dash.callback_context.triggered
-        if not triggered:
-            raise PreventUpdate
+        targeted_callback(self.show_components,
+                          Input(self._parent.decomposition_component_selector.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # When the decomposition_component_selector is clicked, update image slicing
-        if self._parent.decomposition_component_selector.id in triggered[0]['prop_id']:
-            self._image.z = np.asarray(self._data[component_index])
+        targeted_callback(self.show_click,
+                          Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # When this DecompositionGraph itself is clicked, update its x,y slicer lines
-        if self.id in triggered[0]['prop_id']:
-            self._show_click(self_click_data)
+        targeted_callback(self.show_click,
+                          Input(self._parent.map_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        if self._parent.map_graph.id in triggered[0]['prop_id']:
-            self._show_click(slice_click_data)
+        targeted_callback(self.set_color_scale,
+                          Input({'type':'color-scale-selector', 'index': ALL}, 'label'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # Need to update our figure again when we update the traces
+    def set_color_scale(self, color_scale):
+        i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
+        color_scale = transparent_color_scales.get(color_scale, color_scale)
+        self._traces[i].colorscale = color_scale
+
         return self._update_figure()
 
-    def _init_slice_index(self):
-        return 0
+    def _opacity_slider(self, i):
+        return self._parent.component_opacity_sliders.children[i]
+
+    def _color_scale_selector(self, i):
+        return self._parent.component_color_scale_selectors.children[i]
+
+    def set_component_opacity(self, value):
+        i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
+        self._opacity_slider(i).value = value
+        self._update_opacity()
+        return self._update_figure()
+
+    def _update_opacity(self):
+        # Get a sum of all enabled slider values minus the first enabled value
+        total = 0
+        for slider in self._parent.component_opacity_sliders.children:
+            if not slider.disabled:
+                total += slider.value
+
+        # Set each trace's opacity to a value proportional to its weight; always set first visible trace's opacity to 1
+        bg_set = False
+        for i, trace in enumerate(self._traces):
+            if not bg_set and trace.visible:
+                trace.opacity = 1
+                bg_set = True
+            else:
+                trace.opacity = self._opacity_slider(i).value / total
+
+    def show_components(self, component_indices):
+        for i, trace in enumerate(self._traces):
+            trace.visible = (i in component_indices)
+            trace.showscale = len(component_indices) < 2
+            self._opacity_slider(i).disabled = not (i in component_indices)  # TODO: set this in a separate callback that outputs to the slider
+
+        self._update_opacity()
+
+        return self._update_figure()
+
+    # TEMPORARY WHILE transititioning to targeted callbacks
+    def show_click(self, clickData):
+        self._show_click(clickData)
+        return self._update_figure()
 
     @staticmethod
     def _set_visibility(switches_value):
