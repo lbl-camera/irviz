@@ -32,7 +32,9 @@ transparent_color_scales = {'TransparentRed': [[0, "rgba(255, 0, 0, 0)"],
 decomposition_color_scales = ['gray']+list(transparent_color_scales.keys())
 
 
-def nearest_bin(x, bounds, bin_count):
+def nearest_bin(x, bounds, bin_count, rounding=True):
+    if round:
+        return round((x-bounds[0])/(bounds[1]-bounds[0])*bin_count)
     return int((x-bounds[0])/(bounds[1]-bounds[0])*bin_count)
 
 
@@ -71,6 +73,8 @@ class SpectraPlotGraph(dcc.Graph):
         y = np.asarray(self._data[:, _y_index, _x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
         self._plot = go.Scattergl(x=x, y=y)
+        self._avg_plot = go.Scattergl()
+        self._std_plot = go.Scattergl()
 
         # Define starting point for energy index (for the slicer line trace)
         default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
@@ -95,18 +99,48 @@ class SpectraPlotGraph(dcc.Graph):
                                                className='col-lg-12')
 
     def register_callbacks(self):
-        self._parent._app.callback(
-            Output(self.id, 'figure'),
-            Input(self._parent.map_graph.id, 'clickData'),
-            Input(self.id, 'clickData'),
-            Input(self._parent.decomposition_graph.id, 'clickData')
-        )(self._show_plot)
+        # When points are selected on the MapGraph, add additional statistics and components plots
+        targeted_callback(self._update_average_plot,
+                          Input(self._parent.map_graph.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # targeted_callback(self._update_standard_deviation,
+        #                   Input(self._parent.map_graph.id, 'selectedData'),
+        #                   Output(self.id, 'figure'))
+
+        # When this SpectraGraph itself is clicked, update the energy slicer line
+        targeted_callback(self._update_energy_line,
+                          Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # When the slice graph is clicked, update plot with the clicked x,y coord
+        targeted_callback(self.show_click,
+                          Input(self._parent.map_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # When the decomposition graph is clicked update plot with clicked x,y coord
+        targeted_callback(self.show_click,
+                          Input(self._parent.decomposition_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
         # Wire-up visibility toggle
-        self._parent._app.callback(
-            Output(self.id, 'style'),
-            Input(self._parent.graph_toggles.id, 'value')
-        )(self._set_visibility)
+        targeted_callback(self._set_visibility,
+                          Input(self._parent.graph_toggles.id, 'value'),
+                          Output(self.id, 'style'),
+                          app=self._parent._app)
+
+    def show_click(self, click_data):
+        y = click_data["points"][0]["y"]
+        x = click_data["points"][0]["x"]
+        _x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
+        _y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
+        self._plot.y = np.asarray(self._data[:, _y_index, _x_index])
+
+        return self._update_figure()
         
     @property
     def spectrum(self):
@@ -142,7 +176,7 @@ class SpectraPlotGraph(dcc.Graph):
             return {'display': 'none'}
 
     def _update_figure(self):
-        fig = go.Figure(self._plot)
+        fig = go.Figure([self._plot, self._avg_plot, self._std_plot])
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title)
@@ -151,32 +185,25 @@ class SpectraPlotGraph(dcc.Graph):
         fig.add_shape(self._energy_line)
         return fig
 
-    def _show_plot(self, slice_graph_click_data, self_click_data, decomposition_click_data):
-        triggered = dash.callback_context.triggered
-        if not triggered:
-            raise PreventUpdate
-
-        # When the slice graph is clicked, update plot with the clicked x,y coord
-        if self._parent.map_graph.id in triggered[0]['prop_id']:
-            self._show_click(slice_graph_click_data)
-
-        elif self._parent.decomposition_graph.id in triggered[0]['prop_id']:
-            self._show_click(decomposition_click_data)
-
-        # When this SpectraGraph itself is clicked, update the energy slicer line
-        elif self_click_data is not None:
-            e = self_click_data["points"][0]["x"]
-            self._energy_line.x0 = e
-            self._energy_line.x1 = e
+    def _update_average_plot(self, selected_data):
+        xs = np.asarray(list(map(lambda point: point['x'], selected_data['points'])))
+        ys = np.asarray(list(map(lambda point: point['y'], selected_data['points'])))
+        x_indexes = list(map(lambda x: nearest_bin(x, self._bounds[2], self._data.shape[2]), xs))
+        y_indexes = list(map(lambda y: nearest_bin(y, self._bounds[1], self._data.shape[1]), ys))
+        self._avg_plot.x = self._plot.x
+        self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
+        # self._std_plot.x = self._plot.x
+        # self._std_plot.y = np.std(self._data[:, y_indexes, x_indexes], axis=1)
+        print("avg", self._avg_plot)
+        print("std", self._std_plot)
 
         return self._update_figure()
 
-    def _show_click(self, click_data):
-        y = click_data["points"][0]["y"]
-        x = click_data["points"][0]["x"]
-        _x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
-        _y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
-        self._plot.y = np.asarray(self._data[:, _y_index, _x_index])
+    def _update_energy_line(self, click_data):
+        e = click_data["points"][0]["x"]
+        self._energy_line.x0 = e
+        self._energy_line.x1 = e
+        return self._update_figure()
 
     def _id(self):
         return f'spectraplot_{self._instance_index}'
