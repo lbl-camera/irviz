@@ -216,7 +216,49 @@ class Viewer(html.Div):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
 
-def notebook_viewer(data, decomposition=None, bounds=None, mode='inline', width='100%', height=650):
+
+def notebook_viewer(data,
+                    decomposition=None,
+                    bounds=None,
+                    spectra_axis_title='',
+                    intensity_axis_title='',
+                    x_axis_title='',
+                    y_axis_title='',
+                    mode='inline',
+                    width='100%',
+                    height=650):
+    """Create a Viewer inside of a Jupyter Notebook or Lab environment.
+
+    Parameters
+    ----------
+    data
+        Data (for now 3D) to visualize in the Viewer
+    decomposition
+        Data decomposition array
+    bounds
+        2D array that contains min, max pairs for each of the data's axes
+    spectra_axis_title
+        Title for the spectra axis in the rendered spectra plot
+    intensity_axis_title
+        Title for the intensity axis in the rendered spectra plot
+    x_axis_title
+        Title of the x-axis for the rendered data and decomposition figures
+    y_axis_title
+        Title of the y-axis for the rendered data and decomposition figures
+    mode : str
+        Defines where the Viewer app is displayed (default is 'inline')
+    width
+        CSS-style width value that defines the width of the rendered Viewer app
+    height
+        CSS-style height value that defines the height of the renedered Viewer app
+
+    Returns
+    -------
+    viewer
+        Returns a reference to the created Viewer.
+        This is useful for accessing data inside of the Viewer (see Viewer's documentation).
+
+    """
     was_running = True
     from irviz.utils import dash as irdash
     try:
