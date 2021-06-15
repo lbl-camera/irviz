@@ -280,7 +280,7 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, bounds, cluster_labels, cluster_label_names,parent, slice_axis=0, traces=None, shapes=None, **kwargs):
+    def __init__(self, data, bounds, cluster_labels, cluster_label_names, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
 
         default_slice_index = (data.shape[0] - 1) // 2
 
@@ -290,15 +290,15 @@ class MapGraph(SliceGraph):
                             x0=bounds[2][0],
                             dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
         # Template for custom hover text
-        xlabel='x'
-        ylabel='y'
-        ilabel='i'
+        x_label = kwargs.get('xaxis_title', '')
+        y_label = kwargs.get('yaxis_title', '')
+        i_label = 'I'
         extra_kwargs = {}
         if cluster_label_names is not None and cluster_labels is not None:
             extra_kwargs['text'] = np.asarray(cluster_label_names)[cluster_labels]
-            hovertemplate = f'{xlabel}: %{{x}}<br />{ylabel}: %{{y}}<br />{ilabel}: %{{z}}<br />Label: %{{text}}<extra></extra>'
+            hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />{i_label}: %{{z}}<br />Label: %{{text}}<extra></extra>'
         else:
-            hovertemplate = f'{xlabel}: %{{x}}<br />{ylabel}: %{{y}}<br />{ilabel}: %{{z}}<extra></extra>'
+            hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />{i_label}: %{{z}}<extra></extra>'
         self._image = go.Heatmap(z=np.asarray(data[default_slice_index]),
                                  colorscale='gray',
                                  hovertemplate=hovertemplate,
@@ -332,7 +332,6 @@ class MapGraph(SliceGraph):
                                     )
         if cluster_labels is not None:
             self._clusters.z = cluster_labels  # NaNs are transparent
-
 
         traces = (traces or []) + [self._image, self._selection_mask, self._dummy_scatter, self._clusters]
 
