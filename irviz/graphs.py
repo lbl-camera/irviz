@@ -71,7 +71,7 @@ class SpectraPlotGraph(dcc.Graph):
 
         y = np.asarray(self._data[:, _y_index, _x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
-        self._plot = go.Scatter(x=x, y=y)
+        self._plot = go.Scattergl(x=x, y=y)
 
         # Define starting point for energy index (for the slicer line trace)
         default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
@@ -138,9 +138,9 @@ class SpectraPlotGraph(dcc.Graph):
     @staticmethod
     def _set_visibility(switches_value):
         if 'show_spectra' in switches_value:
-            return {'display':'block'}
+            return {'display': 'block'}
         else:
-            return {'display':'none'}
+            return {'display': 'none'}
 
     def _update_figure(self):
         fig = go.Figure(self._plot)
@@ -199,7 +199,7 @@ class SliceGraph(dcc.Graph):
     yaxis_title = 'Y'
     aspect_locked = True
 
-    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -230,7 +230,7 @@ class SliceGraph(dcc.Graph):
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
                                          id=self._id(),
-                                         className='col-lg-4')
+                                         className='col-lg-4', **kwargs)
 
     def _id(self):
         return f'slicegraph_{self._instance_index}'
@@ -249,13 +249,15 @@ class SliceGraph(dcc.Graph):
             fig.add_shape(shape)
         return fig
 
-    def _show_click(self, click_data):
+    def show_click(self, click_data):
         y_index = click_data["points"][0]["y"]
         x_index = click_data["points"][0]["x"]
         self._h_line.y0 = y_index
         self._h_line.y1 = y_index
         self._v_line.x0 = x_index
         self._v_line.x1 = x_index
+
+        return self._update_figure()
         
     @property
     def position(self):
@@ -295,55 +297,62 @@ class MapGraph(SliceGraph):
                                           dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
                                           x0=bounds[2][0],
                                           dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
-        traces = (traces or []) + [self._image, self._selection_mask]
-        super(MapGraph, self).__init__(data, bounds, parent, slice_axis=0, traces=traces, shapes=shapes)
+        x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2], endpoint=False),
+                           np.linspace(bounds[1][0], bounds[1][1], data.shape[1], endpoint=False))
+
+        # This dummy scatter trace is added to support lasso selection
+        self._dummy_scatter = go.Scattergl(x=x.ravel(),
+                                           y=y.ravel(),
+                                           mode='markers',
+                                           marker={'color': 'rgba(0,0,0,0)'}
+                                           )
+        traces = (traces or []) + [self._image, self._selection_mask, self._dummy_scatter]
+
+        super(MapGraph, self).__init__(data,
+                                       bounds,
+                                       parent,
+                                       slice_axis=0,
+                                       traces=traces,
+                                       shapes=shapes,
+                                       # config={'modeBarButtonsToAdd': ['lasso2d']}
+                                       )
 
     def register_callbacks(self):
-        # Set up callbacks
-        # ----------------
-
-        # When the parent viewer's 'spectra_graph' is clicked
-        #     we need to update the internal Figure for this Graph
-
-        self._parent._app.callback(
-            Output(self.id, 'figure'),
-            Input(self._parent.spectra_graph.id, 'clickData'),
-            Input(self.id, 'clickData'),
-            Input(self._parent.decomposition_graph.id, 'clickData'),
-            Input(self._parent.pair_plot_graph.id, 'selectedData')
-        )(self.show_slice)
-
-    def show_slice(self, spectra_graph_click_data, self_click_data, decomposition_click_data, pair_plot_selection):
-        """Show a 2D slice at a specific energy defined in click data.
-
-        Parameters
-        ----------
-        spectra_graph_click_data : dict
-            Dictionary that contains point info from where the input Graph was clicked.
-        """
-        triggered = dash.callback_context.triggered
-        if not triggered:
-            raise PreventUpdate
-
         # When the spectra graph is clicked, update image slicing
-        if self._parent.spectra_graph.id in triggered[0]['prop_id']:
-            slice = spectra_graph_click_data["points"][0]["x"]
-            slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
-            self._image.z = np.asarray(self._data[slice_index])
+        targeted_callback(self.update_slice,
+                          Input(self._parent.spectra_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
         # When this SliceGraph itself is clicked, update its x,y slicer lines
-        if self.id in triggered[0]['prop_id']:
-            self._show_click(self_click_data)
+        targeted_callback(self.show_click,
+                          Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
         # When the decomposition graph is clicked show the same position
-        if self._parent.decomposition_graph.id in triggered[0]['prop_id']:
-            self._show_click(decomposition_click_data)
+        targeted_callback(self.show_click,
+                          Input(self._parent.decomposition_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
         # When points are selected in the pair plot, show them here
-        if self._parent.pair_plot_graph.id in triggered[0]['prop_id']:
-            self._show_selection_mask(pair_plot_selection)
+        targeted_callback(self._show_selection_mask,
+                          Input(self._parent.pair_plot_graph.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # Need to update our figure again when we update the traces
+        # When this SliceGraph is lasso'd, update the selection mask
+        targeted_callback(self._show_selection_mask,
+                          Input(self.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+    def update_slice(self, spectra_graph_click_data):
+        slice = spectra_graph_click_data["points"][0]["x"]
+        slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
+        self._image.z = np.asarray(self._data[slice_index])
+
         return self._update_figure()
 
     def _show_selection_mask(self, selection):
@@ -355,6 +364,8 @@ class MapGraph(SliceGraph):
         mask.ravel()[raveled_indexes] = 1
         # Create overlay
         self._selection_mask.z = mask
+
+        return self._update_figure()
 
 
 class DecompositionGraph(SliceGraph):
@@ -461,11 +472,6 @@ class DecompositionGraph(SliceGraph):
 
         return self._update_figure()
 
-    # TEMPORARY WHILE transititioning to targeted callbacks
-    def show_click(self, clickData):
-        self._show_click(clickData)
-        return self._update_figure()
-
     @staticmethod
     def _set_visibility(switches_value):
         if 'show_decomposition' in switches_value:
@@ -499,23 +505,26 @@ class PairPlotGraph(dcc.Graph):
 
         # When the parent viewer's 'spectra_graph' is clicked
         #     we need to update the internal Figure for this Graph
+        # When MapGraph is lasso'd, show that selection here too
+        # Note: this can't be a targeted callback, since multiple values are required
         self._parent._app.callback(
             Output(self.id, 'figure'),
             Input(self._parent.decomposition_component_1.id, 'value'),
             Input(self._parent.decomposition_component_2.id, 'value'),
+            Input(self._parent.map_graph.id, 'selectedData')
         )(self.show_pair_plot)
 
         # Set up selection tool callbacks
-        self._parent._app.callback(
-            Output(self._parent.info_content.id, 'children'),
-            Input(self.id, 'selectedData')
-        )(self._show_selection_info)
+        targeted_callback(self._show_selection_info,
+                          Input(self.id, 'selectedData'),
+                          Output(self._parent.info_content.id, 'children'),
+                          app=self._parent._app)
 
         # Wire-up visibility toggle
-        self._parent._app.callback(
-            Output(self.id, 'style'),
-            Input(self._parent.graph_toggles.id, 'value')
-        )(self._set_visibility)
+        targeted_callback(self._set_visibility,
+                          Input(self._parent.graph_toggles.id, 'value'),
+                          Output(self.id, 'style'),
+                          app=self._parent._app)
 
     def _show_selection_info(self, selected_data):
         if not selected_data:
@@ -530,9 +539,14 @@ class PairPlotGraph(dcc.Graph):
                           yaxis_title=f'Component #{self._component2+1}')
         return fig
 
-    def show_pair_plot(self, component1, component2):
-        if component1 is None and component2 is None:
+    def show_pair_plot(self, component1, component2, selectedData):
+        if component1 is None or component2 is None:
             raise PreventUpdate
+
+        triggered = dash.callback_context.triggered
+        if self._parent.map_graph.id in triggered[0]['prop_id']:
+            raveled_indexes = list(map(lambda point: point['pointIndex'], selectedData['points']))
+            self._scatter.selectedpoints = raveled_indexes
 
         x = self._data[component1]
         y = self._data[component2]

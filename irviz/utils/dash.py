@@ -36,12 +36,21 @@ def _dispatcher(*_):
             return callback.callable(triggered[0]['value'])
 
 
-def targeted_callback(callback, input:Input, output:Output, app=app):
+def targeted_callback(callback, input:Input, output:Output, app=app, prevent_initial_callbacks=None):
+    if prevent_initial_callbacks is None:
+        prevent_initial_callbacks = app.config.prevent_initial_callbacks
+
     callback_id = create_callback_id(output)
     if callback_id in app.callback_map:
+        if app.callback_map[callback_id]["callback"].__name__ != '_dispatcher':
+            raise ValueError('Attempting to use a targeted callback with an output already assigned to a'
+                             'standard callback. These are not compatible.')
         for callback_spec in app._callback_list:
             if callback_spec['output'] == callback_id:
+                if callback_spec['prevent_initial_call'] != prevent_initial_callbacks:
+                    raise ValueError('A callback has already been registered to this output with a conflicting value'
+                                     'for prevent_initial_callback. You should decide which you want.')
                 callback_spec['inputs'].append(input.to_dict())
     else:
-        app.callback(output, input)(_dispatcher)
+        app.callback(output, input, prevent_initial_callbacks=prevent_initial_callbacks)(_dispatcher)
     _targeted_callbacks.append(Callback(input, output, callback))
