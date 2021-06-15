@@ -89,9 +89,9 @@ class SpectraPlotGraph(dcc.Graph):
     @staticmethod
     def _set_visibility(switches_value):
         if 'show_spectra' in switches_value:
-            return {'display':'block'}
+            return {'display': 'block'}
         else:
-            return {'display':'none'}
+            return {'display': 'none'}
 
     def _update_figure(self):
         fig = go.Figure(self._plot)
@@ -244,6 +244,8 @@ class MapGraph(SliceGraph):
                                           dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2], endpoint=False),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1], endpoint=False))
+
+        # This dummy scatter trace is added to support lasso selection
         self._dummy_scatter = go.Scattergl(x=x.ravel(),
                                            y=y.ravel(),
                                            mode='markers',
