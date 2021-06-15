@@ -18,7 +18,8 @@ class Viewer(html.Div):
         Viewer._global_slicer_counter += 1
 
         # Initialize graphs
-        self.spectra_graph = SpectraPlotGraph(data, bounds, self)
+        spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
+        self.spectra_graph = SpectraPlotGraph(data, bounds, self, labels=spectra_graph_labels)
         self.map_graph = MapGraph(data, bounds, self)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
@@ -170,8 +171,31 @@ class Viewer(html.Div):
 
         super(Viewer, self).__init__(children=children,
                                      className='container-fluid',
-                                     )
+                                     )   @property
+        
+    def spectrum(self):
+        """The currently shown spectrum energy/wavenumber and intensity values"""
+        return self.spectra_graph.spectrum
 
+    @property
+    def spectral_value(self):
+        """The current value of the crosshair position in energy/wavenumber"""
+        return self.spectra_graph.spectral_value
+
+    @property
+    def spectral_index(self):
+        """The current index of the crosshair position along the energy/wavenumber domain"""
+        return self.spectra_graph.spectral_index
+
+    @property
+    def intensity(self):
+        """The intensity value of the crosshair position"""
+        return self.spectra_graph.intensity
+
+    @property
+    def position(self):
+        """The spatial position of the current spectrum"""
+        return self.spectra_graph.position
 
 def notebook_viewer(data, decomposition=None, bounds=None, mode='inline', width='100%', height=650):
     was_running = True
