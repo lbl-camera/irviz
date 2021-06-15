@@ -5,9 +5,10 @@ from dash.dependencies import handle_callback_args
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 import dash
-from irviz import app
 from dataclasses import dataclass
+import json
 
+app = None
 
 _targeted_callbacks = []
 
@@ -25,9 +26,13 @@ def _dispatcher(*_):
         raise PreventUpdate
 
     for callback in _targeted_callbacks:
-        if create_callback_id(callback.input) == triggered[0]['prop_id'] and \
-                create_callback_id(callback.output) == \
-                f"{dash.callback_context.outputs_list['id']}.{dash.callback_context.outputs_list['property']}":
+        _id, _property = triggered[0]['prop_id'].split('.')
+        if '{' in _id:
+            _id = json.loads(_id)
+        _input = Input(_id, _property)
+        _id, _property = dash.callback_context.outputs_list.values()
+        _output = Output(_id, _property)
+        if callback.input == _input and callback.output == _output:
             return callback.callable(triggered[0]['value'])
 
 
