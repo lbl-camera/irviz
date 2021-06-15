@@ -1,6 +1,7 @@
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 from dash_core_components import Graph, Slider
+import numpy as np
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
@@ -10,25 +11,30 @@ class Viewer(html.Div):
     _global_slicer_counter = 0
 
     def __init__(self, app, data, decomposition=None, bounds=None):
+        Viewer._global_slicer_counter += 1
+
         self.data = data
         self._app = app
         self.decomposition = decomposition
-        self.bounds = bounds
 
-        Viewer._global_slicer_counter += 1
+        self.bounds = np.asarray(bounds)
+        if self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self.bounds = [[0, self._data.shape[0] - 1],
+                            [0, self._data.shape[1] - 1],
+                            [0, self._data.shape[2] - 1]]
 
         # Initialize graphs
         spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
-        self.spectra_graph = SpectraPlotGraph(data, self, bounds=self.bounds, labels=spectra_graph_labels)
+        self.spectra_graph = SpectraPlotGraph(data, self.bounds, self, labels=spectra_graph_labels)
         map_graph_labels = {'xaxis_title': 'X (μm)', 'yaxis_title': 'Y (μm)'}
-        self.map_graph = MapGraph(data, self, bounds=self.bounds, labels=map_graph_labels)
+        self.map_graph = MapGraph(data, self.bounds, self, labels=map_graph_labels)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
             decomposition_graph_labels = map_graph_labels
             self.decomposition_graph = DecompositionGraph(self.decomposition,
+                                                          self.bounds,
                                                           self,
-                                                          bounds=self.bounds,
                                                           labels=decomposition_graph_labels)
             self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
         else:

@@ -42,7 +42,7 @@ class SpectraPlotGraph(dcc.Graph):
     xaxis_title = 'Spectral Unit'
     yaxis_title = 'Intensity'
 
-    def __init__(self, data, parent, bounds=None, labels=None):
+    def __init__(self, data, bounds, parent, labels=None):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -60,12 +60,7 @@ class SpectraPlotGraph(dcc.Graph):
         self._instance_index = next(self._counter)
         self._data = data
         self._parent = parent
-
-        self._bounds = np.asarray(bounds)
-        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self._bounds = [[0, self._data.shape[0] - 1],
-                            [0, self._data.shape[1] - 1],
-                            [0, self._data.shape[2] - 1]]
+        self._bounds = bounds
 
         labels = labels or dict()
         self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
@@ -206,7 +201,7 @@ class SliceGraph(dcc.Graph):
     yaxis_title = 'Y'
     aspect_locked = True
 
-    def __init__(self, data, parent, slice_axis=0, bounds=None, labels=None, traces=None, shapes=None, **kwargs):
+    def __init__(self, data, bounds, parent, slice_axis=0, labels=None, traces=None, shapes=None, **kwargs):
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -215,12 +210,6 @@ class SliceGraph(dcc.Graph):
         self._instance_index = next(self._counter)
         self._traces = traces or []
         self._shapes = shapes or []
-
-        self._bounds = np.asarray(bounds)
-        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self._bounds = [[0, self._data.shape[0] - 1],
-                            [0, self._data.shape[1] - 1],
-                            [0, self._data.shape[2] - 1]]
 
         labels = labels or dict()
         self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
@@ -296,12 +285,7 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, parent, slice_axis=0, bounds=None, labels=None, traces=None, shapes=None):
-        self._bounds = np.asarray(bounds)
-        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self._bounds = [[0, self._data.shape[0] - 1],
-                            [0, self._data.shape[1] - 1],
-                            [0, self._data.shape[2] - 1]]
+    def __init__(self, data, bounds, parent, slice_axis=0, labels=None, traces=None, shapes=None):
 
         labels = labels or dict()
         self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
@@ -338,9 +322,9 @@ class MapGraph(SliceGraph):
         traces = (traces or []) + [self._image, self._selection_mask, self._dummy_scatter]
 
         super(MapGraph, self).__init__(data,
+                                       bounds,
                                        parent,
                                        slice_axis=slice_axis,
-                                       bounds=self._bounds,
                                        labels={'xaxis_title': self.xaxis_title,
                                                'yaxis_title': self.yaxis_title,
                                                'title': self.title},
@@ -403,12 +387,7 @@ class MapGraph(SliceGraph):
 class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
-    def __init__(self, data, parent, *args, bounds=None, labels=None, **kwargs):
-        self._bounds = np.asarray(bounds)
-        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self._bounds = [[0, self._data.shape[0] - 1],
-                            [0, self._data.shape[1] - 1],
-                            [0, self._data.shape[2] - 1]]
+    def __init__(self, data, bounds, parent, *args, labels=None, **kwargs):
 
         traces = []
         for i in range(data.shape[0]):
@@ -427,7 +406,7 @@ class DecompositionGraph(SliceGraph):
 
         kwargs['traces'] = traces
 
-        super(DecompositionGraph, self).__init__(data, parent, *args, bounds=self._bounds, labels=labels, **kwargs)
+        super(DecompositionGraph, self).__init__(data, bounds, parent, *args, labels=labels, **kwargs)
 
     def register_callbacks(self):
         # Set up callbacks
