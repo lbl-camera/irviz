@@ -7,6 +7,10 @@
   content: none;
 }
 
+.radio-group .custom-checkbox .custom-control-input ~ .custom-control-label::after {
+  content: none;
+}
+
 /* restyle radio items */
 .radio-group .custom-control {
   padding-left: 0;
