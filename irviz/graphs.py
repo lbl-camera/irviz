@@ -8,6 +8,7 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output, ALL
 from dash.exceptions import PreventUpdate
 from dash.development.base_component import Component
+
 from irviz.utils.dash import targeted_callback
 
 
@@ -39,10 +40,8 @@ class SpectraPlotGraph(dcc.Graph):
     _counter = count(0)
 
     title = 'Spectra Intensities'
-    xaxis_title = 'Spectral Unit'
-    yaxis_title = 'Intensity'
 
-    def __init__(self, data, bounds, parent, labels=None):
+    def __init__(self, data, bounds, parent, invert_spectra_axis=False, **kwargs):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -50,20 +49,20 @@ class SpectraPlotGraph(dcc.Graph):
         data : dask array
             3D array containing data with axes E (or wave-number), y, and x for displaying in the Graph
         bounds : ndarray-like
-            3D array defining the bounds (min & max) pairs for E (or wave-number), y, and x data
+            Collection that defines the bounds (min & max) pairs for E / Wave-number, y, and x data
+            (e.g. a list that contains 3 min/max pairs)
         parent : Component
             Reference to Component that created this Graph (for registering callbacks)
-        labels : dict[str, str]
-            Optional dictionary with keys `xaxis_title`, `yaxis_title`, and `title` that define the Graph's labels
         """
         self._instance_index = next(self._counter)
         self._data = data
+        self._invert_spectra_axis = invert_spectra_axis
+
         self._parent = parent
         self._bounds = bounds
-        labels = labels or dict()
-        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
-        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
-        self.title = labels.get('title', self.title)
+
+        self.xaxis_title = kwargs.pop('xaxis_title', '')
+        self.yaxis_title = kwargs.pop('yaxis_title', '')
 
         #  default to middle x,y
         _y_index = (self._data.shape[1] - 1) // 2
@@ -147,6 +146,8 @@ class SpectraPlotGraph(dcc.Graph):
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title)
+        if self._invert_spectra_axis:
+            fig.update_xaxes(autorange="reversed")
         fig.add_shape(self._energy_line)
         return fig
 
@@ -195,8 +196,6 @@ class SliceGraph(dcc.Graph):
     _counter = count(0)
 
     title = ''
-    xaxis_title = 'X'
-    yaxis_title = 'Y'
     aspect_locked = True
 
     def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
@@ -208,6 +207,9 @@ class SliceGraph(dcc.Graph):
         self._instance_index = next(self._counter)
         self._traces = traces or []
         self._shapes = shapes or []
+
+        self.xaxis_title = kwargs.pop('xaxis_title', '')
+        self.yaxis_title = kwargs.pop('yaxis_title', '')
 
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
@@ -258,7 +260,7 @@ class SliceGraph(dcc.Graph):
         self._v_line.x1 = x_index
 
         return self._update_figure()
-        
+
     @property
     def position(self):
         """The current spatial position of the crosshair"""
@@ -278,7 +280,8 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None):
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
+
         default_slice_index = (data.shape[0] - 1) // 2
 
         # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
@@ -311,9 +314,10 @@ class MapGraph(SliceGraph):
         super(MapGraph, self).__init__(data,
                                        bounds,
                                        parent,
-                                       slice_axis=0,
+                                       slice_axis=slice_axis,
                                        traces=traces,
                                        shapes=shapes,
+                                       **kwargs
                                        # config={'modeBarButtonsToAdd': ['lasso2d']}
                                        )
 
@@ -372,6 +376,7 @@ class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
     def __init__(self, data, bounds, parent, *args, **kwargs):
+
         traces = []
         for i in range(data.shape[0]):
             color_scale = decomposition_color_scales[i % len(decomposition_color_scales)]
@@ -501,6 +506,7 @@ class DecompositionGraph(SliceGraph):
 
 class PairPlotGraph(dcc.Graph):
     _counter = count(0)
+    title = 'Pair Plot'
 
     def __init__(self, data, parent):
         self._instance_index = next(self._counter)
@@ -553,7 +559,7 @@ class PairPlotGraph(dcc.Graph):
     def _update_figure(self):
         """ Remake the figure to force a display update """
         fig = go.Figure([self._scatter])
-        fig.update_layout(title=f'Pair Plot',
+        fig.update_layout(title=self.title,
                           xaxis_title=f'Component #{self._component1+1}',
                           yaxis_title=f'Component #{self._component2+1}')
         return fig
