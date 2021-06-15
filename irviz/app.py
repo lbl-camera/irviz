@@ -53,6 +53,11 @@ if __name__ == "__main__":
                     data.compute(),
                     decomposition=decomposition,
                     bounds=bounds,
+                    spectra_axis_title='Wavenumber (cm⁻¹)',
+                    intensity_axis_title='Intensity',
+                    x_axis_title='X (μm)',
+                    y_axis_title='Y (μm)',
+                    invert_spectra_axis=True,
                     cluster_labels=cluster_labels,
                     cluster_label_names=cluster_label_names)
 

@@ -1,5 +1,6 @@
 import dash_bootstrap_components as dbc
 import dash_html_components as html
+import numpy as np
 from dash_core_components import Graph, Slider
 
 from irviz.components import ColorScaleSelector
@@ -11,7 +12,18 @@ class Viewer(html.Div):
 
     _global_slicer_counter = 0
 
-    def __init__(self, app, data, decomposition=None, cluster_labels=None, cluster_label_names=None, bounds=None):
+    def __init__(self,
+                 app,
+                 data,
+                 decomposition=None,
+                 bounds=None,
+                 cluster_labels=None,
+                 cluster_label_names=None,
+                 x_axis_title='',
+                 y_axis_title='',
+                 spectra_axis_title='',
+                 intensity_axis_title='',
+                 invert_spectra_axis=False):
         """Viewer on the Dash app.
 
         Provides some properties for accessing visualized data (e.g. the current spectrum).
@@ -22,26 +34,49 @@ class Viewer(html.Div):
             Reference to the Dash application to add components to
         data : dask.array
             3D array data (with axes E/wave-number, Y, and X)
-        decomposition : np.ndarray like
+        decomposition : np.ndarray
             (optional) Decomposition of the data
-        bounds : List
+        bounds : list
             List of min, max pairs that define each axis's lower and upper bounds
+        x_axis_title : str
+            Title of the x-axis for the rendered data and decomposition figures
+        y_axis_title : str
+            Title of the y-axis for the rendered data and decomposition figures
+        spectra_axis_title : str
+            Title for the spectra axis in the rendered spectra plot
+        intensity_axis_title : str
+            Title for the intensity axis in the rendered spectra plot
+        invert_spectra_axis : bool
+            Whether or not to invert the spectra axis on the spectra plot
         """
+
+        Viewer._global_slicer_counter += 1
         self.data = data
         self._app = app
         self.decomposition = decomposition
-        self.bounds = bounds
 
-        Viewer._global_slicer_counter += 1
+        self.bounds = np.asarray(bounds)
+        if self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self.bounds = [[0, self._data.shape[0] - 1],
+                           [0, self._data.shape[1] - 1],
+                           [0, self._data.shape[2] - 1]]
 
         # Initialize graphs
-        spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
-        self.spectra_graph = SpectraPlotGraph(data, bounds, self, labels=spectra_graph_labels)
-        self.map_graph = MapGraph(data, bounds, cluster_labels, cluster_label_names, self)
+        self.spectra_graph = SpectraPlotGraph(data,
+                                              self.bounds,
+                                              self,
+                                              xaxis_title=spectra_axis_title,
+                                              yaxis_title=intensity_axis_title,
+                                              invert_spectra_axis=invert_spectra_axis)
+        self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
-            self.decomposition_graph = DecompositionGraph(self.decomposition, bounds, self)
+            self.decomposition_graph = DecompositionGraph(self.decomposition,
+                                                          self.bounds,
+                                                          self,
+                                                          xaxis_title=x_axis_title,
+                                                          yaxis_title=y_axis_title)
             self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
         else:
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
@@ -221,25 +256,50 @@ class Viewer(html.Div):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
 
-def notebook_viewer(data, decomposition=None, bounds=None, mode='inline', width='100%', height=650):
-    """Creates and returns a new IRVIZ viewer.
 
-        Parameters
-        ----------
-        data : dask array
-            3D data to visualize in the view/app
-        decomposition : np.ndarray
-            (optional) Component values for the decomposed data
-        bounds : Collection
-            (optional) List of min, max pairs that define each axis's lower and upper bounds
-        mode : str
-            (optional) Change where the app is displayed
+def notebook_viewer(data,
+                    decomposition=None,
+                    bounds=None,
+                    spectra_axis_title='',
+                    intensity_axis_title='',
+                    x_axis_title='',
+                    y_axis_title='',
+                    invert_spectra_axis=False,
+                    mode='inline',
+                    width='100%',
+                    height=650):
+    """Create a Viewer inside of a Jupyter Notebook or Lab environment.
 
-        Returns
-        -------
-        Viewer
-            Returns the viewer that is created, which provides data access through its properties
-            (See `irviz.Viewer` documentation for more information)
+    Parameters
+    ----------
+    data : dask.array
+        3D data to visualize in the Viewer
+    decomposition : np.ndarray
+        Component values for the decomposed data
+    bounds : list
+        List of min, max pairs that define each axis's lower and upper bounds
+    x_axis_title : str
+        Title of the x-axis for the rendered data and decomposition figures
+    y_axis_title : str
+        Title of the y-axis for the rendered data and decomposition figures
+    spectra_axis_title : str
+        Title for the spectra axis in the rendered spectra plot
+    intensity_axis_title : str
+        Title for the intensity axis in the rendered spectra plot
+    invert_spectra_axis : bool
+        Whether or not to invert the spectra axis on the spectra plot
+    mode : str
+        Defines where the Viewer app is displayed (default is 'inline')
+    width : int or str
+        CSS-style width value that defines the width of the rendered Viewer app
+    height : int or str
+        CSS-style height value that defines the height of the rendered Viewer app
+
+    Returns
+    -------
+    viewer
+        Returns a reference to the created Viewer, which acts as a handle to the Dash app.
+        This is useful for accessing data inside of the Viewer (via its properties).
 
     """
     was_running = True
@@ -255,7 +315,15 @@ def notebook_viewer(data, decomposition=None, bounds=None, mode='inline', width=
             irdash.app = JupyterDash(__name__, **app_kwargs)
             was_running = False
 
-    viewer = Viewer(irdash.app, data.compute(), decomposition, bounds)
+    viewer = Viewer(irdash.app,
+                    data.compute(),
+                    decomposition=decomposition,
+                    bounds=bounds,
+                    x_axis_title=x_axis_title,
+                    y_axis_title=y_axis_title,
+                    spectra_axis_title=spectra_axis_title,
+                    intensity_axis_title=intensity_axis_title,
+                    invert_spectra_axis=invert_spectra_axis)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
@@ -268,9 +336,9 @@ def notebook_viewer(data, decomposition=None, bounds=None, mode='inline', width=
         # Values passed here are from
         # jupyter_app.jupyter_dash.JupyterDash.run_server
         irdash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
-                                mode=mode,
-                                port=8050,
-                                width=width,
-                                height=height)
+                                       mode=mode,
+                                       port=8050,
+                                       width=width,
+                                       height=height)
 
     return viewer
