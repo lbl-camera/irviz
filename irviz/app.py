@@ -18,7 +18,7 @@ def open_map_file(h5_file):
     bounds = [(wavenumbers.min(), wavenumbers.max()),
               (xy.T[1].min(), xy.T[1].max()),
               (xy.T[0].min(), xy.T[0].max())]
-    return da.from_array(data), bounds
+    return da.from_array(data).transpose(2, 0, 1), bounds
 
 
 def open_ir_file(h5_file):
