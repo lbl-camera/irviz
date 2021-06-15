@@ -1,16 +1,34 @@
 from itertools import count
-
+import re
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, ALL
 from dash.exceptions import PreventUpdate
-
 from dash.development.base_component import Component
+from irviz.utils.dash import targeted_callback
 
-# TODO: implement orthogonal views by using slice_axis kwarg
+
+transparent_color_scales = {'TransparentRed': [[0, "rgba(255, 0, 0, 0)"],
+                                               [1, "rgba(255, 0, 0, 255)"]],
+                            'TransparentGreen': [[0, "rgba(0, 255, 0, 0)"],
+                                                [1, "rgba(0, 255, 0, 255)"]],
+                            'TransparentBlue': [[0, "rgba(0, 0, 255, 0)"],
+                                                [1, "rgba(0, 0, 255, 255)"]],
+                            'TransparentYellow': [[0, "rgba(255, 255, 0, 0)"],
+                                                  [1, "rgba(255, 255, 0, 255)"]],
+                            'TransparentOrange': [[0, "rgba(255, 69, 0, 0)"],
+                                                  [1, "rgba(255, 69, 0, 255)"]],
+                            'TransparentPurple': [[0, "rgba(255, 0, 255, 0)"],
+                                                  [1, "rgba(255, 0, 255, 255)"]],
+                            'TransparentCyan': [[0, "rgba(0, 255, 255, 0)"],
+                                                [1, "rgba(0, 255, 255, 255)"]]
+                            }
+
+
+decomposition_color_scales = ['gray']+list(transparent_color_scales.keys())
 
 
 def nearest_bin(x, bounds, bin_count):
@@ -60,7 +78,7 @@ class SpectraPlotGraph(dcc.Graph):
 
         y = np.asarray(self._data[:, _y_index, _x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
-        self._plot = go.Scatter(x=x, y=y)
+        self._plot = go.Scattergl(x=x, y=y)
 
         # Define starting point for energy index (for the slicer line trace)
         default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
@@ -127,9 +145,9 @@ class SpectraPlotGraph(dcc.Graph):
     @staticmethod
     def _set_visibility(switches_value):
         if 'show_spectra' in switches_value:
-            return {'display':'block'}
+            return {'display': 'block'}
         else:
-            return {'display':'none'}
+            return {'display': 'none'}
 
     def _update_figure(self):
         fig = go.Figure(self._plot)
@@ -188,7 +206,7 @@ class SliceGraph(dcc.Graph):
     yaxis_title = 'Y'
     aspect_locked = True
 
-    def __init__(self, data, parent, slice_axis=0, bounds=None, traces=None, shapes=None, labels=None):
+    def __init__(self, data, parent, slice_axis=0, bounds=None, labels=None, traces=None, shapes=None, **kwargs):
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -209,17 +227,6 @@ class SliceGraph(dcc.Graph):
         self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
         self.title = labels.get('title', self.title)
 
-        default_slice_index = self._init_slice_index()  # TODO: Refactor these classes with a base
-
-        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
-        self._image = go.Heatmap(z=np.asarray(self._data[default_slice_index]),
-                                 colorscale='gray',
-                                 y0=bounds[1][0],
-                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
-                                 x0=bounds[2][0],
-                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
-                                 )
-
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
                                        xref='paper',
@@ -236,19 +243,15 @@ class SliceGraph(dcc.Graph):
                                        y0=0,
                                        y1=1)
 
-        self._traces.insert(0, self._image)
         self._shapes.extend([self._h_line, self._v_line])
 
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
                                          id=self._id(),
-                                         className='col-lg-4')
+                                         className='col-lg-4', **kwargs)
 
     def _id(self):
         return f'slicegraph_{self._instance_index}'
-
-    def _init_slice_index(self):
-        ...
 
     def register_callbacks(self):
         ...
@@ -264,14 +267,16 @@ class SliceGraph(dcc.Graph):
             fig.add_shape(shape)
         return fig
 
-    def _show_click(self, click_data):
+    def show_click(self, click_data):
         y_index = click_data["points"][0]["y"]
         x_index = click_data["points"][0]["x"]
         self._h_line.y0 = y_index
         self._h_line.y1 = y_index
         self._v_line.x0 = x_index
         self._v_line.x1 = x_index
-        
+
+        return self._update_figure()
+
     @property
     def position(self):
         """The current spatial position of the crosshair"""
@@ -291,8 +296,7 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, parent, slice_axis=0, bounds=None, traces=None, shapes=None, labels=None):
-
+    def __init__(self, data, parent, slice_axis=0, bounds=None, labels=None, traces=None, shapes=None):
         self._bounds = np.asarray(bounds)
         if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
             self._bounds = [[0, self._data.shape[0] - 1],
@@ -304,6 +308,16 @@ class MapGraph(SliceGraph):
         self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
         self.title = labels.get('title', self.title)
 
+        default_slice_index = (data.shape[0] - 1) // 2
+
+        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
+        self._image = go.Heatmap(z=np.asarray(data[default_slice_index]),
+                                 colorscale='gray',
+                                 y0=bounds[1][0],
+                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                                 x0=bounds[2][0],
+                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
+                                 )
         self._selection_mask = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
                                           colorscale='reds',
                                           opacity=0.3,
@@ -312,57 +326,65 @@ class MapGraph(SliceGraph):
                                           dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
                                           x0=bounds[2][0],
                                           dx=(bounds[2][1]-bounds[2][0])/data.shape[2])
+        x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2], endpoint=False),
+                           np.linspace(bounds[1][0], bounds[1][1], data.shape[1], endpoint=False))
 
-        traces = (traces or []) + [self._selection_mask]
+        # This dummy scatter trace is added to support lasso selection
+        self._dummy_scatter = go.Scattergl(x=x.ravel(),
+                                           y=y.ravel(),
+                                           mode='markers',
+                                           marker={'color': 'rgba(0,0,0,0)'}
+                                           )
+        traces = (traces or []) + [self._image, self._selection_mask, self._dummy_scatter]
 
-        super(MapGraph, self).__init__(data, parent, slice_axis=0, bounds=bounds, traces=traces, shapes=shapes, labels=labels)
+        super(MapGraph, self).__init__(data,
+                                       parent,
+                                       slice_axis=slice_axis,
+                                       bounds=self._bounds,
+                                       labels={'xaxis_title': self.xaxis_title,
+                                               'yaxis_title': self.yaxis_title,
+                                               'title': self.title},
+                                       traces=traces,
+                                       shapes=shapes,
+                                       # config={'modeBarButtonsToAdd': ['lasso2d']}
+                                       )
 
     def register_callbacks(self):
-        # Set up callbacks
-        # ----------------
-
-        # When the parent viewer's 'spectra_graph' is clicked
-        #     we need to update the internal Figure for this Graph
-
-        self._parent._app.callback(
-            Output(self.id, 'figure'),
-            Input(self._parent.spectra_graph.id, 'clickData'),
-            Input(self.id, 'clickData'),
-            Input(self._parent.decomposition_graph.id, 'clickData'),
-            Input(self._parent.pair_plot_graph.id, 'selectedData')
-        )(self.show_slice)
-
-    def show_slice(self, spectra_graph_click_data, self_click_data, decomposition_click_data, pair_plot_selection):
-        """Show a 2D slice at a specific energy defined in click data.
-
-        Parameters
-        ----------
-        spectra_graph_click_data : dict
-            Dictionary that contains point info from where the input Graph was clicked.
-        """
-        triggered = dash.callback_context.triggered
-        if not triggered:
-            raise PreventUpdate
-
         # When the spectra graph is clicked, update image slicing
-        if self._parent.spectra_graph.id in triggered[0]['prop_id']:
-            slice = spectra_graph_click_data["points"][0]["x"]
-            slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
-            self._image.z = np.asarray(self._data[slice_index])
+        targeted_callback(self.update_slice,
+                          Input(self._parent.spectra_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
         # When this SliceGraph itself is clicked, update its x,y slicer lines
-        if self.id in triggered[0]['prop_id']:
-            self._show_click(self_click_data)
+        targeted_callback(self.show_click,
+                          Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
         # When the decomposition graph is clicked show the same position
-        if self._parent.decomposition_graph.id in triggered[0]['prop_id']:
-            self._show_click(decomposition_click_data)
+        targeted_callback(self.show_click,
+                          Input(self._parent.decomposition_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
         # When points are selected in the pair plot, show them here
-        if self._parent.pair_plot_graph.id in triggered[0]['prop_id']:
-            self._show_selection_mask(pair_plot_selection)
+        targeted_callback(self._show_selection_mask,
+                          Input(self._parent.pair_plot_graph.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # Need to update our figure again when we update the traces
+        # When this SliceGraph is lasso'd, update the selection mask
+        targeted_callback(self._show_selection_mask,
+                          Input(self.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+    def update_slice(self, spectra_graph_click_data):
+        slice = spectra_graph_click_data["points"][0]["x"]
+        slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
+        self._image.z = np.asarray(self._data[slice_index])
+
         return self._update_figure()
 
     def _show_selection_mask(self, selection):
@@ -375,25 +397,41 @@ class MapGraph(SliceGraph):
         # Create overlay
         self._selection_mask.z = mask
 
-    def _init_slice_index(self):
-        return (self._data.shape[0] - 1) // 2
+        return self._update_figure()
 
 
 class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
+    def __init__(self, data, parent, *args, bounds=None, labels=None, **kwargs):
+        self._bounds = np.asarray(bounds)
+        if self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self._bounds = [[0, self._data.shape[0] - 1],
+                            [0, self._data.shape[1] - 1],
+                            [0, self._data.shape[2] - 1]]
+
+        traces = []
+        for i in range(data.shape[0]):
+            color_scale = decomposition_color_scales[i % len(decomposition_color_scales)]
+            color_scale = transparent_color_scales.get(color_scale, color_scale)
+
+            traces.append(go.Heatmap(z=np.asarray(data[i]),
+                                 colorscale=color_scale,
+                                 y0=bounds[1][0],
+                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                                 x0=bounds[2][0],
+                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
+                                 visible=(i==0),
+                                 opacity=.5 if i else 1,
+                                 ))
+
+        kwargs['traces'] = traces
+
+        super(DecompositionGraph, self).__init__(data, parent, *args, bounds=self._bounds, labels=labels, **kwargs)
+
     def register_callbacks(self):
         # Set up callbacks
         # ----------------
-
-        # When the parent viewer's 'spectra_graph' is clicked
-        #     we need to update the internal Figure for this Graph
-        self._parent._app.callback(
-            Output(self.id, 'figure'),
-            Input(self.id, 'clickData'),
-            Input(self._parent.decomposition_component_selector.id, 'value'),
-            Input(self._parent.map_graph.id, 'clickData')
-        )(self.show_slice)
 
         # Wire-up visibility toggle
         self._parent._app.callback(
@@ -401,34 +439,76 @@ class DecompositionGraph(SliceGraph):
             Input(self._parent.graph_toggles.id, 'value')
         )(self._set_visibility)
 
-    def show_slice(self, self_click_data, component_index, slice_click_data):
-        """Show a 2D slice at a specific energy defined in click data.
+        # Wire-up opacity sliders
+        targeted_callback(self.set_component_opacity,
+                          Input({'type': 'component-opacity', 'index': ALL}, 'value'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        Parameters
-        ----------
-        spectra_graph_click_data : dict
-            Dictionary that contains point info from where the input Graph was clicked.
-        """
-        triggered = dash.callback_context.triggered
-        if not triggered:
-            raise PreventUpdate
+        targeted_callback(self.show_components,
+                          Input(self._parent.decomposition_component_selector.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # When the decomposition_component_selector is clicked, update image slicing
-        if self._parent.decomposition_component_selector.id in triggered[0]['prop_id']:
-            self._image.z = np.asarray(self._data[component_index])
+        targeted_callback(self.show_click,
+                          Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # When this DecompositionGraph itself is clicked, update its x,y slicer lines
-        if self.id in triggered[0]['prop_id']:
-            self._show_click(self_click_data)
+        targeted_callback(self.show_click,
+                          Input(self._parent.map_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        if self._parent.map_graph.id in triggered[0]['prop_id']:
-            self._show_click(slice_click_data)
+        targeted_callback(self.set_color_scale,
+                          Input({'type':'color-scale-selector', 'index': ALL}, 'label'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
 
-        # Need to update our figure again when we update the traces
+    def set_color_scale(self, color_scale):
+        i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
+        color_scale = transparent_color_scales.get(color_scale, color_scale)
+        self._traces[i].colorscale = color_scale
+
         return self._update_figure()
 
-    def _init_slice_index(self):
-        return 0
+    def _opacity_slider(self, i):
+        return self._parent.component_opacity_sliders.children[i]
+
+    def _color_scale_selector(self, i):
+        return self._parent.component_color_scale_selectors.children[i]
+
+    def set_component_opacity(self, value):
+        i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
+        self._opacity_slider(i).value = value
+        self._update_opacity()
+        return self._update_figure()
+
+    def _update_opacity(self):
+        # Get a sum of all enabled slider values minus the first enabled value
+        total = 0
+        for slider in self._parent.component_opacity_sliders.children:
+            if not slider.disabled:
+                total += slider.value
+
+        # Set each trace's opacity to a value proportional to its weight; always set first visible trace's opacity to 1
+        bg_set = False
+        for i, trace in enumerate(self._traces):
+            if not bg_set and trace.visible:
+                trace.opacity = 1
+                bg_set = True
+            else:
+                trace.opacity = self._opacity_slider(i).value / total
+
+    def show_components(self, component_indices):
+        for i, trace in enumerate(self._traces):
+            trace.visible = (i in component_indices)
+            trace.showscale = len(component_indices) < 2
+            self._opacity_slider(i).disabled = not (i in component_indices)  # TODO: set this in a separate callback that outputs to the slider
+
+        self._update_opacity()
+
+        return self._update_figure()
 
     @staticmethod
     def _set_visibility(switches_value):
@@ -464,23 +544,26 @@ class PairPlotGraph(dcc.Graph):
 
         # When the parent viewer's 'spectra_graph' is clicked
         #     we need to update the internal Figure for this Graph
+        # When MapGraph is lasso'd, show that selection here too
+        # Note: this can't be a targeted callback, since multiple values are required
         self._parent._app.callback(
             Output(self.id, 'figure'),
             Input(self._parent.decomposition_component_1.id, 'value'),
             Input(self._parent.decomposition_component_2.id, 'value'),
+            Input(self._parent.map_graph.id, 'selectedData')
         )(self.show_pair_plot)
 
         # Set up selection tool callbacks
-        self._parent._app.callback(
-            Output(self._parent.info_content.id, 'children'),
-            Input(self.id, 'selectedData')
-        )(self._show_selection_info)
+        targeted_callback(self._show_selection_info,
+                          Input(self.id, 'selectedData'),
+                          Output(self._parent.info_content.id, 'children'),
+                          app=self._parent._app)
 
         # Wire-up visibility toggle
-        self._parent._app.callback(
-            Output(self.id, 'style'),
-            Input(self._parent.graph_toggles.id, 'value')
-        )(self._set_visibility)
+        targeted_callback(self._set_visibility,
+                          Input(self._parent.graph_toggles.id, 'value'),
+                          Output(self.id, 'style'),
+                          app=self._parent._app)
 
     def _show_selection_info(self, selected_data):
         if not selected_data:
@@ -495,9 +578,14 @@ class PairPlotGraph(dcc.Graph):
                           yaxis_title=f'Component #{self._component2+1}')
         return fig
 
-    def show_pair_plot(self, component1, component2):
-        if component1 is None and component2 is None:
+    def show_pair_plot(self, component1, component2, selectedData):
+        if component1 is None or component2 is None:
             raise PreventUpdate
+
+        triggered = dash.callback_context.triggered
+        if self._parent.map_graph.id in triggered[0]['prop_id']:
+            raveled_indexes = list(map(lambda point: point['pointIndex'], selectedData['points']))
+            self._scatter.selectedpoints = raveled_indexes
 
         x = self._data[component1]
         y = self._data[component2]
