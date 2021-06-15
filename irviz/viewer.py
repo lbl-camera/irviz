@@ -98,10 +98,12 @@ class Viewer(html.Div):
                     max=1,
                     step=.1,
                     value=.5 if i else 1,
-                    className='centered-slider'
+                    className='centered-slider',
+                    disabled=True if i else False
                 ) for i in range(self.decomposition.shape[0])],
                 className='col-sm',
-                style={'paddingLeft':0, 'paddingRight':0}
+                style={'paddingLeft':0, 'paddingRight':0},
+                id='component-opacity-sliders'
             )
 
             self.component_color_scale_selectors = html.Div(
