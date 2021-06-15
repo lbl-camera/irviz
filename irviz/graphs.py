@@ -1,16 +1,16 @@
-from itertools import count
 import re
+from itertools import count
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output, ALL
-from dash.exceptions import PreventUpdate
+from dash.dependencies import ALL, Input, Output
 from dash.development.base_component import Component
+from dash.exceptions import PreventUpdate
 
 from irviz.utils.dash import targeted_callback
-
 
 transparent_color_scales = {'TransparentRed': [[0, "rgba(255, 0, 0, 0)"],
                                                [1, "rgba(255, 0, 0, 255)"]],
@@ -72,9 +72,22 @@ class SpectraPlotGraph(dcc.Graph):
 
         y = np.asarray(self._data[:, _y_index, _x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
-        self._plot = go.Scattergl(x=x, y=y)
-        self._avg_plot = go.Scattergl()
-        self._std_plot = go.Scattergl()
+        self._plot = go.Scattergl(x=x, y=y, name='spectra',
+                                  mode='lines')
+        self._avg_plot = go.Scattergl(name='average',
+                                      mode='lines')
+        self._upper_error_plot = go.Scatter(line=dict(width=0),
+                                            marker=dict(color="#444"),
+                                            hoverinfo='skip',
+                                            showlegend=False,
+                                            mode='lines')
+        self._lower_error_plot = go.Scatter(line=dict(width=0),
+                                            marker=dict(color="#444"),
+                                            fill='tonexty',
+                                            fillcolor='rgba(68, 68, 68, 0.3)',
+                                            showlegend=False,
+                                            hoverinfo='skip',
+                                            mode='lines')
 
         # Define starting point for energy index (for the slicer line trace)
         default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
@@ -104,10 +117,6 @@ class SpectraPlotGraph(dcc.Graph):
                           Input(self._parent.map_graph.id, 'selectedData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
-
-        # targeted_callback(self._update_standard_deviation,
-        #                   Input(self._parent.map_graph.id, 'selectedData'),
-        #                   Output(self.id, 'figure'))
 
         # When this SpectraGraph itself is clicked, update the energy slicer line
         targeted_callback(self._update_energy_line,
@@ -176,7 +185,10 @@ class SpectraPlotGraph(dcc.Graph):
             return {'display': 'none'}
 
     def _update_figure(self):
-        fig = go.Figure([self._plot, self._avg_plot, self._std_plot])
+        fig = go.Figure([self._plot,
+                         self._avg_plot,
+                         self._upper_error_plot,
+                         self._lower_error_plot])
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title)
@@ -192,10 +204,12 @@ class SpectraPlotGraph(dcc.Graph):
         y_indexes = list(map(lambda y: nearest_bin(y, self._bounds[1], self._data.shape[1]), ys))
         self._avg_plot.x = self._plot.x
         self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
-        # self._std_plot.x = self._plot.x
-        # self._std_plot.y = np.std(self._data[:, y_indexes, x_indexes], axis=1)
-        print("avg", self._avg_plot)
-        print("std", self._std_plot)
+
+        error = np.std(self._data[:, y_indexes, x_indexes], axis=1)
+        self._upper_error_plot.x = self._avg_plot.x
+        self._upper_error_plot.y = error + self._avg_plot.y
+        self._lower_error_plot.x = self._avg_plot.x
+        self._lower_error_plot.y = self._avg_plot.y - error
 
         return self._update_figure()
 
