@@ -1,7 +1,7 @@
 import dash_bootstrap_components as dbc
 import dash_html_components as html
-from dash_core_components import Graph, Slider
 import numpy as np
+from dash_core_components import Graph, Slider
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
@@ -10,7 +10,15 @@ from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlo
 class Viewer(html.Div):
     _global_slicer_counter = 0
 
-    def __init__(self, app, data, decomposition=None, bounds=None):
+    def __init__(self,
+                 app,
+                 data,
+                 decomposition=None,
+                 bounds=None,
+                 x_axis_title='',
+                 y_axis_title='',
+                 spectra_axis_title='',
+                 intensity_axis_title=''):
         Viewer._global_slicer_counter += 1
 
         self.data = data
@@ -24,18 +32,16 @@ class Viewer(html.Div):
                             [0, self._data.shape[2] - 1]]
 
         # Initialize graphs
-        spectra_graph_labels = {'xaxis_title': 'Wavenumber (cm⁻¹)'}
-        self.spectra_graph = SpectraPlotGraph(data, self.bounds, self, labels=spectra_graph_labels)
-        map_graph_labels = {'xaxis_title': 'X (μm)', 'yaxis_title': 'Y (μm)'}
-        self.map_graph = MapGraph(data, self.bounds, self, labels=map_graph_labels)
+        self.spectra_graph = SpectraPlotGraph(data, self.bounds, self, xaxis_title=spectra_axis_title, yaxis_title=intensity_axis_title)
+        self.map_graph = MapGraph(data, self.bounds, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
-            decomposition_graph_labels = map_graph_labels
             self.decomposition_graph = DecompositionGraph(self.decomposition,
                                                           self.bounds,
                                                           self,
-                                                          labels=decomposition_graph_labels)
+                                                          xaxis_title=x_axis_title,
+                                                          yaxis_title=y_axis_title)
             self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
         else:
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
@@ -223,7 +229,14 @@ def notebook_viewer(data, decomposition=None, bounds=None, mode='inline', width=
             irdash.app = JupyterDash(__name__)
             was_running = False
 
-    viewer = Viewer(irdash.app, data.compute(), decomposition, bounds)
+    viewer = Viewer(irdash.app,
+                    data.compute(),
+                    decomposition=decomposition,
+                    bounds=bounds,
+                    spectra_axis_title='Wavenumber (cm⁻¹)',
+                    intensity_axis_title='Intensity',
+                    x_axis_title='X (μm)',
+                    y_axis_title='Y (μm)')
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])

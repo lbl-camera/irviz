@@ -47,7 +47,14 @@ if __name__ == "__main__":
     model = sklearn.decomposition.PCA(n_components=3)
     decomposition = model.fit_transform(data.transpose(1,2,0).reshape(-1, data.shape[0])).T.reshape(-1, *data.shape[1:])
 
-    viewer = Viewer(irdash.app, data.compute(), decomposition=decomposition, bounds=bounds)
+    viewer = Viewer(irdash.app,
+                    data.compute(),
+                    decomposition=decomposition,
+                    bounds=bounds,
+                    spectra_axis_title='Wavenumber (cm⁻¹)',
+                    intensity_axis_title='Intensity',
+                    x_axis_title='X (μm)',
+                    y_axis_title='Y (μm)')
 
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)

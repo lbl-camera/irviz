@@ -39,10 +39,8 @@ class SpectraPlotGraph(dcc.Graph):
     _counter = count(0)
 
     title = 'Spectra Intensities'
-    xaxis_title = 'Spectral Unit'
-    yaxis_title = 'Intensity'
 
-    def __init__(self, data, bounds, parent, labels=None):
+    def __init__(self, data, bounds, parent, **kwargs):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -54,18 +52,14 @@ class SpectraPlotGraph(dcc.Graph):
             (e.g. a list that contains 3 min/max pairs)
         parent : Component
             Reference to Component that created this Graph (for registering callbacks)
-        labels : dict[str, str]
-            Optional dictionary with keys `xaxis_title`, `yaxis_title`, and `title` that define the Graph's labels
         """
         self._instance_index = next(self._counter)
         self._data = data
         self._parent = parent
         self._bounds = bounds
 
-        labels = labels or dict()
-        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
-        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
-        self.title = labels.get('title', self.title)
+        self.xaxis_title = kwargs.pop('xaxis_title', '')
+        self.yaxis_title = kwargs.pop('yaxis_title', '')
 
         #  default to middle x,y
         _y_index = (self._data.shape[1] - 1) // 2
@@ -197,11 +191,9 @@ class SliceGraph(dcc.Graph):
     _counter = count(0)
 
     title = ''
-    xaxis_title = 'X'
-    yaxis_title = 'Y'
     aspect_locked = True
 
-    def __init__(self, data, bounds, parent, slice_axis=0, labels=None, traces=None, shapes=None, **kwargs):
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
 
         # Cache our data and parent for use in the callbacks
         self._data = data
@@ -211,10 +203,8 @@ class SliceGraph(dcc.Graph):
         self._traces = traces or []
         self._shapes = shapes or []
 
-        labels = labels or dict()
-        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
-        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
-        self.title = labels.get('title', self.title)
+        self.xaxis_title = kwargs.pop('xaxis_title', '')
+        self.yaxis_title = kwargs.pop('yaxis_title', '')
 
         self._h_line = go.layout.Shape(type='line',
                                        # width=3,
@@ -285,12 +275,7 @@ class MapGraph(SliceGraph):
     """
     title = 'IR Spectral Map'
 
-    def __init__(self, data, bounds, parent, slice_axis=0, labels=None, traces=None, shapes=None):
-
-        labels = labels or dict()
-        self.xaxis_title = labels.get('xaxis_title', self.xaxis_title)
-        self.yaxis_title = labels.get('yaxis_title', self.yaxis_title)
-        self.title = labels.get('title', self.title)
+    def __init__(self, data, bounds, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
 
         default_slice_index = (data.shape[0] - 1) // 2
 
@@ -325,11 +310,9 @@ class MapGraph(SliceGraph):
                                        bounds,
                                        parent,
                                        slice_axis=slice_axis,
-                                       labels={'xaxis_title': self.xaxis_title,
-                                               'yaxis_title': self.yaxis_title,
-                                               'title': self.title},
                                        traces=traces,
                                        shapes=shapes,
+                                       **kwargs
                                        # config={'modeBarButtonsToAdd': ['lasso2d']}
                                        )
 
@@ -387,7 +370,7 @@ class MapGraph(SliceGraph):
 class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
-    def __init__(self, data, bounds, parent, *args, labels=None, **kwargs):
+    def __init__(self, data, bounds, parent, *args, **kwargs):
 
         traces = []
         for i in range(data.shape[0]):
@@ -406,7 +389,7 @@ class DecompositionGraph(SliceGraph):
 
         kwargs['traces'] = traces
 
-        super(DecompositionGraph, self).__init__(data, bounds, parent, *args, labels=labels, **kwargs)
+        super(DecompositionGraph, self).__init__(data, bounds, parent, *args, **kwargs)
 
     def register_callbacks(self):
         # Set up callbacks
