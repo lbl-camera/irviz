@@ -2,3 +2,5 @@
 dash
 dash-slicer
 jupyter-dash
+numpy
+sklearn

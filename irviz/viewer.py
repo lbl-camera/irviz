@@ -17,10 +17,12 @@ class Viewer(html.Div):
                  data,
                  decomposition=None,
                  bounds=None,
-                 x_axis_title='',
-                 y_axis_title='',
-                 spectra_axis_title='',
-                 intensity_axis_title='',
+                 cluster_labels=None,
+                 cluster_label_names=None,
+                 x_axis_title='X',
+                 y_axis_title='Y',
+                 spectra_axis_title='Spectral Units',
+                 intensity_axis_title='Intensity',
                  invert_spectra_axis=False):
         """Viewer on the Dash app.
 
@@ -66,7 +68,7 @@ class Viewer(html.Div):
                                               xaxis_title=spectra_axis_title,
                                               yaxis_title=intensity_axis_title,
                                               invert_spectra_axis=invert_spectra_axis)
-        self.map_graph = MapGraph(data, self.bounds, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
@@ -87,12 +89,15 @@ class Viewer(html.Div):
         initial_views = ["show_spectra"]
         if self.decomposition is not None:
             initial_views.extend(["show_decomposition", "show_pair_plot"])
+        if cluster_labels is not None:
+            initial_views.append('show_clusters')
         self.graph_toggles = dbc.Checklist(
             options=[
                 {"label": "Show Spectra", "value": "show_spectra"},
                 {"label": "Show Decomposition", "value": "show_decomposition", "disabled": self.decomposition is None},
                 {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": self.decomposition is None},
-                {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"}
+                {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"},
+                {"label": "Show Cluster Labels", "value": "show_clusters", "disabled": cluster_labels is None}
             ],
             value=initial_views,
             id="view-checklist",
@@ -260,6 +265,8 @@ def notebook_viewer(data,
                     x_axis_title='',
                     y_axis_title='',
                     invert_spectra_axis=False,
+                    cluster_labels=None,
+                    cluster_label_names=None,
                     mode='inline',
                     width='100%',
                     height=650):
@@ -316,6 +323,8 @@ def notebook_viewer(data,
                     bounds=bounds,
                     x_axis_title=x_axis_title,
                     y_axis_title=y_axis_title,
+                    cluster_labels=cluster_labels,
+                    cluster_label_names=cluster_label_names,
                     spectra_axis_title=spectra_axis_title,
                     intensity_axis_title=intensity_axis_title,
                     invert_spectra_axis=invert_spectra_axis)
