@@ -48,13 +48,19 @@ class SpectraPlotGraph(dcc.Graph):
 
         Parameters
         ----------
-        data : dask array
+        data : dask.array
             3D array containing data with axes E (or wave-number), y, and x for displaying in the Graph
-        bounds : ndarray-like
+        bounds : list or np.ndarray
             Collection that defines the bounds (min & max) pairs for E / Wave-number, y, and x data
             (e.g. a list that contains 3 min/max pairs)
         parent : Component
             Reference to Component that created this Graph (for registering callbacks)
+        component_spectra : list or np.ndarray
+            List of component spectra from the decomposition
+        invert_spectra_axis : bool
+            Indicates whether or not to invert the spectra axis (x axis) of the plot (default is False)
+        kwargs
+            Additional keyword arguments to be passed into Graph
         """
         self._instance_index = next(self._counter)
         self._data = data
@@ -73,7 +79,12 @@ class SpectraPlotGraph(dcc.Graph):
 
         y = np.asarray(self._data[:, _y_index, _x_index])
         x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
-        self._plot = go.Scattergl(x=x, y=y, name='spectra',
+
+        init_x_name = (self._bounds[2][0] + self._bounds[2][1]) / 2
+        init_y_name = (self._bounds[1][0] + self._bounds[1][1]) / 2
+        self._plot = go.Scattergl(x=x,
+                                  y=y,
+                                  name=f'spectrum @ {init_x_name:.2f}, {init_y_name:.2f}',
                                   mode='lines')
         self._avg_plot = go.Scattergl(name='average',
                                       mode='lines')
@@ -91,7 +102,7 @@ class SpectraPlotGraph(dcc.Graph):
                                             mode='lines')
 
         if len(self._component_spectra) == 0:
-            self._component_plots = None
+            self._component_plots = []
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,
                                                   y=self._component_spectra[i],
@@ -157,6 +168,9 @@ class SpectraPlotGraph(dcc.Graph):
         _x_index = nearest_bin(x, self._bounds[2], self._data.shape[2])
         _y_index = nearest_bin(y, self._bounds[1], self._data.shape[1])
         self._plot.y = np.asarray(self._data[:, _y_index, _x_index])
+
+        # update the legend for the spectrum plot
+        self._plot.name = f'spectrum @ {x:.2f}, {y:.2f}'
 
         return self._update_figure()
         

@@ -9,6 +9,9 @@ from irviz.components import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
 
 
+# TODO: organize Viewer.__init__ (e.g. make a validation method)
+
+
 class Viewer(html.Div):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
 
@@ -41,6 +44,12 @@ class Viewer(html.Div):
             (optional) Decomposition of the data
         bounds : list
             List of min, max pairs that define each axis's lower and upper bounds
+        cluster_labels : np.ndarray
+            Array that contains cluster integer labels over the Energy (wavenumber) axis
+        cluster_label_names : list
+            List of names for each label in the cluster label array
+        component_spectra : list or np.ndarray
+            List of component spectra of the decomposition
         x_axis_title : str
             Title of the x-axis for the rendered data and decomposition figures
         y_axis_title : str
@@ -293,6 +302,12 @@ def notebook_viewer(data,
         Component values for the decomposed data
     bounds : list
         List of min, max pairs that define each axis's lower and upper bounds
+    cluster_labels : np.ndarray
+            Array that contains cluster integer labels over the Energy (wavenumber) axis
+    cluster_label_names : list
+        List of names for each label in the cluster label array
+    component_spectra : list or np.ndarray
+        List of component spectra of the decomposition
     x_axis_title : str
         Title of the x-axis for the rendered data and decomposition figures
     y_axis_title : str
