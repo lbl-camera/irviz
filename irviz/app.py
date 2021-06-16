@@ -46,6 +46,8 @@ if __name__ == "__main__":
     data, bounds = open_map_file(TEST_FILE)
     model = sklearn.decomposition.PCA(n_components=3)
     decomposition = model.fit_transform(data.transpose(1,2,0).reshape(-1, data.shape[0])).T.reshape(-1, *data.shape[1:])
+    cluster_labels = np.argmax(decomposition, axis=0)
+    cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
     viewer = Viewer(irdash.app,
                     data.compute(),
@@ -55,7 +57,9 @@ if __name__ == "__main__":
                     intensity_axis_title='Intensity',
                     x_axis_title='X (μm)',
                     y_axis_title='Y (μm)',
-                    invert_spectra_axis=True)
+                    invert_spectra_axis=True,
+                    cluster_labels=cluster_labels,
+                    cluster_label_names=cluster_label_names)
 
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)

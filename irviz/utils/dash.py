@@ -7,6 +7,7 @@ from dash.exceptions import PreventUpdate
 import dash
 from dataclasses import dataclass
 import json
+import warnings
 
 app = None
 
@@ -33,7 +34,9 @@ def _dispatcher(*_):
         _id, _property = dash.callback_context.outputs_list.values()
         _output = Output(_id, _property)
         if callback.input == _input and callback.output == _output:
-            return callback.callable(triggered[0]['value'])
+            return_value = callback.callable(triggered[0]['value'])
+            warnings.warn(f'A callback returned None. Perhaps you forgot a return value? Callback: {repr(callback.callable)}')
+            return return_value
 
 
 def targeted_callback(callback, input:Input, output:Output, app=app, prevent_initial_callbacks=None):
