@@ -1,10 +1,12 @@
-from irviz.viewer import Viewer
-import h5py as h5
-from dask import array as da
 import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
+import h5py as h5
+import numpy as np
 import sklearn.decomposition
+from dask import array as da
+
+from irviz.viewer import Viewer
 
 TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
 TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
@@ -53,6 +55,7 @@ if __name__ == "__main__":
                     data.compute(),
                     decomposition=decomposition,
                     bounds=bounds,
+                    component_spectra=model.components_,
                     spectra_axis_title='Wavenumber (cm⁻¹)',
                     intensity_axis_title='Intensity',
                     x_axis_title='X (μm)',

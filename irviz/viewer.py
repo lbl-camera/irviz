@@ -1,3 +1,5 @@
+import warnings
+
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
@@ -5,6 +7,9 @@ from dash_core_components import Graph, Slider
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
+
+
+# TODO: organize Viewer.__init__ (e.g. make a validation method)
 
 
 class Viewer(html.Div):
@@ -19,6 +24,7 @@ class Viewer(html.Div):
                  bounds=None,
                  cluster_labels=None,
                  cluster_label_names=None,
+                 component_spectra=None,
                  x_axis_title='X',
                  y_axis_title='Y',
                  spectra_axis_title='Spectral Units',
@@ -38,6 +44,12 @@ class Viewer(html.Div):
             (optional) Decomposition of the data
         bounds : list
             List of min, max pairs that define each axis's lower and upper bounds
+        cluster_labels : np.ndarray
+            Array that contains cluster integer labels over the Energy (wavenumber) axis
+        cluster_label_names : list
+            List of names for each label in the cluster label array
+        component_spectra : list or np.ndarray
+            List of component spectra of the decomposition
         x_axis_title : str
             Title of the x-axis for the rendered data and decomposition figures
         y_axis_title : str
@@ -61,10 +73,19 @@ class Viewer(html.Div):
                            [0, self._data.shape[1] - 1],
                            [0, self._data.shape[2] - 1]]
 
+        # Component spectra shape should be (#components, #wavenumber)
+        component_spectra_array = np.asarray(component_spectra)
+        if (component_spectra_array.shape[0] != self.decomposition.shape[0]
+                or component_spectra_array.shape[1] != self.data.shape[0]):
+            warnings.warn(f"The provided 'component_spectra' does not have a valid shape: "
+                          f"{component_spectra_array.shape}; "
+                          f"shape should be number of components, number of energies (wave-numbers).")
+
         # Initialize graphs
         self.spectra_graph = SpectraPlotGraph(data,
                                               self.bounds,
                                               self,
+                                              component_spectra=component_spectra,
                                               xaxis_title=spectra_axis_title,
                                               yaxis_title=intensity_axis_title,
                                               invert_spectra_axis=invert_spectra_axis)
@@ -260,6 +281,7 @@ class Viewer(html.Div):
 def notebook_viewer(data,
                     decomposition=None,
                     bounds=None,
+                    component_spectra=None,
                     spectra_axis_title='',
                     intensity_axis_title='',
                     x_axis_title='',
@@ -280,6 +302,12 @@ def notebook_viewer(data,
         Component values for the decomposed data
     bounds : list
         List of min, max pairs that define each axis's lower and upper bounds
+    cluster_labels : np.ndarray
+            Array that contains cluster integer labels over the Energy (wavenumber) axis
+    cluster_label_names : list
+        List of names for each label in the cluster label array
+    component_spectra : list or np.ndarray
+        List of component spectra of the decomposition
     x_axis_title : str
         Title of the x-axis for the rendered data and decomposition figures
     y_axis_title : str
@@ -320,6 +348,7 @@ def notebook_viewer(data,
     viewer = Viewer(irdash.app,
                     data.compute(),
                     decomposition=decomposition,
+                    component_spectra=component_spectra,
                     bounds=bounds,
                     x_axis_title=x_axis_title,
                     y_axis_title=y_axis_title,
