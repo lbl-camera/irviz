@@ -94,7 +94,8 @@ class SpectraPlotGraph(dcc.Graph):
             self._component_plots = None
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,
-                                                  y=self._component_spectra[i])
+                                                  y=self._component_spectra[i],
+                                                  name=f'Component #{i+1}')
                                      for i in range(self._component_spectra.shape[0])]
 
         # Define starting point for energy index (for the slicer line trace)
