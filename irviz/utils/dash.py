@@ -35,7 +35,8 @@ def _dispatcher(*_):
         _output = Output(_id, _property)
         if callback.input == _input and callback.output == _output:
             return_value = callback.callable(triggered[0]['value'])
-            warnings.warn(f'A callback returned None. Perhaps you forgot a return value? Callback: {repr(callback.callable)}')
+            if return_value is None:
+                warnings.warn(f'A callback returned None. Perhaps you forgot a return value? Callback: {repr(callback.callable)}')
             return return_value
 
 
