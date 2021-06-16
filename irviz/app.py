@@ -55,6 +55,7 @@ if __name__ == "__main__":
                     data.compute(),
                     decomposition=decomposition,
                     bounds=bounds,
+                    component_spectra=model.components_,
                     spectra_axis_title='Wavenumber (cm⁻¹)',
                     intensity_axis_title='Intensity',
                     x_axis_title='X (μm)',

@@ -43,7 +43,7 @@ class SpectraPlotGraph(dcc.Graph):
 
     title = 'Spectra Intensities'
 
-    def __init__(self, data, bounds, parent, invert_spectra_axis=False, **kwargs):
+    def __init__(self, data, bounds, parent, component_spectra=None, invert_spectra_axis=False, **kwargs):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -62,6 +62,7 @@ class SpectraPlotGraph(dcc.Graph):
 
         self._parent = parent
         self._bounds = bounds
+        self._component_spectra = np.asarray(component_spectra)
 
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -88,6 +89,13 @@ class SpectraPlotGraph(dcc.Graph):
                                             showlegend=False,
                                             hoverinfo='skip',
                                             mode='lines')
+
+        if len(self._component_spectra) == 0:
+            self._component_plots = None
+        else:
+            self._component_plots = [go.Scattergl(x=self._plot.x,
+                                                  y=self._component_spectra[i])
+                                     for i in range(self._component_spectra.shape[0])]
 
         # Define starting point for energy index (for the slicer line trace)
         default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
@@ -188,7 +196,8 @@ class SpectraPlotGraph(dcc.Graph):
         fig = go.Figure([self._plot,
                          self._avg_plot,
                          self._upper_error_plot,
-                         self._lower_error_plot])
+                         self._lower_error_plot,
+                         *self._component_plots])
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title)
