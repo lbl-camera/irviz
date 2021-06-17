@@ -68,7 +68,6 @@ class SpectraPlotGraph(dcc.Graph):
 
         self._parent = parent
         self._bounds = bounds
-        self._component_spectra = np.asarray(component_spectra)
 
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -101,7 +100,8 @@ class SpectraPlotGraph(dcc.Graph):
                                             hoverinfo='skip',
                                             mode='lines')
 
-        if len(self._component_spectra) == 0:
+        self._component_spectra = np.asarray(component_spectra)
+        if len(self._component_spectra.shape) == 0:
             self._component_plots = []
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,

@@ -75,11 +75,12 @@ class Viewer(html.Div):
 
         # Component spectra shape should be (#components, #wavenumber)
         component_spectra_array = np.asarray(component_spectra)
-        if (component_spectra_array.shape[0] != self.decomposition.shape[0]
-                or component_spectra_array.shape[1] != self.data.shape[0]):
-            warnings.warn(f"The provided 'component_spectra' does not have a valid shape: "
-                          f"{component_spectra_array.shape}; "
-                          f"shape should be number of components, number of energies (wave-numbers).")
+        if len(component_spectra_array.shape) > 0:
+            if (component_spectra_array.shape[0] != self.decomposition.shape[0]
+                    or component_spectra_array.shape[1] != self.data.shape[0]):
+                warnings.warn(f"The provided 'component_spectra' does not have a valid shape: "
+                              f"{component_spectra_array.shape}; "
+                              f"shape should be number of components, number of energies (wave-numbers).")
 
         # Initialize graphs
         self.spectra_graph = SpectraPlotGraph(data,
