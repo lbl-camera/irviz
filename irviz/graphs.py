@@ -68,6 +68,7 @@ class SpectraPlotGraph(dcc.Graph):
 
         self._parent = parent
         self._bounds = bounds
+        self._component_spectra = np.asarray(component_spectra)
 
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -100,8 +101,7 @@ class SpectraPlotGraph(dcc.Graph):
                                             hoverinfo='skip',
                                             mode='lines')
 
-        self._component_spectra = np.asarray(component_spectra)
-        if len(self._component_spectra.shape) == 0:
+        if self._component_spectra.ndim != 2:
             self._component_plots = []
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,
@@ -130,7 +130,8 @@ class SpectraPlotGraph(dcc.Graph):
 
         super(SpectraPlotGraph, self).__init__(id=self._id(),
                                                figure=fig,
-                                               className='col-lg-12')
+                                               className='col-lg-8')
+
 
     def register_callbacks(self):
         # When points are selected on the MapGraph, add additional statistics and components plots
@@ -298,7 +299,10 @@ class SliceGraph(dcc.Graph):
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
                                          id=self._id(),
-                                         className='col-lg-4', **kwargs)
+                                         className='col-lg-4',
+                                         responsive=True,
+                                         style=dict(display='flex', flexDirection='row', height='100%'),
+                                         **kwargs)
 
     def _id(self):
         return f'slicegraph_{self._instance_index}'
@@ -447,6 +451,17 @@ class MapGraph(SliceGraph):
                           Input(self._parent.graph_toggles.id, 'value'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
+
+        # Change color scale from selector
+        targeted_callback(self.set_color_scale,
+                          Input(self._parent.map_color_scale_selector.id, 'label'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+    def set_color_scale(self, color_scale):
+        self._image.colorscale = color_scale
+
+        return self._update_figure()
 
     def set_clusters_visibility(self, value):
         self._clusters.visible = 'show_clusters' in value

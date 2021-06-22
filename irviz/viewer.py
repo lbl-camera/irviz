@@ -210,13 +210,24 @@ class Viewer(html.Div):
                 className='radio-group',
             )
 
+        self.map_color_scale_selector = ColorScaleSelector(app=self._app, _id='map-color-scale-selector', value='Viridis')
+
+        map_settings_form = dbc.Form(dbc.FormGroup([html.H3("Map Color Scale"), self.map_color_scale_selector]))
+
+        # Views layout
+        map_layout = dbc.Card(
+            dbc.CardBody(children=[map_settings_form])
+        )
+
+        # Views layout
+        views_layout = dbc.Card(
+            dbc.CardBody(children=[view_selector])
+        )
+
         # Settings tab layout
         # TODO put in function so we can use with callback
-        settings_children = [view_selector]
-        if decomposition is not None:
-            settings_children.extend([decomposition_selector_layout, pair_plot_component_selector])
-        settings_layout = dbc.Card(
-            dbc.CardBody(children=settings_children)
+        decomposition_layout = dbc.Card(
+            dbc.CardBody(children=[decomposition_selector_layout, pair_plot_component_selector])
         )
 
         # Info tab layout
@@ -224,14 +235,15 @@ class Viewer(html.Div):
         self.info_content = html.Div(id='info-content', children=["info"])
         info_layout = dbc.Card(dbc.CardBody(children=[self.info_content]))
 
+        tabs = [dbc.Tab(label='Map', tab_id='map-tab', children=map_layout),
+                dbc.Tab(label='Views', tab_id='views-tab', children=views_layout),
+                dbc.Tab(label="Info", tab_id="info-tab", children=info_layout),
+                ]
+        if decomposition is not None:
+            tabs.insert(1, dbc.Tab(label="Decomposition", tab_id="settings-tab", children=decomposition_layout))
+
         # Create the entire configuration layout
-        config_view = dbc.Tabs(id='config-view',
-                               children=[
-                                   dbc.Tab(label="Settings", tab_id="settings-tab",
-                                           children=settings_layout),
-                                   dbc.Tab(label="Info", tab_id="info-tab", children=info_layout),
-                               ],
-                               )
+        config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-4')
 
         # Initialize layout
         layout_div_children = [self.map_graph,
