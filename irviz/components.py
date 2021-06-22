@@ -38,8 +38,11 @@ def ColorScaleSelector(app, _id, value='Greys', values=None):
         values = color_scales
     children = []
     for name in values:
-        _id_copy = _id.copy()
-        _id_copy['value'] = name
+        if isinstance(_id, dict):
+            _id_copy = _id.copy()
+            _id_copy['value'] = name
+        else:
+            _id_copy = _id+'-'+name
         children.append(dbc.DropdownMenuItem(name, id=_id_copy))
 
     kwargs = dict(label=value,
@@ -52,5 +55,6 @@ def ColorScaleSelector(app, _id, value='Greys', values=None):
                           Input(item.id, 'n_clicks'),
                           Output(selector.id, 'label'),
                           app=app,
+                          prevent_initial_call=True
                           )
     return selector
