@@ -29,7 +29,8 @@ class Viewer(html.Div):
                  y_axis_title='Y',
                  spectra_axis_title='Spectral Units',
                  intensity_axis_title='Intensity',
-                 invert_spectra_axis=False):
+                 invert_spectra_axis=False,
+                 annotations=None):
         """Viewer on the Dash app.
 
         Provides some properties for accessing visualized data (e.g. the current spectrum).
@@ -60,6 +61,10 @@ class Viewer(html.Div):
             Title for the intensity axis in the rendered spectra plot
         invert_spectra_axis : bool
             Whether or not to invert the spectra axis on the spectra plot
+        annotations : dict TODO: validate annotations (valid value types, valid lengths of 1 or 2)
+            Dictionary that contains annotations for the spectra plot TODO: and data map graph.
+            Annotations for spectra plot should follow:
+                'name': (wave_number_m, wave_number_m) or (wave_number)
         """
 
         Viewer._global_slicer_counter += 1
@@ -89,7 +94,8 @@ class Viewer(html.Div):
                                               component_spectra=component_spectra,
                                               xaxis_title=spectra_axis_title,
                                               yaxis_title=intensity_axis_title,
-                                              invert_spectra_axis=invert_spectra_axis)
+                                              invert_spectra_axis=invert_spectra_axis,
+                                              annotations=annotations)
         self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)

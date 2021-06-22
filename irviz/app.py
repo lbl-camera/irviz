@@ -51,6 +51,14 @@ if __name__ == "__main__":
     cluster_labels = np.argmax(decomposition, axis=0)
     cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
+    _test_range_size = 100
+    _test_range_m = (bounds[0][0] + bounds[0][1] / 2) - _test_range_size
+    _test_range_n = (bounds[0][0] + bounds[0][1] / 2) + _test_range_size
+    _test_annotations = {
+        'X': (_test_range_m, _test_range_n),  # Range
+        'Y': (_test_range_m - 100)  # Position
+    }
+
     viewer = Viewer(irdash.app,
                     data.compute(),
                     decomposition=decomposition,
@@ -62,7 +70,8 @@ if __name__ == "__main__":
                     y_axis_title='Y (μm)',
                     invert_spectra_axis=True,
                     cluster_labels=cluster_labels,
-                    cluster_label_names=cluster_label_names)
+                    cluster_label_names=cluster_label_names,
+                    annotations=_test_annotations)
 
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)
