@@ -106,7 +106,8 @@ class SpectraPlotGraph(dcc.Graph):
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,
                                                   y=self._component_spectra[i],
-                                                  name=f'Component #{i+1}')
+                                                  name=f'Component #{i+1}',
+                                                  visible='legendonly')
                                      for i in range(self._component_spectra.shape[0])]
 
         # Define starting point for energy index (for the slicer line trace)
@@ -365,7 +366,7 @@ class MapGraph(SliceGraph):
         else:
             hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />{i_label}: %{{z}}<extra></extra>'
         self._image = go.Heatmap(z=np.asarray(data[default_slice_index]),
-                                 colorscale='gray',
+                                 colorscale='viridis',
                                  hovertemplate=hovertemplate,
                                  **graph_bounds,
                                  **extra_kwargs
