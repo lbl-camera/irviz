@@ -454,14 +454,24 @@ def notebook_viewer(data,
 
     # Prevent server from being run multiple times; only one instance allowed
     if not was_running:
-        irdash.app.run_server(mode=mode)
+        irdash.app.run_server(mode=mode,
+                              width=width,
+                              height=height)
     else:
         # Values passed here are from
         # jupyter_app.jupyter_dash.JupyterDash.run_server
-        irdash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
-                                       mode=mode,
-                                       port=8050,
-                                       width=width,
-                                       height=height)
+
+        if irdash.app._in_colab:
+            irdash.app._display_in_colab(dashboard_url='http://127.0.0.1:8050/',
+                                         mode=mode,
+                                         port=8050,
+                                         width=width,
+                                         height=height)
+        else:
+            irdash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
+                                           mode=mode,
+                                           port=8050,
+                                           width=width,
+                                           height=height)
 
     return viewer
