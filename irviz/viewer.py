@@ -153,7 +153,7 @@ class Viewer(html.Div):
                                                           self,
                                                           xaxis_title=x_axis_title,
                                                           yaxis_title=y_axis_title)
-            self.pair_plot_graph = PairPlotGraph(self.decomposition, self)
+            self.pair_plot_graph = PairPlotGraph(self.decomposition, cluster_labels, cluster_label_names, self)
         else:
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
             self.pair_plot_graph = Graph(id='empty-pair-plot-graph', style={'display': 'none'})
