@@ -471,7 +471,7 @@ class MapGraph(SliceGraph):
         if cluster_labels is not None:
             self._clusters.z = cluster_labels  # NaNs are transparent
 
-        traces = (traces or []) + [self._image, self._selection_mask, self._dummy_scatter, self._clusters]
+        traces = (traces or []) + [self._dummy_scatter, self._image, self._selection_mask, self._clusters]
 
         super(MapGraph, self).__init__(data,
                                        bounds,
@@ -545,7 +545,9 @@ class MapGraph(SliceGraph):
 
     def _show_selection_mask(self, selection):
         # Get x,y from the raveled indexes
-        raveled_indexes = list(map(lambda point: point['pointIndex'], selection['points']))
+        raveled_indexes = list(map(lambda point: point['pointIndex'],
+                                   filter(lambda point: point['curveNumber'] == 0,
+                                          selection['points'])))
         mask = np.zeros(self._data[0].shape)
         # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
         mask.fill(np.NaN)
@@ -692,16 +694,18 @@ class PairPlotGraph(dcc.Graph):
     _counter = count(0)
     title = 'Pair Plot'
 
-    def __init__(self, data, parent):
+    def __init__(self, data, cluster_labels, cluster_label_names, parent):
         self._instance_index = next(self._counter)
 
         # Cache our data and parent for use in the callbacks
         self._data = data
         self._parent = parent
         self._component1 = self._component2 = 0
+        self._cluster_labels = cluster_labels
+        self._cluster_label_names = cluster_label_names
+        self.traces = []
 
-        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
-        self._scatter = go.Scattergl(x=[], y=[], mode='markers')
+
 
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
@@ -747,7 +751,7 @@ class PairPlotGraph(dcc.Graph):
 
     def _update_figure(self):
         """ Remake the figure to force a display update """
-        fig = go.Figure([self._scatter])
+        fig = go.Figure(self.traces)
         fig.update_layout(title=self.title,
                           xaxis_title=f'Component #{self._component1+1}',
                           yaxis_title=f'Component #{self._component2+1}')
@@ -764,8 +768,27 @@ class PairPlotGraph(dcc.Graph):
 
         x = self._data[component1]
         y = self._data[component2]
-        self._scatter.x = np.asarray(x.ravel())
-        self._scatter.y = np.asarray(y.ravel())
+
+        self.traces = []
+
+        multi_mode = self._cluster_labels is not None
+
+        self.traces.append(go.Scattergl(x=np.asarray(x.ravel()),
+                                        y=np.asarray(y.ravel()),
+                                        mode='markers',
+                                        marker={'color': 'rgba(0,0,0,0)'} if multi_mode else None,
+                                        hoverinfo='skip' if multi_mode else None,
+                                        showlegend=False))
+
+        if self._cluster_labels is not None:
+            for i, name in enumerate(self._cluster_label_names):
+                label_mask = self._cluster_labels.ravel()==i
+                trace = go.Scattergl(x=np.asarray(x.ravel())[label_mask],
+                                     y=np.asarray(y.ravel())[label_mask],
+                                     name=name,
+                                     mode='markers')
+                self.traces.append(trace)
+
         self._component1 = component1
         self._component2 = component2
 
