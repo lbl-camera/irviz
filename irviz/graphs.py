@@ -713,6 +713,9 @@ class PairPlotGraph(dcc.Graph):
     def __init__(self, data, cluster_labels, cluster_label_names, parent):
         self._instance_index = next(self._counter)
 
+        # Track if the selection help has been displayed yet, don't want to annoy users
+        self._selection_help_displayed_already = False
+
         # Cache our data and parent for use in the callbacks
         self._data = data
         self._parent = parent
@@ -754,11 +757,34 @@ class PairPlotGraph(dcc.Graph):
                           Output(self._parent.info_content.id, 'children'),
                           app=self._parent._app)
 
+        # Set up help notifications for selection tools
+        # Chained callbacks (selectedData -> is_open -> children)
+        targeted_callback(self._show_selection_help,
+                          Input(self.id, 'selectedData'),
+                          Output(self._parent.notifier.id, 'is_open'),
+                          app=self._parent._app)
+        targeted_callback(self._update_selection_help_text,
+                          Input(self._parent.notifier.id, 'is_open'),
+                          Output(self._parent.notifier.id, 'children'),
+                          app=self._parent._app)
+
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
                           Input(self._parent.graph_toggles.id, 'value'),
                           Output(self.id, 'style'),
                           app=self._parent._app)
+
+    def _show_selection_help(self, selected_data):
+        if not self._selection_help_displayed_already and selected_data is not None:
+            self._selection_help_displayed_already = True
+            return True
+        return False
+
+    def _update_selection_help_text(self, is_open):
+        if is_open:
+            return "Double-click with selection tool to unselect all points."
+        else:
+            return ""
 
     def _show_selection_info(self, selected_data):
         if not selected_data:

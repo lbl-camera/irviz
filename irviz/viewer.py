@@ -299,12 +299,25 @@ class Viewer(html.Div):
         # Create the entire configuration layout
         config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-4')
 
+        # Create the Toast (notification thingy)
+        self.notifier = dbc.Toast("placeholder",
+            id="notifier",
+            header="Tip",
+            is_open=False,
+            dismissable=True,
+            icon="info",
+            duration=4000,
+            # top: 66 positions the toast below the navbar
+            style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+        )
+
         # Initialize layout
         layout_div_children = [self.map_graph,
                                self.decomposition_graph,
                                config_view,
                                self.spectra_graph,
-                               self.pair_plot_graph]
+                               self.pair_plot_graph,
+                               self.notifier]
         children = html.Div(children=layout_div_children,
                             className='row well')
 
