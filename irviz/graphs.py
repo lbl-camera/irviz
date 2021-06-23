@@ -170,6 +170,12 @@ class SpectraPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # On selection of pair-plot points, show their average
+        targeted_callback(self._update_average_plot,
+                          Input(self._parent.pair_plot_graph.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
         # When this SpectraGraph itself is clicked, update the energy slicer line
         targeted_callback(self._update_energy_line,
                           Input(self.id, 'clickData'),
@@ -284,10 +290,9 @@ class SpectraPlotGraph(dcc.Graph):
         return fig
 
     def _update_average_plot(self, selected_data):
-        xs = np.asarray(list(map(lambda point: point['x'], selected_data['points'])))
-        ys = np.asarray(list(map(lambda point: point['y'], selected_data['points'])))
-        x_indexes = list(map(lambda x: nearest_bin(x, self._bounds[2], self._data.shape[2]), xs))
-        y_indexes = list(map(lambda y: nearest_bin(y, self._bounds[1], self._data.shape[1]), ys))
+        raveled_indexes = list(map(lambda point: point['pointIndex'], selected_data['points']))
+        y_indexes, x_indexes = np.unravel_index(raveled_indexes, self._data.shape[1:])
+
         self._avg_plot.x = self._plot.x
         self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
 
