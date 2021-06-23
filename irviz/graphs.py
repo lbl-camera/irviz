@@ -154,7 +154,13 @@ class SpectraPlotGraph(dcc.Graph):
 
         super(SpectraPlotGraph, self).__init__(id=self._id(),
                                                figure=fig,
-                                               className='col-lg-8')
+                                               className='col-lg-8',
+                                               responsive=True,
+                                               style=dict(display='flex',
+                                                          flexDirection='row',
+                                                          height='100%',
+                                                          minHeight='450px'),
+                                               )
 
 
     def register_callbacks(self):
@@ -355,7 +361,10 @@ class SliceGraph(dcc.Graph):
                                          id=self._id(),
                                          className='col-lg-4',
                                          responsive=True,
-                                         style=dict(display='flex', flexDirection='row', height='100%'),
+                                         style=dict(display='flex',
+                                                    flexDirection='row',
+                                                    height='100%',
+                                                    minHeight='450px'),
                                          **kwargs)
 
     def _id(self):
@@ -692,7 +701,12 @@ class PairPlotGraph(dcc.Graph):
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
                                             id=f'pair_plot_{self._instance_index}',
-                                            className='col-lg-4')
+                                            className='col-lg-4',
+                                            responsive=True,
+                                            style=dict(display='flex',
+                                                       flexDirection='row',
+                                                       height='100%',
+                                                       minHeight='450px'),)
 
     def register_callbacks(self):
         # Set up callbacks
