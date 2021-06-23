@@ -290,17 +290,27 @@ class SpectraPlotGraph(dcc.Graph):
         return fig
 
     def _update_average_plot(self, selected_data):
-        raveled_indexes = list(map(lambda point: point['pointIndex'], selected_data['points']))
-        y_indexes, x_indexes = np.unravel_index(raveled_indexes, self._data.shape[1:])
+        if selected_data is not None and len(selected_data['points']) > 0:
+            raveled_indexes = list(map(lambda point: point['pointIndex'], selected_data['points']))
+            y_indexes, x_indexes = np.unravel_index(raveled_indexes, self._data.shape[1:])
 
-        self._avg_plot.x = self._plot.x
-        self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
+            self._avg_plot.x = self._plot.x
+            self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
+            self._avg_plot.visible = True
 
-        error = np.std(self._data[:, y_indexes, x_indexes], axis=1)
-        self._upper_error_plot.x = self._avg_plot.x
-        self._upper_error_plot.y = error + self._avg_plot.y
-        self._lower_error_plot.x = self._avg_plot.x
-        self._lower_error_plot.y = self._avg_plot.y - error
+            error = np.std(self._data[:, y_indexes, x_indexes], axis=1)
+            self._upper_error_plot.x = self._avg_plot.x
+            self._upper_error_plot.y = error + self._avg_plot.y
+            self._lower_error_plot.x = self._avg_plot.x
+            self._lower_error_plot.y = self._avg_plot.y - error
+        else:
+            self._avg_plot.x = []
+            self._avg_plot.y = []
+            self._avg_plot.visible = False
+            self._upper_error_plot.x = []
+            self._upper_error_plot.y = []
+            self._lower_error_plot.x = []
+            self._lower_error_plot.y = []
 
         return self._update_figure()
 
@@ -544,16 +554,22 @@ class MapGraph(SliceGraph):
         return self._update_figure()
 
     def _show_selection_mask(self, selection):
-        # Get x,y from the raveled indexes
-        raveled_indexes = list(map(lambda point: point['pointIndex'],
-                                   filter(lambda point: point['curveNumber'] == 0,
-                                          selection['points'])))
-        mask = np.zeros(self._data[0].shape)
-        # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
-        mask.fill(np.NaN)
-        mask.ravel()[raveled_indexes] = 1
-        # Create overlay
-        self._selection_mask.z = mask
+        # Check two cases:
+        #     1. selection is None: initial state (no selection) or user has dbl-clicked w/ lasso/selection tool
+        #     2. selection['points'] is empty: user has selected no points
+        if selection is not None and len(selection['points']) > 0:
+            # Get x,y from the raveled indexes
+            raveled_indexes = list(map(lambda point: point['pointIndex'],
+                                       filter(lambda point: point['curveNumber'] == 0,
+                                              selection['points'])))
+            mask = np.zeros(self._data[0].shape)
+            # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
+            mask.fill(np.NaN)
+            mask.ravel()[raveled_indexes] = 1
+            # Create overlay
+            self._selection_mask.z = mask
+        else:
+            self._selection_mask.z = np.ones(self._data[0].shape) * np.NaN
 
         return self._update_figure()
 
@@ -757,14 +773,9 @@ class PairPlotGraph(dcc.Graph):
                           yaxis_title=f'Component #{self._component2+1}')
         return fig
 
-    def show_pair_plot(self, component1, component2, selectedData):
+    def show_pair_plot(self, component1, component2, selected_data):
         if component1 is None or component2 is None:
             raise PreventUpdate
-
-        triggered = dash.callback_context.triggered
-        if self._parent.map_graph.id in triggered[0]['prop_id']:
-            raveled_indexes = list(map(lambda point: point['pointIndex'], selectedData['points']))
-            self._scatter.selectedpoints = raveled_indexes
 
         x = self._data[component1]
         y = self._data[component2]
@@ -773,12 +784,22 @@ class PairPlotGraph(dcc.Graph):
 
         multi_mode = self._cluster_labels is not None
 
+        # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
+        selected_points = None
+        triggered = dash.callback_context.triggered
+        if self._parent.map_graph.id in triggered[0]['prop_id']:
+            # selected data being None indicates that the user has selected data
+            # selected data 'points' being empty indicates the user has selected data outside of the region
+            if selected_data is not None and len(selected_data['points']) > 0:
+                selected_points = list(map(lambda point: point['pointIndex'], selected_data['points']))
+
         self.traces.append(go.Scattergl(x=np.asarray(x.ravel()),
                                         y=np.asarray(y.ravel()),
                                         mode='markers',
                                         marker={'color': 'rgba(0,0,0,0)'} if multi_mode else None,
                                         hoverinfo='skip' if multi_mode else None,
-                                        showlegend=False))
+                                        showlegend=False,
+                                        selectedpoints=selected_points))
 
         if self._cluster_labels is not None:
             for i, name in enumerate(self._cluster_label_names):
@@ -786,7 +807,8 @@ class PairPlotGraph(dcc.Graph):
                 trace = go.Scattergl(x=np.asarray(x.ravel())[label_mask],
                                      y=np.asarray(y.ravel())[label_mask],
                                      name=name,
-                                     mode='markers')
+                                     mode='markers',
+                                     selectedpoints=selected_points)
                 self.traces.append(trace)
 
         self._component1 = component1
