@@ -4,3 +4,4 @@ dash-slicer
 jupyter-dash
 numpy
 sklearn
+dash_bootstrap_components
