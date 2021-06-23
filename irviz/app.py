@@ -55,8 +55,12 @@ if __name__ == "__main__":
     _test_range_m = (bounds[0][0] + bounds[0][1] / 2) - _test_range_size
     _test_range_n = (bounds[0][0] + bounds[0][1] / 2) + _test_range_size
     _test_annotations = {
-        'X': (_test_range_m, _test_range_n),  # Range
-        'Y': (_test_range_m - 100)  # Position
+        'range': {'range': (_test_range_m, _test_range_n)},
+        'pos': {'position': _test_range_m - 100},
+        'pos-with-color': {'position': _test_range_m + 300, 'color': 'rgb(44, 200, 44)'},
+        'range-with-color': {'range': (_test_range_m + 1000, _test_range_m + 800),
+                   'color': 'red'},
+        'range-and-pos': {'range': [_test_range_m - 1000, _test_range_m - 800], 'position': _test_range_m - 950, 'color': '#34afdd'}
     }
 
     viewer = Viewer(irdash.app,

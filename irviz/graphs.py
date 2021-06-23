@@ -59,10 +59,27 @@ class SpectraPlotGraph(dcc.Graph):
             List of component spectra from the decomposition
         invert_spectra_axis : bool
             Indicates whether or not to invert the spectra axis (x axis) of the plot (default is False)
-        annotations : dict
-            Dictionary that contains annotations for the spectra plot TODO: and data map graph.
-            Annotations for spectra plot should follow:
-                'name': (wave_number_m, wave_number_m) or (wave_number)
+        annotations : dict[str, dict]
+            Dictionary that contains annotation names that map to annotations.
+            The annotation dictionaries support the following keys:
+                'range' : list or tuple of length 2
+                'position' : number
+                'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
+            Example:
+                annotations={
+                    'x': {
+                        'range': (1000, 1500),
+                        'color': 'green'
+                    },
+                    'y': {
+                        'position': 300,
+                        'range': [200, 500]
+                    },
+                    'z': {
+                        'position': 900,
+                        'color': '#34afdd'
+                    }
+                }
         kwargs
             Additional keyword arguments to be passed into Graph
         """
@@ -217,25 +234,30 @@ class SpectraPlotGraph(dcc.Graph):
 
     def _add_annotations(self, fig):
         if self._annotations is not None:
-            for name, span in self._annotations.items():
-                try:
-                    iter(span)
-                # Create a single vertical line for this position
-                except TypeError:
-                    fig.add_vline(x=span, annotation_text=name, annotation_position="top", line_dash="dot")
-                    # self._annotations.append(go.layout.Shape(name=name, type='line', xref='x', yref='paper', x0=span, x1=span, y0=0, y1=1))
-                    # self._annotations.append(go.layout.Shape(name='TEST', type='line', xref='x', yref='paper', x0=1000, x1=1000, y0=0, y1=0))
-                # Create vertical line and its range shading
-                else:
-                    if len(span) == 1:
-                        fig.add_vline(x=span[0], annotation_text=name, annotation_position="top", line_dash="dot")
-                    elif len(span) == 2:
-                        center = (span[0] + span[1]) / 2
-                        fig.add_vrect(x0=span[0], x1=span[1],
-                                      fillcolor="green", opacity=0.25, line_width=0)
-                        fig.add_vline(x=center, annotation_text=name, annotation_position="top", line_dash="dot")
-                    else:
-                        ...
+            line_kwargs = {'annotation_position': 'top',
+                           'line_dash': 'dot',
+                           'opacity': 0.6}
+            for name, annotation in self._annotations.items():
+                span = annotation.get('range', None)
+                position = annotation.get('position', None)
+                color = annotation.get('color', 'gray')
+                line_kwargs['line'] = {'color': color}
+
+                # Don't add two annotation texts if we are creating both a vrect and vline
+                if span is not None and position is not None:
+                    fig.add_vrect(x0=span[0], x1=span[1],
+                                  fillcolor=color, opacity=0.2, line_width=0)
+                    fig.add_vline(x=position, annotation_text=name, **line_kwargs)
+
+                elif span is not None:
+                    fig.add_vrect(x0=span[0], x1=span[1],
+                                  fillcolor=color, opacity=0.2, line_width=0)
+                    # Create invisible vline so we can get the text annotation above the middle of the rect range
+                    center = (span[0] + span[1]) / 2
+                    fig.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
+
+                elif position is not None:
+                    fig.add_vline(x=position, annotation_text=name, **line_kwargs)
 
     def _update_figure(self):
         fig = go.Figure([self._plot,
@@ -251,9 +273,7 @@ class SpectraPlotGraph(dcc.Graph):
         fig.add_shape(self._energy_line)
 
         self._add_annotations(fig)
-        # for annotation in self._annotations:
-        #     print(f"adding annotation: {annotation.name}")
-        #     fig.add_shape(annotation)
+
         return fig
 
     def _update_average_plot(self, selected_data):
