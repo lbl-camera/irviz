@@ -1,3 +1,4 @@
+import numbers
 import warnings
 
 import dash_bootstrap_components as dbc
@@ -11,6 +12,7 @@ from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlo
 
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
 
+# TODO: update docstrings for annotation; validate annotation
 
 class Viewer(html.Div):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
@@ -29,7 +31,8 @@ class Viewer(html.Div):
                  y_axis_title='Y',
                  spectra_axis_title='Spectral Units',
                  intensity_axis_title='Intensity',
-                 invert_spectra_axis=False):
+                 invert_spectra_axis=False,
+                 annotations=None):
         """Viewer on the Dash app.
 
         Provides some properties for accessing visualized data (e.g. the current spectrum).
@@ -60,6 +63,27 @@ class Viewer(html.Div):
             Title for the intensity axis in the rendered spectra plot
         invert_spectra_axis : bool
             Whether or not to invert the spectra axis on the spectra plot
+        annotations : dict[str, dict]
+            Dictionary that contains annotation names that map to annotations.
+            The annotation dictionaries support the following keys:
+                'range' : list or tuple of length 2
+                'position' : number
+                'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
+            Example:
+                annotations={
+                    'x': {
+                        'range': (1000, 1500),
+                        'color': 'green'
+                    },
+                    'y': {
+                        'position': 300,
+                        'range': [200, 500]
+                    },
+                    'z': {
+                        'position': 900,
+                        'color': '#34afdd'
+                    }
+                }
         """
 
         Viewer._global_slicer_counter += 1
@@ -72,6 +96,35 @@ class Viewer(html.Div):
             self.bounds = [[0, self._data.shape[0] - 1],
                            [0, self._data.shape[1] - 1],
                            [0, self._data.shape[2] - 1]]
+
+        # Validate annotations TODO: reorganize
+        if annotations is not None:
+            for name, annotation in annotations.items():
+                r = annotation.get('range', None)
+                p = annotation.get('position', None)
+                if r is not None and p is not None:
+                    if not (r[0] <= p <= r[1]):
+                        warnings.warn(f"position {p} is not within the range {r}")
+                for kwarg, value in annotation.items():
+                    # Range must be an iterable of length 2
+                    if kwarg == "range":
+                        try:
+                            iter(value)
+                        except TypeError:
+                            raise TypeError(f"'range' must contain a tuple or list as its value")
+                        else:
+                            if len(value) != 2:
+                                raise ValueError(f"'range' must contain a list/tuple of two numerical values")
+                    # Position must be a number
+                    elif kwarg == "position":
+                        if not isinstance(value, numbers.Real):
+                            raise ValueError(f"'position' must be a numerical value")
+                    # Only color names supported right now
+                    elif kwarg == "color":
+                        if not isinstance(value, str):
+                            raise TypeError(f"'color' must be a color name (string)")
+                    else:
+                        raise ValueError(f"'{kwarg}' is not currently supported as a keyword in annotations")
 
         # Component spectra shape should be (#components, #wavenumber)
         component_spectra_array = np.asarray(component_spectra)
@@ -89,7 +142,8 @@ class Viewer(html.Div):
                                               component_spectra=component_spectra,
                                               xaxis_title=spectra_axis_title,
                                               yaxis_title=intensity_axis_title,
-                                              invert_spectra_axis=invert_spectra_axis)
+                                              invert_spectra_axis=invert_spectra_axis,
+                                              annotations=annotations)
         self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
@@ -304,7 +358,8 @@ def notebook_viewer(data,
                     cluster_label_names=None,
                     mode='inline',
                     width='100%',
-                    height=650):
+                    height=650,
+                    annotations=None):
     """Create a Viewer inside of a Jupyter Notebook or Lab environment.
 
     Parameters
@@ -337,6 +392,27 @@ def notebook_viewer(data,
         CSS-style width value that defines the width of the rendered Viewer app
     height : int or str
         CSS-style height value that defines the height of the rendered Viewer app
+    annotations : dict[str, dict]
+        Dictionary that contains annotation names that map to annotations.
+        The annotation dictionaries support the following keys:
+            'range' : list or tuple of length 2
+            'position' : number
+            'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
+        Example:
+            annotations={
+                'x': {
+                    'range': (1000, 1500),
+                    'color': 'green'
+                },
+                'y': {
+                    'position': 300,
+                    'range': [200, 500]
+                },
+                'z': {
+                    'position': 900,
+                    'color': '#34afdd'
+                }
+            }
 
     Returns
     -------
@@ -369,7 +445,8 @@ def notebook_viewer(data,
                     cluster_label_names=cluster_label_names,
                     spectra_axis_title=spectra_axis_title,
                     intensity_axis_title=intensity_axis_title,
-                    invert_spectra_axis=invert_spectra_axis)
+                    invert_spectra_axis=invert_spectra_axis,
+                    annotations=annotations)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])

@@ -43,7 +43,7 @@ class SpectraPlotGraph(dcc.Graph):
 
     title = 'Spectra Intensities'
 
-    def __init__(self, data, bounds, parent, component_spectra=None, invert_spectra_axis=False, **kwargs):
+    def __init__(self, data, bounds, parent, component_spectra=None, invert_spectra_axis=False, annotations=None, **kwargs):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -59,6 +59,27 @@ class SpectraPlotGraph(dcc.Graph):
             List of component spectra from the decomposition
         invert_spectra_axis : bool
             Indicates whether or not to invert the spectra axis (x axis) of the plot (default is False)
+        annotations : dict[str, dict]
+            Dictionary that contains annotation names that map to annotations.
+            The annotation dictionaries support the following keys:
+                'range' : list or tuple of length 2
+                'position' : number
+                'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
+            Example:
+                annotations={
+                    'x': {
+                        'range': (1000, 1500),
+                        'color': 'green'
+                    },
+                    'y': {
+                        'position': 300,
+                        'range': [200, 500]
+                    },
+                    'z': {
+                        'position': 900,
+                        'color': '#34afdd'
+                    }
+                }
         kwargs
             Additional keyword arguments to be passed into Graph
         """
@@ -125,6 +146,9 @@ class SpectraPlotGraph(dcc.Graph):
                                             x1=default_slice_index,
                                             y0=0,
                                             y1=1)
+
+        # Handle annotations
+        self._annotations = annotations
 
         fig = self._update_figure()
 
@@ -209,6 +233,33 @@ class SpectraPlotGraph(dcc.Graph):
         else:
             return {'display': 'none'}
 
+    def _add_annotations(self, fig):
+        if self._annotations is not None:
+            line_kwargs = {'annotation_position': 'top',
+                           'line_dash': 'dot',
+                           'opacity': 0.6}
+            for name, annotation in self._annotations.items():
+                span = annotation.get('range', None)
+                position = annotation.get('position', None)
+                color = annotation.get('color', 'gray')
+                line_kwargs['line'] = {'color': color}
+
+                # Don't add two annotation texts if we are creating both a vrect and vline
+                if span is not None and position is not None:
+                    fig.add_vrect(x0=span[0], x1=span[1],
+                                  fillcolor=color, opacity=0.2, line_width=0)
+                    fig.add_vline(x=position, annotation_text=name, **line_kwargs)
+
+                elif span is not None:
+                    fig.add_vrect(x0=span[0], x1=span[1],
+                                  fillcolor=color, opacity=0.2, line_width=0)
+                    # Create invisible vline so we can get the text annotation above the middle of the rect range
+                    center = (span[0] + span[1]) / 2
+                    fig.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
+
+                elif position is not None:
+                    fig.add_vline(x=position, annotation_text=name, **line_kwargs)
+
     def _update_figure(self):
         fig = go.Figure([self._plot,
                          self._avg_plot,
@@ -221,6 +272,9 @@ class SpectraPlotGraph(dcc.Graph):
         if self._invert_spectra_axis:
             fig.update_xaxes(autorange="reversed")
         fig.add_shape(self._energy_line)
+
+        self._add_annotations(fig)
+
         return fig
 
     def _update_average_plot(self, selected_data):
