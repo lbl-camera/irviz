@@ -2,6 +2,7 @@ from os import path
 from setuptools import setup, find_packages
 import sys
 import versioneer
+import warnings
 
 
 # NOTE: This file must remain Python 2 compatible for the foreseeable future,
@@ -20,7 +21,7 @@ Upgrade pip like so:
 
 pip install --upgrade pip
 """.format(*(sys.version_info[:2] + min_version))
-    sys.exit(error)
+    warnings.warn(error)
 
 here = path.abspath(path.dirname(__file__))
 
@@ -62,6 +63,6 @@ setup(
     classifiers=[
         'Development Status :: 2 - Pre-Alpha',
         'Natural Language :: English',
-        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.8',
     ],
 )
