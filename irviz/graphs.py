@@ -758,13 +758,8 @@ class PairPlotGraph(dcc.Graph):
                           app=self._parent._app)
 
         # Set up help notifications for selection tools
-        # Chained callbacks (selectedData -> is_open -> children)
-        targeted_callback(self._show_selection_help,
-                          Input(self.id, 'selectedData'),
-                          Output(self._parent.notifier.id, 'is_open'),
-                          app=self._parent._app)
         targeted_callback(self._update_selection_help_text,
-                          Input(self._parent.notifier.id, 'is_open'),
+                          Input(self.id, 'selectedData'),
                           Output(self._parent.notifier.id, 'children'),
                           app=self._parent._app)
 
@@ -774,17 +769,12 @@ class PairPlotGraph(dcc.Graph):
                           Output(self.id, 'style'),
                           app=self._parent._app)
 
-    def _show_selection_help(self, selected_data):
-        if not self._selection_help_displayed_already and selected_data is not None:
+    def _update_selection_help_text(self, selected_data):
+        if not self._selection_help_displayed_already:
             self._selection_help_displayed_already = True
-            return True
-        return False
-
-    def _update_selection_help_text(self, is_open):
-        if is_open:
             return "Double-click with selection tool to unselect all points."
         else:
-            return ""
+            raise PreventUpdate
 
     def _show_selection_info(self, selected_data):
         if not selected_data:

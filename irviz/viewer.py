@@ -5,9 +5,11 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
 from dash_core_components import Graph, Slider
+from dash.dependencies import Input, Output
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
+from irviz.utils.dash import targeted_callback
 
 
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
@@ -310,6 +312,12 @@ class Viewer(html.Div):
             # top: 66 positions the toast below the navbar
             style={"position": "fixed", "top": 66, "right": 10, "width": 350}
         )
+
+        # Wireup toast chained callback
+        targeted_callback(lambda _: True,
+                          Input(self.notifier.id, 'children'),
+                          Output(self.notifier.id, 'is_open'),
+                          app=self._app)
 
         # Initialize layout
         layout_div_children = [self.map_graph,
