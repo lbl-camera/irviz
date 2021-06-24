@@ -52,7 +52,7 @@ if __name__ == "__main__":
     cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
     viewer = Viewer(irdash.app,
-                    data.compute(),
+                    data,
                     decomposition=decomposition,
                     bounds=bounds,
                     component_spectra=model.components_,
