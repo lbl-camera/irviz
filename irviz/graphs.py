@@ -9,6 +9,7 @@ import plotly.graph_objects as go
 from dash.dependencies import ALL, Input, Output
 from dash.development.base_component import Component
 from dash.exceptions import PreventUpdate
+import dask.array as da
 
 from irviz.utils.dash import targeted_callback
 
@@ -294,11 +295,16 @@ class SpectraPlotGraph(dcc.Graph):
             raveled_indexes = list(map(lambda point: point['pointIndex'], selected_data['points']))
             y_indexes, x_indexes = np.unravel_index(raveled_indexes, self._data.shape[1:])
 
+            # Dask arrays do fancy indexing differently, and the results have different orientations
+            if isinstance(self._data, da.Array):
+                self._avg_plot.y = np.mean(self._data.vindex[:, y_indexes, x_indexes], axis=0)
+                error = np.std(self._data.vindex[:, y_indexes, x_indexes], axis=0)
+            else:
+                self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
+                error = np.std(self._data[:, y_indexes, x_indexes], axis=1)
             self._avg_plot.x = self._plot.x
-            self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
             self._avg_plot.visible = True
 
-            error = np.std(self._data[:, y_indexes, x_indexes], axis=1)
             self._upper_error_plot.x = self._avg_plot.x
             self._upper_error_plot.y = error + self._avg_plot.y
             self._lower_error_plot.x = self._avg_plot.x
