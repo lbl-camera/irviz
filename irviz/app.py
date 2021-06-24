@@ -62,7 +62,22 @@ if __name__ == "__main__":
                     y_axis_title='Y (μm)',
                     invert_spectra_axis=True,
                     cluster_labels=cluster_labels,
-                    cluster_label_names=cluster_label_names)
+                    cluster_label_names=cluster_label_names,
+                    annotations={
+                        'x': {
+                            'range': (1000, 1500),
+                            'color': 'green'
+                        },
+                        'y': {
+                            'position': 300,
+                            'range': [200, 500]
+                        },
+                        'z': {
+                            'position': 900,
+                            'color': '#34afdd'
+                        }
+                    }
+                    )
 
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)
