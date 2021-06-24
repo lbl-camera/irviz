@@ -380,7 +380,7 @@ class SliceGraph(dcc.Graph):
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
                                          id=self._id(),
-                                         className='col-lg-4',
+                                         className='col-lg-3',
                                          responsive=True,
                                          style=dict(display='flex',
                                                     flexDirection='row',
@@ -466,8 +466,8 @@ class MapGraph(SliceGraph):
                                           hoverinfo='skip',
                                           **graph_bounds
                                           )
-        x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2], endpoint=False),
-                           np.linspace(bounds[1][0], bounds[1][1], data.shape[1], endpoint=False))
+        x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
+                           np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))
 
         # This dummy scatter trace is added to support lasso selection
         self._dummy_scatter = go.Scattergl(x=x.ravel(),
@@ -509,6 +509,12 @@ class MapGraph(SliceGraph):
         # When this SliceGraph itself is clicked, update its x,y slicer lines
         targeted_callback(self.show_click,
                           Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # When the optical graph is clicked show the same position
+        targeted_callback(self.show_click,
+                          Input(self._parent.optical_graph.id, 'clickData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
@@ -580,6 +586,162 @@ class MapGraph(SliceGraph):
         return self._update_figure()
 
 
+class OpticalGraph(SliceGraph):
+    """Dash Graph for viewing 2D slices of 3D data.
+
+    Parameters
+    ----------
+    data : dask.array
+        3D data array
+    parent : html.Div
+        The parent object that creates this Graph
+
+    """
+    title = 'IR Spectral Map'
+
+    def __init__(self, map_data, optical_data, bounds, cluster_labels, cluster_label_names, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
+
+        default_slice_index = 0
+        self._map_data = map_data
+
+        if optical_data.ndim == 2:
+            optical_data = np.expand_dims(optical_data, 0)
+
+        # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
+        optical_graph_bounds = dict(y0=bounds[1][0],
+                                    dy=(bounds[1][1]-bounds[1][0])/optical_data.shape[1],
+                                    x0=bounds[2][0],
+                                    dx=(bounds[2][1]-bounds[2][0])/optical_data.shape[2])
+        map_graph_bounds = dict(y0=bounds[1][0],
+                                dy=(bounds[1][1]-bounds[1][0])/map_data.shape[1],
+                                x0=bounds[2][0],
+                                dx=(bounds[2][1]-bounds[2][0])/map_data.shape[2])
+        # Template for custom hover text
+        x_label = kwargs.get('xaxis_title', '')
+        y_label = kwargs.get('yaxis_title', '')
+        i_label = 'I'
+        extra_kwargs = {}
+        if cluster_label_names is not None and cluster_labels is not None:
+            extra_kwargs['text'] = np.asarray(cluster_label_names)[cluster_labels]
+            hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />{i_label}: %{{z}}<br />Label: %{{text}}<extra></extra>'
+        else:
+            hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />{i_label}: %{{z}}<extra></extra>'
+        self._image = go.Heatmap(z=np.asarray(optical_data[default_slice_index]),
+                                 colorscale='viridis',
+                                 hovertemplate=hovertemplate,
+                                 **optical_graph_bounds,
+                                 **extra_kwargs
+                                 )
+        self._selection_mask = go.Heatmap(z=np.ones(map_data[0].shape) * np.NaN,
+                                          colorscale='reds',
+                                          opacity=0.3,
+                                          showscale=False,
+                                          hoverinfo='skip',
+                                          **map_graph_bounds
+                                          )
+        x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], map_data.shape[2]),
+                           np.linspace(bounds[1][0], bounds[1][1], map_data.shape[1]))
+
+        # This dummy scatter trace is added to support lasso selection
+        self._dummy_scatter = go.Scattergl(x=x.ravel(),
+                                           y=y.ravel(),
+                                           mode='markers',
+                                           marker={'color': 'rgba(0,0,0,0)'},
+                                           hoverinfo='skip'
+                                           )
+        # Add another transparent heatmap overlay for labels
+        self._clusters = go.Heatmap(z=np.ones(map_data[0].shape) * np.NaN,
+                                    colorscale='Portland',
+                                    **map_graph_bounds,
+                                    opacity=0.3,
+                                    showscale=False,
+                                    hoverinfo='skip',
+                                    )
+        if cluster_labels is not None:
+            self._clusters.z = cluster_labels  # NaNs are transparent
+
+        traces = (traces or []) + [self._dummy_scatter, self._image, self._selection_mask, self._clusters]
+
+        super(OpticalGraph, self).__init__(optical_data,
+                                           bounds,
+                                           parent,
+                                           slice_axis=slice_axis,
+                                           traces=traces,
+                                           shapes=shapes,
+                                           **kwargs
+                                           # config={'modeBarButtonsToAdd': ['lasso2d']}
+                                           )
+
+    def set_color_scale(self, color_scale):
+        self._image.colorscale = color_scale
+
+        return self._update_figure()
+
+    def set_clusters_visibility(self, value):
+        self._clusters.visible = 'show_clusters' in value
+
+        return self._update_figure()
+
+    def register_callbacks(self):
+        # When this SliceGraph itself is clicked, update its x,y slicer lines
+        targeted_callback(self.show_click,
+                          Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # When the map graph is clicked show the same position
+        targeted_callback(self.show_click,
+                          Input(self._parent.map_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # When the decomposition graph is clicked show the same position
+        targeted_callback(self.show_click,
+                          Input(self._parent.decomposition_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # When points are selected in the pair plot, show them here
+        targeted_callback(self._show_selection_mask,
+                          Input(self._parent.pair_plot_graph.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # When this SliceGraph is lasso'd, update the selection mask
+        targeted_callback(self._show_selection_mask,
+                          Input(self.id, 'selectedData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # Bind the labels toggle to its trace's visibility
+        targeted_callback(self.set_clusters_visibility,
+                          Input(self._parent.graph_toggles.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # Change color scale from selector
+        targeted_callback(self.set_color_scale,
+                          Input(self._parent.map_color_scale_selector.id, 'label'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+    # NOTE: THIS method is overridden because the mask shape must be based on the map_data rather than the optical_data
+    # TODO: Refactor everything
+    def _show_selection_mask(self, selection):
+        # Get x,y from the raveled indexes
+        raveled_indexes = list(map(lambda point: point['pointIndex'],
+                                   filter(lambda point: point['curveNumber'] == 0,
+                                          selection['points'])))
+        mask = np.zeros(self._map_data[0].shape)
+        # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
+        mask.fill(np.NaN)
+        mask.ravel()[raveled_indexes] = 1
+        # Create overlay
+        self._selection_mask.z = mask
+
+        return self._update_figure()
+
+
 class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
@@ -641,6 +803,12 @@ class DecompositionGraph(SliceGraph):
         # Show clicked position when map graph is clicked
         targeted_callback(self.show_click,
                           Input(self._parent.map_graph.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+        # Show clicked position when optical graph is clicked
+        targeted_callback(self.show_click,
+                          Input(self._parent.optical_graph.id, 'clickData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
@@ -735,7 +903,7 @@ class PairPlotGraph(dcc.Graph):
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
                                             id=f'pair_plot_{self._instance_index}',
-                                            className='col-lg-4',
+                                            className='col-lg-3',
                                             responsive=True,
                                             style=dict(display='flex',
                                                        flexDirection='row',
@@ -754,7 +922,8 @@ class PairPlotGraph(dcc.Graph):
             Output(self.id, 'figure'),
             Input(self._parent.decomposition_component_1.id, 'value'),
             Input(self._parent.decomposition_component_2.id, 'value'),
-            Input(self._parent.map_graph.id, 'selectedData')
+            Input(self._parent.map_graph.id, 'selectedData'),
+            Input(self._parent.optical_graph.id, 'selectedData')
         )(self.show_pair_plot)
 
         # Set up selection tool callbacks
@@ -795,7 +964,7 @@ class PairPlotGraph(dcc.Graph):
                           yaxis_title=f'Component #{self._component2+1}')
         return fig
 
-    def show_pair_plot(self, component1, component2, selected_data):
+    def show_pair_plot(self, component1, component2, map_selectedData, optical_selectedData):
         if component1 is None or component2 is None:
             raise PreventUpdate
 
@@ -812,8 +981,9 @@ class PairPlotGraph(dcc.Graph):
         if self._parent.map_graph.id in triggered[0]['prop_id']:
             # selected data being None indicates that the user has selected data
             # selected data 'points' being empty indicates the user has selected data outside of the region
-            if selected_data is not None and len(selected_data['points']) > 0:
-                selected_points = list(map(lambda point: point['pointIndex'], selected_data['points']))
+            selected_points = self._indexes_from_selection(map_selectedData)
+        elif self._parent.optical_graph.id in triggered[0]['prop_id']:
+            selected_points = self._indexes_from_selection(optical_selectedData)
 
         self.traces.append(go.Scattergl(x=np.asarray(x.ravel()),
                                         y=np.asarray(y.ravel()),
@@ -838,9 +1008,12 @@ class PairPlotGraph(dcc.Graph):
 
         return self._update_figure()
 
+    def _indexes_from_selection(self, selection):
+        return list(map(lambda point: point['pointIndex'], selection['points']))
+
     @staticmethod
     def _set_visibility(switches_value):
         if 'show_pair_plot' in switches_value:
-            return {'display':'block'}
+            return {'display': 'block'}
         else:
-            return {'display':'none'}
+            return {'display': 'none'}

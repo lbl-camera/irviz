@@ -8,7 +8,7 @@ from dash_core_components import Graph, Slider
 from dash.dependencies import Input, Output
 
 from irviz.components import ColorScaleSelector
-from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
+from irviz.graphs import DecompositionGraph, OpticalGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
 from irviz.utils.dash import targeted_callback
 
 
@@ -24,6 +24,7 @@ class Viewer(html.Div):
     def __init__(self,
                  app,
                  data,
+                 optical=None,
                  decomposition=None,
                  bounds=None,
                  cluster_labels=None,
@@ -147,6 +148,7 @@ class Viewer(html.Div):
                                               invert_spectra_axis=invert_spectra_axis,
                                               annotations=annotations)
         self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        self.optical_graph = OpticalGraph(data, optical, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
@@ -299,7 +301,7 @@ class Viewer(html.Div):
             tabs.insert(1, dbc.Tab(label="Decomposition", tab_id="settings-tab", children=decomposition_layout))
 
         # Create the entire configuration layout
-        config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-4')
+        config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-3')
 
         # Create the Toast (notification thingy)
         self.notifier = dbc.Toast("placeholder",
@@ -321,6 +323,7 @@ class Viewer(html.Div):
 
         # Initialize layout
         layout_div_children = [self.map_graph,
+                               self.optical_graph,
                                self.decomposition_graph,
                                config_view,
                                self.spectra_graph,
@@ -332,6 +335,7 @@ class Viewer(html.Div):
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
         self.map_graph.register_callbacks()
+        self.optical_graph.register_callbacks()
         if self.decomposition is not None:
             self.pair_plot_graph.register_callbacks()
             self.decomposition_graph.register_callbacks()
