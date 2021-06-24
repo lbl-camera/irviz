@@ -8,7 +8,8 @@ from dash_core_components import Graph, Slider
 from dash.dependencies import Input, Output
 
 from irviz.components import ColorScaleSelector
-from irviz.graphs import DecompositionGraph, OpticalGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
+from irviz.graphs import DecompositionGraph, OpticalGraph, MapGraph, PairPlotGraph, SpectraPlotGraph
+from irviz.graphs._colors import decomposition_color_scales
 from irviz.utils.dash import targeted_callback
 
 
