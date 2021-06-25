@@ -37,6 +37,7 @@ class DecompositionGraph(SliceGraph):
 
         # Hide the free image trace
         self._image.visible = False
+        self.figure = self._update_figure()
 
     def _id(self):
         _id = super(DecompositionGraph, self)._id()
