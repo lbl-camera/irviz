@@ -82,6 +82,8 @@ class OpticalGraph(SliceGraph):
         #     self._clusters.z = cluster_labels  # NaNs are transparent
         #
 
+        # map_data is passed here rather than optical_data as a matter of convenience in class composition
+        # All the other traces are scaled according to map_data's shape; the image trace is swapped out next
         super(OpticalGraph, self).__init__(map_data,
                                            bounds,
                                            cluster_labels,
@@ -94,9 +96,15 @@ class OpticalGraph(SliceGraph):
                                            # config={'modeBarButtonsToAdd': ['lasso2d']}
                                            )
 
-        self._image.z = optical_data
-        self._image.dx = (bounds[2][1]-bounds[2][0])/(optical_data.shape[1]-1)
-        self._image.dy = (bounds[1][1]-bounds[1][0])/(optical_data.shape[0]-1)
+        # wipe out the free map_data image and replace it with optical_data
+        hovertemplate = self._image.hovertemplate
+        text = self._image.text
+        self._traces.remove(self._image)
+        self._image = self._get_image_trace(optical_data,
+                                            bounds,
+                                            hovertemplate=hovertemplate,
+                                            text=text)
+        self._traces.insert(0, self._image)
         self.figure = self._update_figure()
 
     def _id(self):

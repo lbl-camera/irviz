@@ -29,12 +29,10 @@ class PairPlotGraph(dcc.Graph):
         self._cluster_label_names = cluster_label_names
         self.traces = []
 
-
-
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
                                             id=f'pair_plot_{self._instance_index}',
-                                            className='col-lg-3',
+                                            className='col-lg-3 p-0',
                                             responsive=True,
                                             style=dict(display='flex',
                                                        flexDirection='row',

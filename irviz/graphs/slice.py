@@ -3,6 +3,7 @@ from itertools import count
 import numpy as np
 import dash_core_components as dcc
 from dash.dependencies import Input, Output, ALL
+from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
 from irviz.utils.dash import targeted_callback
@@ -52,41 +53,26 @@ class SliceGraph(dcc.Graph):
                                        y0=0,
                                        y1=1)
 
-        # Build traces
-        default_slice_index = (data.shape[0] - 1) // 2
-        graph_bounds = dict(y0=bounds[1][0],
-                            dy=(bounds[1][1]-bounds[1][0])/(data.shape[1]-1),
-                            x0=bounds[2][0],
-                            dx=(bounds[2][1]-bounds[2][0])/(data.shape[2]-1))
-
-        if data.ndim == 4 and data.shape[-1] == 3:
-            graph_object = go.Image
-        else:
-            graph_object = go.Heatmap
-
-        self._image = graph_object(z=np.asarray(data[default_slice_index]),
-                                   colorscale='viridis',
-                                   # hovertemplate=hovertemplate,
-                                   **graph_bounds,
-                                   # **extra_kwargs
-                                   )
-
         extra_kwargs = {}
-        x_label = kwargs.get('xaxis_title', '')
-        y_label = kwargs.get('yaxis_title', '')
         if cluster_label_names is not None and cluster_labels is not None:
             extra_kwargs['text'] = np.asarray(cluster_label_names)[cluster_labels]
-            hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />I: %{{z}}<br />Label: %{{text}}<extra></extra>'
+            hovertemplate = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<br />Label: %{{text}}<extra></extra>'
         else:
-            hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />I: %{{z}}<extra></extra>'
+            hovertemplate = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<extra></extra>'
 
-        self._selection_mask = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
-                                          colorscale='reds',
-                                          opacity=0.3,
-                                          showscale=False,
-                                          hoverinfo='skip',
-                                          **graph_bounds
-                                          )
+        default_slice_index = (data.shape[0] - 1) // 2
+        self._image = self._get_image_trace(data[default_slice_index],
+                                            bounds,
+                                            hovertemplate=hovertemplate,
+                                            **extra_kwargs)
+
+        self._selection_mask = self._get_image_trace(np.ones_like(data[0]) * np.NaN,
+                                                     bounds,
+                                                     colorscale='reds',
+                                                     opacity=0.3,
+                                                     showscale=False,
+                                                     hoverinfo='skip',)
+
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))
 
@@ -98,15 +84,13 @@ class SliceGraph(dcc.Graph):
                                            hoverinfo='skip'
                                            )
         # Add another transparent heatmap overlay for labels
-        self._clusters = go.Heatmap(z=np.ones(data[0].shape) * np.NaN,
-                                    colorscale='Portland',
-                                    **graph_bounds,
-                                    opacity=0.3,
-                                    showscale=False,
-                                    hovertemplate=hovertemplate,
-                                    hoverinfo='skip',
-                                    **extra_kwargs
-                                    )
+        self._clusters = self._get_image_trace(np.ones_like(data[0]) * np.NaN,
+                                               bounds,
+                                               colorscale='Portland',
+                                               opacity=0.3,
+                                               showscale=False,
+                                               hoverinfo='skip',)
+
         if cluster_labels is not None:
             self._clusters.z = cluster_labels  # NaNs are transparent
 
@@ -116,7 +100,7 @@ class SliceGraph(dcc.Graph):
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
                                          id=self._id(),
-                                         className='col-lg-3',
+                                         className='col-lg-3 p-0',
                                          responsive=True,
                                          style=dict(display='flex',
                                                     flexDirection='row',
@@ -128,6 +112,26 @@ class SliceGraph(dcc.Graph):
         return {'type': 'slice_graph',
                 'subtype': ...,
                 'index': self._parent._instance_index}
+
+    def _get_image_trace(self, data, bounds, **extra_kwargs):
+        # Build traces
+
+        graph_bounds = dict(y0=bounds[1][0],
+                            dy=(bounds[1][1]-bounds[1][0])/(data.shape[0]-1),
+                            x0=bounds[2][0],
+                            dx=(bounds[2][1]-bounds[2][0])/(data.shape[1]-1))
+
+        if data.ndim == 3 and data.shape[-1] == 3:
+            graph_object = go.Image
+        else:
+            graph_object = go.Heatmap
+            if 'colorscale' not in extra_kwargs:
+                extra_kwargs['colorscale'] = 'viridis'
+
+        return graph_object(z=np.asarray(data),
+                            **graph_bounds,
+                            **extra_kwargs
+                           )
 
     def register_callbacks(self):
         # When any SliceGraph is clicked, update its x,y slicer lines
@@ -179,9 +183,12 @@ class SliceGraph(dcc.Graph):
                           app=self._parent._app)
 
     def set_color_scale(self, color_scale):
-        self._image.colorscale = color_scale
+        if hasattr(self._image, 'colorscale'):
+            self._image.colorscale = color_scale
+            return self._update_figure()
 
-        return self._update_figure()
+        raise PreventUpdate
+
 
     def set_clusters_visibility(self, value):
         self._clusters.visible = 'show_clusters' in value
@@ -199,7 +206,10 @@ class SliceGraph(dcc.Graph):
         fig = go.Figure(self._traces)
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
-                          yaxis_title=self.yaxis_title)
+                          yaxis_title=self.yaxis_title,
+                          )
+        fig.update_yaxes(autorange=True,
+                         constrain='range')
         if self.aspect_locked:
             fig.update_yaxes(scaleanchor="x", scaleratio=1)
         for shape in self._shapes:

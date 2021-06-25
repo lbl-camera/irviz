@@ -128,7 +128,7 @@ class SpectraPlotGraph(dcc.Graph):
 
         super(SpectraPlotGraph, self).__init__(id=self._id(),
                                                figure=fig,
-                                               className='col-lg-8',
+                                               className='col-lg-9 p-0',
                                                responsive=True,
                                                style=dict(display='flex',
                                                           flexDirection='row',
