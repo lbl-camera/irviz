@@ -14,7 +14,7 @@ __all__ = ['DecompositionGraph']
 class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
-    def __init__(self, data, bounds, parent, *args, **kwargs):
+    def __init__(self, data, bounds, cluster_labels, cluster_label_names, parent, *args, **kwargs):
 
         traces = []
         for i in range(data.shape[0]):
@@ -24,20 +24,27 @@ class DecompositionGraph(SliceGraph):
             traces.append(go.Heatmap(z=np.asarray(data[i]),
                                  colorscale=color_scale,
                                  y0=bounds[1][0],
-                                 dy=(bounds[1][1]-bounds[1][0])/data.shape[1],
+                                 dy=(bounds[1][1]-bounds[1][0])/(data.shape[1]-1),
                                  x0=bounds[2][0],
-                                 dx=(bounds[2][1]-bounds[2][0])/data.shape[2],
+                                 dx=(bounds[2][1]-bounds[2][0])/(data.shape[2]-1),
                                  visible=(i==0),
                                  opacity=.5 if i else 1,
                                  ))
 
         kwargs['traces'] = traces
 
-        super(DecompositionGraph, self).__init__(data, bounds, parent, *args, **kwargs)
+        super(DecompositionGraph, self).__init__(data, bounds, cluster_labels, cluster_label_names, parent, *args, **kwargs)
+
+        # Hide the free image trace
+        self._image.visible = False
+
+    def _id(self):
+        _id = super(DecompositionGraph, self)._id()
+        _id['subtype'] = 'decomposition'
+        return _id
 
     def register_callbacks(self):
-        # Set up callbacks
-        # ----------------
+        super(DecompositionGraph, self).register_callbacks()
 
         # Wire-up visibility toggle
         self._parent._app.callback(
@@ -49,12 +56,6 @@ class DecompositionGraph(SliceGraph):
         targeted_callback(self.set_component_opacity,
                           Input({'type': 'component-opacity', 'index': ALL}, 'value'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
-
-        # Disable sliders when their component is hidden
-        targeted_callback(self.disable_sliders,
-                          Input(self._parent.decomposition_component_selector.id, 'value'),
-                          Output(self._parent.component_opacity_sliders.id, 'children'),
                           app=self._parent._app)
 
         # Show components when selected
@@ -134,11 +135,7 @@ class DecompositionGraph(SliceGraph):
 
         return self._update_figure()
 
-    def disable_sliders(self, component_indices):
-        for i, trace in enumerate(self._traces):
-            self._opacity_slider(i).disabled = not (i in component_indices)  # TODO: set this in a separate callback that outputs to the slider
 
-        return self._parent.component_opacity_sliders.children
 
 
     @staticmethod

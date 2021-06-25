@@ -1,5 +1,6 @@
 import numbers
 import warnings
+from itertools import count
 
 import dash_bootstrap_components as dbc
 import dash_html_components as html
@@ -20,7 +21,7 @@ from irviz.utils.dash import targeted_callback
 class Viewer(html.Div):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
 
-    _global_slicer_counter = 0
+    _instance_counter = count(0)
 
     def __init__(self,
                  app,
@@ -90,9 +91,9 @@ class Viewer(html.Div):
                 }
         """
 
-        Viewer._global_slicer_counter += 1
         self.data = data
         self._app = app
+        self._instance_index = next(self._instance_counter)
         self.decomposition = decomposition
 
         self.bounds = np.asarray(bounds)
@@ -155,6 +156,8 @@ class Viewer(html.Div):
         if self.decomposition is not None:
             self.decomposition_graph = DecompositionGraph(self.decomposition,
                                                           self.bounds,
+                                                          cluster_labels,
+                                                          cluster_label_names,
                                                           self,
                                                           xaxis_title=x_axis_title,
                                                           yaxis_title=y_axis_title)
@@ -206,7 +209,7 @@ class Viewer(html.Div):
 
             self.decomposition_component_selector = dbc.Checklist(id='decomposition-component-selector',
                                                                   value=[0],
-                                                                  style={'paddingLeft':0, 'paddingRight':0},
+                                                                  style={'paddingLeft': 0, 'paddingRight': 0},
                                                                   **radio_kwargs)
 
             self.component_opacity_sliders = html.Div(
@@ -221,7 +224,7 @@ class Viewer(html.Div):
                     disabled=True if i else False
                 ) for i in range(self.decomposition.shape[0])],
                 className='col-sm',
-                style={'paddingLeft':0, 'paddingRight':0},
+                style={'paddingLeft': 0, 'paddingRight': 0},
                 id='component-opacity-sliders'
             )
 
@@ -236,6 +239,12 @@ class Viewer(html.Div):
                 className='col-sm-auto',
                 style={'paddingLeft':0, 'paddingRight':0, 'marginTop':2.5},
             )
+
+            # Disable sliders when their component is hidden
+            targeted_callback(self.disable_sliders,
+                              Input(self.decomposition_component_selector.id, 'value'),
+                              Output(self.component_opacity_sliders.id, 'children'),
+                              app=self._app)
 
             decomposition_selector_layout = html.Div(
                 [
@@ -345,6 +354,12 @@ class Viewer(html.Div):
                                      className='container-fluid',
                                      )
 
+    def disable_sliders(self, component_indices):
+        for i, trace in enumerate(self._traces):
+            self._opacity_slider(i).disabled = not (i in component_indices)  # TODO: set this in a separate callback that outputs to the slider
+
+        return self._parent.component_opacity_sliders.children
+
     @property
     def spectrum(self):
         """The currently shown spectrum energy/wavenumber and intensity values"""
@@ -369,6 +384,7 @@ class Viewer(html.Div):
     def position(self):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
+
 
 
 def notebook_viewer(data,

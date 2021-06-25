@@ -109,11 +109,11 @@ class PairPlotGraph(dcc.Graph):
         # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
         selected_points = None
         triggered = dash.callback_context.triggered
-        if self._parent.map_graph.id in triggered[0]['prop_id']:
+        if self._parent.map_graph.id == triggered[0]['prop_id']:
             # selected data being None indicates that the user has selected data
             # selected data 'points' being empty indicates the user has selected data outside of the region
             selected_points = self._indexes_from_selection(map_selectedData)
-        elif self._parent.optical_graph.id in triggered[0]['prop_id']:
+        elif self._parent.optical_graph.id == triggered[0]['prop_id']:
             selected_points = self._indexes_from_selection(optical_selectedData)
 
         self.traces.append(go.Scattergl(x=np.asarray(x.ravel()),
