@@ -1,0 +1,9 @@
+.VirtualizedSelectOption {
+    background-color: white;
+    color: black;
+}
+
+.VirtualizedSelectFocusedOption {
+    background-color: lightgrey;
+    color: black;
+}

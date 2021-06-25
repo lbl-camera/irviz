@@ -6,6 +6,7 @@ import numpy as np
 import sklearn.decomposition
 from dask import array as da
 from PIL import Image
+from dash_bootstrap_templates import load_figure_template
 
 from irviz.viewer import Viewer
 
@@ -41,7 +42,10 @@ def open_ir_file(h5_file):
 
 if __name__ == "__main__":
     from irviz.utils import dash as irdash
-    app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
+
+    load_figure_template("darkly")
+
+    app_kwargs = {'external_stylesheets': [dbc.themes.DARKLY]}
     _jupyter_app_kwargs = dict()
     try:
         from jupyter_dash import JupyterDash
@@ -53,8 +57,8 @@ if __name__ == "__main__":
 
     # data, bounds = open_ir_file(TEST_FILE)
     data, bounds = open_map_file(TEST_FILE)
-    optical = np.flipud(np.average(open_optical_file(OPTICAL_TEST_FILE), axis=2))
-    # optical = open_optical_file(OPTICAL_TEST_FILE)
+    # optical = np.flipud(np.average(open_optical_file(OPTICAL_TEST_FILE), axis=2))
+    optical = np.flipud(open_optical_file(OPTICAL_TEST_FILE))
     model = sklearn.decomposition.PCA(n_components=3)
     decomposition = model.fit_transform(data.transpose(1,2,0).reshape(-1, data.shape[0])).T.reshape(-1, *data.shape[1:])
     cluster_labels = np.argmax(decomposition, axis=0)
