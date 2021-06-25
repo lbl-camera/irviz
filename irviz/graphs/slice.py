@@ -163,9 +163,12 @@ class SliceGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
-        # When this SliceGraph is lasso'd, update the selection mask
+        # When any SliceGraph is lasso'd, update the selection mask
         targeted_callback(self._show_selection_mask,
-                          Input(self.id, 'selectedData'),
+                          Input({'type': 'slice_graph',
+                                 'subtype': ALL,
+                                 'index': self._parent._instance_index},
+                                'selectedData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 

@@ -108,15 +108,19 @@ class OpticalGraph(SliceGraph):
     # NOTE: THIS method is overridden because the mask shape must be based on the map_data rather than the optical_data
     # TODO: Refactor everything
     def _show_selection_mask(self, selection):
-        # Get x,y from the raveled indexes
-        raveled_indexes = list(map(lambda point: point['pointIndex'],
-                                   filter(lambda point: point['curveNumber'] == 0,
-                                          selection['points'])))
-        mask = np.zeros(self._map_data[0].shape)
-        # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
-        mask.fill(np.NaN)
-        mask.ravel()[raveled_indexes] = 1
-        # Create overlay
-        self._selection_mask.z = mask
+        if selection is not None:
+            # Get x,y from the raveled indexes
+            raveled_indexes = list(map(lambda point: point['pointIndex'],
+                                       filter(lambda point: point['curveNumber'] == 0,
+                                              selection['points'])))
+            mask = np.zeros(self._map_data[0].shape)
+            # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
+            mask.fill(np.NaN)
+            mask.ravel()[raveled_indexes] = 1
+            # Create overlay
+            self._selection_mask.z = mask
+
+        else:
+            self._selection_mask.z = np.ones(self._data[0].shape) * np.NaN
 
         return self._update_figure()

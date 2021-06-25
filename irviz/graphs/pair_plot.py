@@ -3,7 +3,7 @@ from itertools import count
 import dash
 import dash_core_components as dcc
 import numpy as np
-from dash.dependencies import Output, Input
+from dash.dependencies import Output, Input, ALL
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
@@ -53,8 +53,10 @@ class PairPlotGraph(dcc.Graph):
             Output(self.id, 'figure'),
             Input(self._parent.decomposition_component_1.id, 'value'),
             Input(self._parent.decomposition_component_2.id, 'value'),
-            Input(self._parent.map_graph.id, 'selectedData'),
-            Input(self._parent.optical_graph.id, 'selectedData')
+            Input({'type': 'slice_graph',
+                   'subtype': ALL,
+                   'index': self._parent._instance_index},
+                  'selectedData'),
         )(self.show_pair_plot)
 
         # Set up selection tool callbacks
@@ -95,7 +97,7 @@ class PairPlotGraph(dcc.Graph):
                           yaxis_title=f'Component #{self._component2+1}')
         return fig
 
-    def show_pair_plot(self, component1, component2, map_selectedData, optical_selectedData):
+    def show_pair_plot(self, component1, component2, selectedData):
         if component1 is None or component2 is None:
             raise PreventUpdate
 
@@ -109,12 +111,10 @@ class PairPlotGraph(dcc.Graph):
         # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
         selected_points = None
         triggered = dash.callback_context.triggered
-        if self._parent.map_graph.id == triggered[0]['prop_id']:
+        if '"type":"slice_graph"' in triggered[0]['prop_id'] and triggered[0]['value'] is not None:
             # selected data being None indicates that the user has selected data
             # selected data 'points' being empty indicates the user has selected data outside of the region
-            selected_points = self._indexes_from_selection(map_selectedData)
-        elif self._parent.optical_graph.id == triggered[0]['prop_id']:
-            selected_points = self._indexes_from_selection(optical_selectedData)
+            selected_points = self._indexes_from_selection(triggered[0]['value'])
 
         self.traces.append(go.Scattergl(x=np.asarray(x.ravel()),
                                         y=np.asarray(y.ravel()),
@@ -125,21 +125,29 @@ class PairPlotGraph(dcc.Graph):
                                         selectedpoints=selected_points))
 
         if self._cluster_labels is not None:
+            min_index = 0
             for i, name in enumerate(self._cluster_label_names):
-                label_mask = self._cluster_labels.ravel()==i
+                label_mask = self._cluster_labels.ravel() == i
+                masked_selected_points = None
+                if selected_points is not None:
+                    masked_selected_points = np.asarray(selected_points) - min_index
+                    masked_selected_points = masked_selected_points[np.logical_and(0<=masked_selected_points,
+                                                                                   masked_selected_points<np.count_nonzero(label_mask))]
                 trace = go.Scattergl(x=np.asarray(x.ravel())[label_mask],
                                      y=np.asarray(y.ravel())[label_mask],
                                      name=name,
                                      mode='markers',
-                                     selectedpoints=selected_points)
+                                     selectedpoints=masked_selected_points)
                 self.traces.append(trace)
+                min_index += np.count_nonzero(label_mask)
 
         self._component1 = component1
         self._component2 = component2
 
         return self._update_figure()
 
-    def _indexes_from_selection(self, selection):
+    @staticmethod
+    def _indexes_from_selection(selection):
         return list(map(lambda point: point['pointIndex'], selection['points']))
 
     @staticmethod
