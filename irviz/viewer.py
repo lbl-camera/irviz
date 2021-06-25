@@ -97,10 +97,10 @@ class Viewer(html.Div):
         self.decomposition = decomposition
 
         self.bounds = np.asarray(bounds)
-        if self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self.bounds = [[0, self._data.shape[0] - 1],
-                           [0, self._data.shape[1] - 1],
-                           [0, self._data.shape[2] - 1]]
+        if self.bounds is None or self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self.bounds = [[0, self.data.shape[0] - 1],
+                           [0, self.data.shape[1] - 1],
+                           [0, self.data.shape[2] - 1]]
 
         # Validate annotations TODO: reorganize
         if annotations is not None:
@@ -150,7 +150,10 @@ class Viewer(html.Div):
                                               invert_spectra_axis=invert_spectra_axis,
                                               annotations=annotations)
         self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
-        self.optical_graph = OpticalGraph(data, optical, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        if optical is not None:
+            self.optical_graph = OpticalGraph(data, optical, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        else:
+            self.optical_graph = Graph(id='empty-optical-graph', style={'display': 'none'})
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
@@ -165,6 +168,7 @@ class Viewer(html.Div):
         else:
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
             self.pair_plot_graph = Graph(id='empty-pair-plot-graph', style={'display': 'none'})
+
 
         # Initialize configuration bits
         # TODO: callback for switching tabs and rendering the Card content
@@ -345,7 +349,8 @@ class Viewer(html.Div):
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
         self.map_graph.register_callbacks()
-        self.optical_graph.register_callbacks()
+        if optical is not None:
+            self.optical_graph.register_callbacks()
         if self.decomposition is not None:
             self.pair_plot_graph.register_callbacks()
             self.decomposition_graph.register_callbacks()
