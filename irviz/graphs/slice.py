@@ -2,9 +2,10 @@ from itertools import count
 
 import numpy as np
 import dash_core_components as dcc
-from dash.dependencies import Input, Output, ALL
+from dash.dependencies import Input, Output, ALL, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
+import dash
 
 from irviz.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
@@ -114,8 +115,6 @@ class SliceGraph(dcc.Graph):
                 'index': self._parent._instance_index}
 
     def _get_image_trace(self, data, bounds, **extra_kwargs):
-        # Build traces
-
         graph_bounds = dict(y0=bounds[1][0],
                             dy=(bounds[1][1]-bounds[1][0])/(data.shape[0]-1),
                             x0=bounds[2][0],
@@ -181,6 +180,42 @@ class SliceGraph(dcc.Graph):
                           Input(self._parent.graph_toggles.id, 'value'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
+
+        # Share zoom state
+        targeted_callback(self.sync_zoom,
+                          Input({'type': 'slice_graph',
+                                 'subtype': ALL,
+                                 'index': self._parent._instance_index},
+                                'relayoutData'),
+                          Output(self.id, 'figure'),
+                          State({'type': 'slice_graph',
+                                 'subtype': ALL,
+                                 'index': self._parent._instance_index},
+                                'figure'),
+                          app=self._parent._app)
+
+    def sync_zoom(self, relayoutData):
+        print(relayoutData)
+        if f'"type":"{self.id["type"]}"' in dash.callback_context.triggered[0]['prop_id']:
+            # Don't self-update
+            if f'"subtype":"{self.id["subtype"]}"' in dash.callback_context.triggered[0]['prop_id']:
+                raise PreventUpdate
+
+            try:
+                self.figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
+                                                           relayoutData['xaxis.range[1]']]
+                self.figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
+                                                           relayoutData['yaxis.range[1]']]
+                self.figure['layout']['xaxis']['autorange'] = False
+                self.figure['layout']['yaxis']['autorange'] = False
+            except KeyError:  # ignore when we haven't already zoomed
+                pass
+
+            return self.figure
+
+        raise PreventUpdate
+
+
 
     def set_color_scale(self, color_scale):
         if hasattr(self._image, 'colorscale'):
