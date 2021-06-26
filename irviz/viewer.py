@@ -177,11 +177,14 @@ class Viewer(html.Div):
         initial_views = ["show_spectra"]
         if self.decomposition is not None:
             initial_views.extend(["show_decomposition", "show_pair_plot"])
+        if optical is not None:
+            initial_views.append('show_optical')
         if cluster_labels is not None:
             initial_views.append('show_clusters')
         self.graph_toggles = dbc.Checklist(
             options=[
                 {"label": "Show Spectra", "value": "show_spectra"},
+                {"label": "Show Optical", 'value': 'show_optical', 'disabled': optical is None},
                 {"label": "Show Decomposition", "value": "show_decomposition", "disabled": self.decomposition is None},
                 {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": self.decomposition is None},
                 {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"},
@@ -243,12 +246,6 @@ class Viewer(html.Div):
                 className='col-sm-auto',
                 style={'paddingLeft':0, 'paddingRight':0, 'marginTop':2.5},
             )
-
-            # Disable sliders when their component is hidden
-            targeted_callback(self.disable_sliders,
-                              Input(self.decomposition_component_selector.id, 'value'),
-                              Output(self.component_opacity_sliders.id, 'children'),
-                              app=self._app)
 
             decomposition_selector_layout = html.Div(
                 [
@@ -358,12 +355,6 @@ class Viewer(html.Div):
         super(Viewer, self).__init__(children=children,
                                      className='container-fluid',
                                      )
-
-    def disable_sliders(self, component_indices):
-        for i, trace in enumerate(self._traces):
-            self._opacity_slider(i).disabled = not (i in component_indices)  # TODO: set this in a separate callback that outputs to the slider
-
-        return self._parent.component_opacity_sliders.children
 
     @property
     def spectrum(self):

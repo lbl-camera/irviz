@@ -107,6 +107,22 @@ class OpticalGraph(SliceGraph):
         self._traces.insert(0, self._image)
         self.figure = self._update_figure()
 
+    def register_callbacks(self):
+        super(OpticalGraph, self).register_callbacks()
+
+        # Wire-up visibility toggle
+        targeted_callback(self._set_visibility,
+                          Input(self._parent.graph_toggles.id, 'value'),
+                          Output(self.id, 'style'),
+                          app=self._parent._app)
+
+    @staticmethod
+    def _set_visibility(switches_value):
+        if 'show_optical' in switches_value:
+            return {'display': 'block'}
+        else:
+            return {'display': 'none'}
+
     def _id(self):
         _id = super(OpticalGraph, self)._id()
         _id['subtype'] = 'optical'
