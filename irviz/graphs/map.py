@@ -27,6 +27,12 @@ class MapGraph(SliceGraph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # Change color scale from selector
+        targeted_callback(self.set_color_scale,
+                          Input(self._parent.map_color_scale_selector.id, 'label'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
     def _id(self):
         _id = super(MapGraph, self)._id()
         _id['subtype'] = 'map'

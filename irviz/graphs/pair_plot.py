@@ -1,5 +1,3 @@
-from itertools import count
-
 import dash
 import dash_core_components as dcc
 import numpy as np
@@ -12,12 +10,9 @@ __all__ = ['PairPlotGraph']
 
 
 class PairPlotGraph(dcc.Graph):
-    _counter = count(0)
     title = 'Pair Plot'
 
     def __init__(self, data, cluster_labels, cluster_label_names, parent):
-        self._instance_index = next(self._counter)
-
         # Track if the selection help has been displayed yet, don't want to annoy users
         self._selection_help_displayed_already = False
 
@@ -31,13 +26,17 @@ class PairPlotGraph(dcc.Graph):
 
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
-                                            id=f'pair_plot_{self._instance_index}',
+                                            id=self._id(),
                                             className='col-lg-3 p-0',
                                             responsive=True,
                                             style=dict(display='flex',
                                                        flexDirection='row',
                                                        height='100%',
                                                        minHeight='450px'),)
+
+    def _id(self):
+        return {'type': 'pair_plot',
+                'index': self._parent._instance_index}
 
     def register_callbacks(self):
         # Set up callbacks

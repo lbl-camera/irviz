@@ -1,6 +1,5 @@
 import numpy as np
 from dash.dependencies import Input, Output
-from plotly import graph_objects as go
 
 from irviz.graphs.slice import SliceGraph
 from irviz.utils.dash import targeted_callback
@@ -114,6 +113,12 @@ class OpticalGraph(SliceGraph):
         targeted_callback(self._set_visibility,
                           Input(self._parent.graph_toggles.id, 'value'),
                           Output(self.id, 'style'),
+                          app=self._parent._app)
+
+        # Change color scale from selector
+        targeted_callback(self.set_color_scale,
+                          Input(self._parent.map_color_scale_selector.id, 'label'),
+                          Output(self.id, 'figure'),
                           app=self._parent._app)
 
     @staticmethod

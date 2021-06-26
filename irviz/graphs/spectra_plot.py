@@ -1,5 +1,3 @@
-from itertools import count
-
 import dash_core_components as dcc
 import numpy as np
 from dash.dependencies import Input, Output
@@ -11,10 +9,7 @@ from irviz.utils.math import nearest_bin
 __all__ = ['SpectraPlotGraph']
 
 
-
 class SpectraPlotGraph(dcc.Graph):
-    _counter = count(0)
-
     title = 'Spectra Intensities'
 
     def __init__(self, data, bounds, parent, component_spectra=None, invert_spectra_axis=False, annotations=None, **kwargs):
@@ -57,7 +52,6 @@ class SpectraPlotGraph(dcc.Graph):
         kwargs
             Additional keyword arguments to be passed into Graph
         """
-        self._instance_index = next(self._counter)
         self._data = data
         self._invert_spectra_axis = invert_spectra_axis
 
@@ -300,4 +294,5 @@ class SpectraPlotGraph(dcc.Graph):
         return self._update_figure()
 
     def _id(self):
-        return f'spectraplot_{self._instance_index}'
+        return {'type': 'spectraplot',
+                'index': self._parent._instance_index}

@@ -1,5 +1,3 @@
-from itertools import count
-
 import numpy as np
 import dash_core_components as dcc
 from dash.dependencies import Input, Output, ALL, State
@@ -154,12 +152,6 @@ class SliceGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
-        # Change color scale from selector
-        targeted_callback(self.set_color_scale,
-                          Input(self._parent.map_color_scale_selector.id, 'label'),
-                          Output(self.id, 'figure'),
-                          app=self._parent._app)
-
         # When points are selected in the pair plot, show them here
         targeted_callback(self._show_selection_mask,
                           Input(self._parent.pair_plot_graph.id, 'selectedData'),
@@ -215,15 +207,12 @@ class SliceGraph(dcc.Graph):
 
         raise PreventUpdate
 
-
-
     def set_color_scale(self, color_scale):
         if hasattr(self._image, 'colorscale'):
             self._image.colorscale = color_scale
             return self._update_figure()
 
         raise PreventUpdate
-
 
     def set_clusters_visibility(self, value):
         self._clusters.visible = 'show_clusters' in value
