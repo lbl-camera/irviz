@@ -16,12 +16,12 @@ class DecompositionGraph(SliceGraph):
 
     def __init__(self, data, bounds, cluster_labels, cluster_label_names, parent, *args, **kwargs):
 
-        traces = []
+        self._component_traces = []
         for i in range(data.shape[0]):
             color_scale = decomposition_color_scales[i % len(decomposition_color_scales)]
             color_scale = transparent_color_scales.get(color_scale, color_scale)
 
-            traces.append(go.Heatmap(z=np.asarray(data[i]),
+            self._component_traces.append(go.Heatmap(z=np.asarray(data[i]),
                                  colorscale=color_scale,
                                  y0=bounds[1][0],
                                  dy=(bounds[1][1]-bounds[1][0])/(data.shape[1]-1),
@@ -31,7 +31,8 @@ class DecompositionGraph(SliceGraph):
                                  opacity=.5 if i else 1,
                                  ))
 
-        kwargs['traces'] = traces
+
+        kwargs['traces'] = self._component_traces
 
         super(DecompositionGraph, self).__init__(data, bounds, cluster_labels, cluster_label_names, parent, *args, **kwargs)
 
@@ -48,10 +49,10 @@ class DecompositionGraph(SliceGraph):
         super(DecompositionGraph, self).register_callbacks()
 
         # Wire-up visibility toggle
-        self._parent._app.callback(
-            Output(self.id, 'style'),
-            Input(self._parent.graph_toggles.id, 'value')
-        )(self._set_visibility)
+        targeted_callback(self._set_visibility,
+                          Input(self._parent.graph_toggles.id, 'value'),
+                          Output(self.id, 'style'),
+                          app=self._parent._app)
 
         # Wire-up opacity sliders
         targeted_callback(self.set_component_opacity,
@@ -89,10 +90,16 @@ class DecompositionGraph(SliceGraph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # Disable sliders when their component is hidden
+        targeted_callback(self.disable_sliders,
+                          Input(self._parent.decomposition_component_selector.id, 'value'),
+                          Output(self._parent.component_opacity_sliders.id, 'children'),
+                          app=self._parent._app)
+
     def set_color_scale(self, color_scale):
         i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
         color_scale = transparent_color_scales.get(color_scale, color_scale)
-        self._traces[i].colorscale = color_scale
+        self._component_traces[i].colorscale = color_scale
 
         return self._update_figure()
 
@@ -117,7 +124,7 @@ class DecompositionGraph(SliceGraph):
 
         # Set each trace's opacity to a value proportional to its weight; always set first visible trace's opacity to 1
         bg_set = False
-        for i, trace in enumerate(self._traces):
+        for i, trace in enumerate(self._component_traces):
             if trace.visible:
                 if not bg_set:
                     trace.opacity = 1
@@ -127,21 +134,23 @@ class DecompositionGraph(SliceGraph):
                 trace.opacity = self._opacity_slider(i).value / total
 
     def show_components(self, component_indices):
-        for i, trace in enumerate(self._traces):
+        for i, trace in enumerate(self._component_traces):
             trace.visible = (i in component_indices)
             trace.showscale = len(component_indices) < 2
-            self._opacity_slider(i).disabled = not (i in component_indices)  # TODO: set this in a separate callback that outputs to the slider
-
         self._update_opacity()
 
         return self._update_figure()
 
+    def disable_sliders(self, component_indices):
+        for i, trace in enumerate(self._component_traces):
+            self._opacity_slider(i).disabled = not (i in component_indices)
 
+        return self._parent.component_opacity_sliders.children
 
 
     @staticmethod
     def _set_visibility(switches_value):
         if 'show_decomposition' in switches_value:
-            return {'display':'block'}
+            return {'display': 'block'}
         else:
-            return {'display':'none'}
+            return {'display': 'none'}
