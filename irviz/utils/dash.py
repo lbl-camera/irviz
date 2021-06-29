@@ -1,7 +1,7 @@
 from typing import Union, Callable
 from functools import lru_cache
 from dash._utils import create_callback_id
-from dash.dependencies import handle_callback_args
+from dash.dependencies import handle_callback_args, State
 from dash.dependencies import Input, Output
 from dash.exceptions import PreventUpdate
 import dash
@@ -40,7 +40,7 @@ def _dispatcher(*_):
             return return_value
 
 
-def targeted_callback(callback, input:Input, output:Output, app=app, prevent_initial_call=None):
+def targeted_callback(callback, input:Input, output:Output, *states:State, app=app, prevent_initial_call=None):
     if prevent_initial_call is None:
         prevent_initial_call = app.config.prevent_initial_callbacks
 
@@ -49,12 +49,17 @@ def targeted_callback(callback, input:Input, output:Output, app=app, prevent_ini
         if app.callback_map[callback_id]["callback"].__name__ != '_dispatcher':
             raise ValueError('Attempting to use a targeted callback with an output already assigned to a'
                              'standard callback. These are not compatible.')
+
+        # app.callback_map['state'].extend(states)
+        # app.callback_map['inputs'].extend(input.)
+
         for callback_spec in app._callback_list:
             if callback_spec['output'] == callback_id:
                 if callback_spec['prevent_initial_call'] != prevent_initial_call:
                     raise ValueError('A callback has already been registered to this output with a conflicting value'
                                      'for prevent_initial_callback. You should decide which you want.')
                 callback_spec['inputs'].append(input.to_dict())
+                callback_spec['state'].extend([state.to_dict() for state in states])
     else:
-        app.callback(output, input, prevent_initial_call=prevent_initial_call)(_dispatcher)
+        app.callback(output, input, *states, prevent_initial_call=prevent_initial_call)(_dispatcher)
     _targeted_callbacks.append(Callback(input, output, callback))

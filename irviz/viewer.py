@@ -1,5 +1,6 @@
 import numbers
 import warnings
+from itertools import count
 
 import dash_bootstrap_components as dbc
 import dash_html_components as html
@@ -8,7 +9,8 @@ from dash_core_components import Graph, Slider
 from dash.dependencies import Input, Output
 
 from irviz.components import ColorScaleSelector
-from irviz.graphs import DecompositionGraph, MapGraph, PairPlotGraph, SpectraPlotGraph, decomposition_color_scales
+from irviz.graphs import DecompositionGraph, OpticalGraph, MapGraph, PairPlotGraph, SpectraPlotGraph
+from irviz.graphs._colors import decomposition_color_scales
 from irviz.utils.dash import targeted_callback
 
 
@@ -19,11 +21,12 @@ from irviz.utils.dash import targeted_callback
 class Viewer(html.Div):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
 
-    _global_slicer_counter = 0
+    _instance_counter = count(0)
 
     def __init__(self,
                  app,
                  data,
+                 optical=None,
                  decomposition=None,
                  bounds=None,
                  cluster_labels=None,
@@ -88,16 +91,16 @@ class Viewer(html.Div):
                 }
         """
 
-        Viewer._global_slicer_counter += 1
         self.data = data
         self._app = app
+        self._instance_index = next(self._instance_counter)
         self.decomposition = decomposition
 
         self.bounds = np.asarray(bounds)
-        if self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self.bounds = [[0, self._data.shape[0] - 1],
-                           [0, self._data.shape[1] - 1],
-                           [0, self._data.shape[2] - 1]]
+        if self.bounds is None or self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self.bounds = [[0, self.data.shape[0] - 1],
+                           [0, self.data.shape[1] - 1],
+                           [0, self.data.shape[2] - 1]]
 
         # Validate annotations TODO: reorganize
         if annotations is not None:
@@ -147,11 +150,17 @@ class Viewer(html.Div):
                                               invert_spectra_axis=invert_spectra_axis,
                                               annotations=annotations)
         self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        if optical is not None:
+            self.optical_graph = OpticalGraph(data, optical, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        else:
+            self.optical_graph = Graph(id='empty-optical-graph', style={'display': 'none'})
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if self.decomposition is not None:
             self.decomposition_graph = DecompositionGraph(self.decomposition,
                                                           self.bounds,
+                                                          cluster_labels,
+                                                          cluster_label_names,
                                                           self,
                                                           xaxis_title=x_axis_title,
                                                           yaxis_title=y_axis_title)
@@ -160,6 +169,7 @@ class Viewer(html.Div):
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
             self.pair_plot_graph = Graph(id='empty-pair-plot-graph', style={'display': 'none'})
 
+
         # Initialize configuration bits
         # TODO: callback for switching tabs and rendering the Card content
 
@@ -167,11 +177,14 @@ class Viewer(html.Div):
         initial_views = ["show_spectra"]
         if self.decomposition is not None:
             initial_views.extend(["show_decomposition", "show_pair_plot"])
+        if optical is not None:
+            initial_views.append('show_optical')
         if cluster_labels is not None:
             initial_views.append('show_clusters')
         self.graph_toggles = dbc.Checklist(
             options=[
                 {"label": "Show Spectra", "value": "show_spectra"},
+                {"label": "Show Optical", 'value': 'show_optical', 'disabled': optical is None},
                 {"label": "Show Decomposition", "value": "show_decomposition", "disabled": self.decomposition is None},
                 {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": self.decomposition is None},
                 {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"},
@@ -203,7 +216,7 @@ class Viewer(html.Div):
 
             self.decomposition_component_selector = dbc.Checklist(id='decomposition-component-selector',
                                                                   value=[0],
-                                                                  style={'paddingLeft':0, 'paddingRight':0},
+                                                                  style={'paddingLeft': 0, 'paddingRight': 0},
                                                                   **radio_kwargs)
 
             self.component_opacity_sliders = html.Div(
@@ -218,7 +231,7 @@ class Viewer(html.Div):
                     disabled=True if i else False
                 ) for i in range(self.decomposition.shape[0])],
                 className='col-sm',
-                style={'paddingLeft':0, 'paddingRight':0},
+                style={'paddingLeft': 0, 'paddingRight': 0},
                 id='component-opacity-sliders'
             )
 
@@ -299,7 +312,7 @@ class Viewer(html.Div):
             tabs.insert(1, dbc.Tab(label="Decomposition", tab_id="settings-tab", children=decomposition_layout))
 
         # Create the entire configuration layout
-        config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-4')
+        config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-3')
 
         # Create the Toast (notification thingy)
         self.notifier = dbc.Toast("placeholder",
@@ -321,6 +334,7 @@ class Viewer(html.Div):
 
         # Initialize layout
         layout_div_children = [self.map_graph,
+                               self.optical_graph,
                                self.decomposition_graph,
                                config_view,
                                self.spectra_graph,
@@ -332,6 +346,8 @@ class Viewer(html.Div):
         # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
         self.spectra_graph.register_callbacks()
         self.map_graph.register_callbacks()
+        if optical is not None:
+            self.optical_graph.register_callbacks()
         if self.decomposition is not None:
             self.pair_plot_graph.register_callbacks()
             self.decomposition_graph.register_callbacks()
@@ -364,6 +380,7 @@ class Viewer(html.Div):
     def position(self):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
+
 
 
 def notebook_viewer(data,
