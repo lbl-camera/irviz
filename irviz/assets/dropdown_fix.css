@@ -1,9 +1,9 @@
-.VirtualizedSelectOption {
+.darkmode .VirtualizedSelectOption {
     background-color: white;
     color: black;
 }
 
-.VirtualizedSelectFocusedOption {
+.darkmode .VirtualizedSelectFocusedOption {
     background-color: lightgrey;
     color: black;
 }

@@ -96,7 +96,7 @@ if __name__ == "__main__":
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)
 
-    div = html.Div(children=[viewer])
+    div = html.Div(children=[viewer], className='darkmode')
     # viewer2 = Viewer(data.compute(), app=_app)
     # div = html.Div(children=[viewer, viewer2])  # TEST for jupyter
     irdash.app.layout = div
