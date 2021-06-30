@@ -26,6 +26,7 @@ class PairPlotGraph(dcc.Graph):
         self._bounds = bounds
         self.traces = []
         self.crosshair_trace = None
+        self._crosshair_index = None
 
         # Initialize persistent traces
         self.crosshair_trace = go.Scattergl(x=[],
@@ -162,10 +163,11 @@ class PairPlotGraph(dcc.Graph):
             click_data = triggered[0]['value']
             y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])
             x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
-            unravel_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
-            x = self._data[component1].ravel()[unravel_index]
-            y = self._data[component2].ravel()[unravel_index]
+            self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
 
+        if self._crosshair_index is not None:
+            x = self._data[component1].ravel()[self._crosshair_index]
+            y = self._data[component2].ravel()[self._crosshair_index]
             self.crosshair_trace.x = [x]
             self.crosshair_trace.y = [y]
 
