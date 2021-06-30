@@ -1,6 +1,8 @@
+import dash
 import dash_core_components as dcc
+import dash_bootstrap_components as dbc
 import numpy as np
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dask import array as da
 from plotly import graph_objects as go
 
@@ -168,6 +170,14 @@ class SpectraPlotGraph(dcc.Graph):
                           Output(self.id, 'style'),
                           app=self._parent._app)
 
+        targeted_callback(self._add_new_annotation,
+                          Input(self._parent.spectra_graph_annotation_dialog_add_button.id, 'n_clicks'),
+                          Output(self._parent.spectra_graph_annotation_dialog.id, 'is_open'),
+                          State(self._parent.spectra_graph_annotation_dialog_name.id, 'value'),
+                          State(self._parent.spectra_graph_annotation_dialog_lower_bound.id, 'value'),
+                          State(self._parent.spectra_graph_annotation_dialog_upper_bound.id, 'value'),
+                          app=self._parent._app)
+
     def show_click(self, click_data):
         y = click_data["points"][0]["y"]
         x = click_data["points"][0]["x"]
@@ -212,6 +222,20 @@ class SpectraPlotGraph(dcc.Graph):
             return {'display': 'block'}
         else:
             return {'display': 'none'}
+
+    def _add_new_annotation(self, n_clicks):
+        # Get the form input values
+        input_states = dash.callback_context.states
+        annotation = dict()
+        if input_states['upper-bound.value'] is None:
+            annotation['position'] = input_states['lower-bound.value']
+        else:
+            annotation['range'] = (input_states['lower-bound.value'], input_states['upper-bound.value'])
+
+        self._annotations[input_states['name.value']] = annotation
+        self._update_figure()
+
+        return False  # Close the dialog
 
     def _add_annotations(self, fig):
         if self._annotations is not None:

@@ -5,11 +5,11 @@ from itertools import count
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
-from dash_core_components import Graph, Slider
 from dash.dependencies import Input, Output
+from dash_core_components import Graph, Slider
 
 from irviz.components import ColorScaleSelector
-from irviz.graphs import DecompositionGraph, OpticalGraph, MapGraph, PairPlotGraph, SpectraPlotGraph
+from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
 from irviz.graphs._colors import decomposition_color_scales
 from irviz.utils.dash import targeted_callback
 
@@ -332,14 +332,64 @@ class Viewer(html.Div):
                           Output(self.notifier.id, 'is_open'),
                           app=self._app)
 
+
+        header = dbc.ModalHeader("Add Annotation", id='header')
+        self.spectra_graph_annotation_dialog_name = dbc.Input(type="input", id='name', placeholder="Enter annotation name", required=True)
+        name = dbc.FormGroup(
+            [
+                dbc.Label("Name"),
+                self.spectra_graph_annotation_dialog_name
+                # dbc.FormText(
+                #     "little text below the input component",
+                #     color="secondary",
+                # ),
+            ]
+        )
+        self.spectra_graph_annotation_dialog_lower_bound = dbc.Input(type="number", id='lower-bound', step=1, required=True)
+        x0 = dbc.FormGroup(
+            [
+                dbc.Label("Lower bound"),
+                self.spectra_graph_annotation_dialog_lower_bound
+            ],
+            id="styled-numeric-input",
+        )
+        self.spectra_graph_annotation_dialog_upper_bound = dbc.Input(type="number", id='upper-bound', step=1, required=False)
+        x1 = dbc.FormGroup(
+            [
+                dbc.Label("Upper bound (optional)"),
+                self.spectra_graph_annotation_dialog_upper_bound
+            ]
+        )
+        body = dbc.ModalBody([name, x0, x1], id='body')
+
+        self.spectra_graph_annotation_dialog_cancel_button = dbc.Button("Cancel", id='cancel', className="ml-auto", n_clicks=0)
+        self.spectra_graph_annotation_dialog_add_button = dbc.Button("Add", id='add', className="ml-auto", n_clicks=0)
+        footer = dbc.ModalFooter([self.spectra_graph_annotation_dialog_add_button, self.spectra_graph_annotation_dialog_cancel_button])
+        self.spectra_graph_annotation_dialog = dbc.Modal([header, body, footer], id='annotation-modal')
+        self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
+
+        # Open dialog when the "Add Annotation" button is clicked
+        targeted_callback(lambda _: True,
+                          Input(self.spectra_graph_add_annotation.id, 'n_clicks'),
+                          Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
+                          app=self._app)
+
+        # Close dialog if "Cancel" is clicked within it
+        targeted_callback(lambda _: False,
+                          Input(self.spectra_graph_annotation_dialog_cancel_button.id, 'n_clicks'),
+                          Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
+                          app=self._app)
+
         # Initialize layout
         layout_div_children = [self.map_graph,
                                self.optical_graph,
                                self.decomposition_graph,
                                config_view,
                                self.spectra_graph,
+                               self.spectra_graph_add_annotation,
                                self.pair_plot_graph,
-                               self.notifier]
+                               self.notifier,
+                               self.spectra_graph_annotation_dialog]
         children = html.Div(children=layout_div_children,
                             className='row well')
 
