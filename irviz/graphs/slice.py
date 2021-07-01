@@ -187,23 +187,24 @@ class SliceGraph(dcc.Graph):
                           app=self._parent._app)
 
     def sync_zoom(self, relayoutData):
-        print(relayoutData)
+        figure = self._update_figure()
+
         if f'"type":"{self.id["type"]}"' in dash.callback_context.triggered[0]['prop_id']:
             # Don't self-update
             if f'"subtype":"{self.id["subtype"]}"' in dash.callback_context.triggered[0]['prop_id']:
                 raise PreventUpdate
 
             try:
-                self.figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
+                figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
                                                            relayoutData['xaxis.range[1]']]
-                self.figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
+                figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
                                                            relayoutData['yaxis.range[1]']]
-                self.figure['layout']['xaxis']['autorange'] = False
-                self.figure['layout']['yaxis']['autorange'] = False
+                figure['layout']['xaxis']['autorange'] = False
+                figure['layout']['yaxis']['autorange'] = False
             except KeyError:  # ignore when we haven't already zoomed
                 pass
 
-            return self.figure
+            return figure
 
         raise PreventUpdate
 
