@@ -2,7 +2,7 @@ from functools import partial
 
 import dash_core_components as dcc
 import numpy as np
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, ALL
 from dask import array as da
 from plotly import graph_objects as go
 
@@ -156,15 +156,12 @@ class SpectraPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
-        # When the slice graph is clicked, update plot with the clicked x,y coord
+        # When any slice graph is clicked, update plot with the clicked x,y coord
         targeted_callback(self.show_click,
-                          Input(self._parent.map_graph.id, 'clickData'),
-                          Output(self.id, 'figure'),
-                          app=self._parent._app)
-
-        # When the decomposition graph is clicked update plot with clicked x,y coord
-        targeted_callback(self.show_click,
-                          Input(self._parent.decomposition_graph.id, 'clickData'),
+                          Input({'type': 'slice_graph',
+                                 'subtype': ALL,
+                                 'index': self._parent._instance_index},
+                                'clickData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
