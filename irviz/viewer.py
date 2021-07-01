@@ -19,6 +19,8 @@ from irviz.utils.dash import targeted_callback
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
 
 # TODO: update docstrings for annotation; validate annotation
+from irviz.utils.math import nearest_bin
+
 
 class Viewer(html.Div):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
@@ -367,6 +369,11 @@ class Viewer(html.Div):
                                      )
 
     @property
+    def map(self):
+        """The currently displayed map slice at the current spectral index"""
+        return self.map_graph.map
+
+    @property
     def spectrum(self):
         """The currently shown spectrum energy/wavenumber and intensity values"""
         return self.spectra_graph.spectrum
@@ -389,8 +396,22 @@ class Viewer(html.Div):
     @property
     def position(self):
         """The spatial position of the current spectrum"""
-        return self.spectra_graph.position
+        return self.map_graph.position
 
+    @property
+    def position_index(self):
+        """The spatial position of the current spectrum as an index (y, x)"""
+        return self.map_graph.position_index
+
+    @property
+    def selection(self):
+        """A mask array representing the current spatial selection region"""
+        return self.map_graph.selection
+
+    @property
+    def selection_indices(self):
+        """The indices of all currently selected points, returned as (y, x)"""
+        return self.map_graph.selection_indices
 
 
 def notebook_viewer(data,

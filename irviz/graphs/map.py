@@ -38,3 +38,7 @@ class MapGraph(SliceGraph):
         _id['subtype'] = 'map'
         return _id
 
+    @property
+    def map(self):
+        """The currently displayed map slice at the current spectral index"""
+        return self._image.z

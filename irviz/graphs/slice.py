@@ -275,3 +275,19 @@ class SliceGraph(dcc.Graph):
     def position(self):
         """The current spatial position of the crosshair"""
         return self._v_line.x0, self._h_line.y0
+
+    @property
+    def position_index(self):
+        """The spatial position of the current spectrum as an index (y, x)"""
+        return nearest_bin(self._x_line.y0, self._bounds[1], self._ata.shape[1]), \
+               nearest_bin(self._v_line.x0, self._bounds[2], self._data.shape[2])
+
+    @property
+    def selection(self):
+        """A mask array representing the current spatial selection region"""
+        return self._selection_mask.z
+
+    @property
+    def selection_indices(self):
+        """The indices of all currently selected points, returned as (y, x)"""
+        return np.argwhere(self._selection_mask.z)
