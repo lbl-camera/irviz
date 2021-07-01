@@ -1,3 +1,5 @@
+from functools import partial
+
 import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
@@ -90,7 +92,8 @@ if __name__ == "__main__":
                             'position': 900,
                             'color': '#34afdd'
                         }
-                    }
+                    },
+                    error_func=partial(np.percentile, q=90, axis=1)
                     )
 
     # Testing None decomposition
