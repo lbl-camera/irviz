@@ -4,9 +4,9 @@ import dash_html_components as html
 import h5py as h5
 import numpy as np
 import sklearn.decomposition
-from dask import array as da
 from PIL import Image
 from dash_bootstrap_templates import load_figure_template
+from dask import array as da
 
 from irviz.viewer import Viewer
 
@@ -77,20 +77,22 @@ if __name__ == "__main__":
                     invert_spectra_axis=True,
                     cluster_labels=cluster_labels,
                     cluster_label_names=cluster_label_names,
-                    annotations={
-                        'x': {
+                    annotations=[
+                        {
+                            'name': 'x',
                             'range': (1000, 1500),
                             'color': 'green'
                         },
-                        'y': {
+                        {
+                            'name': 'y',
                             'position': 300,
                             'range': [200, 500]
                         },
-                        'z': {
-                            'position': 900,
-                            'color': '#34afdd'
+                        {'name': 'z',
+                         'position': 900,
+                         'color': '#34afdd'
                         }
-                    }
+                    ]
                     )
 
     # Testing None decomposition

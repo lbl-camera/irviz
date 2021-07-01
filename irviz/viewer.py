@@ -2,10 +2,11 @@ import numbers
 import warnings
 from itertools import count
 
+import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dash_core_components import Graph, Slider
 
 from irviz.components import ColorScaleSelector
@@ -15,8 +16,10 @@ from irviz.utils.dash import targeted_callback
 
 
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
-
 # TODO: update docstrings for annotation; validate annotation
+# TODO: JSON schema validation for annotations
+
+# TODO: functools.wraps for notebook_viewer
 
 class Viewer(html.Div):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
@@ -68,27 +71,30 @@ class Viewer(html.Div):
             Title for the intensity axis in the rendered spectra plot
         invert_spectra_axis : bool
             Whether or not to invert the spectra axis on the spectra plot
-        annotations : dict[str, dict]
+        annotations : List[dict]
             Dictionary that contains annotation names that map to annotations.
             The annotation dictionaries support the following keys:
+                'name' : the name of the annotation
                 'range' : list or tuple of length 2
                 'position' : number
                 'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
             Example:
-                annotations={
-                    'x': {
+                annotations=[
+                    {
+                        'name': 'x',
                         'range': (1000, 1500),
                         'color': 'green'
                     },
-                    'y': {
+                    {
+                        'name': 'y',
                         'position': 300,
                         'range': [200, 500]
                     },
-                    'z': {
+                    {   'name': 'z',
                         'position': 900,
                         'color': '#34afdd'
                     }
-                }
+                ]
         """
 
         self.data = data
@@ -103,13 +109,19 @@ class Viewer(html.Div):
                            [0, self.data.shape[2] - 1]]
 
         # Validate annotations TODO: reorganize
+        position_removes = []
         if annotations is not None:
-            for name, annotation in annotations.items():
+            for i, annotation in enumerate(annotations):
                 r = annotation.get('range', None)
                 p = annotation.get('position', None)
                 if r is not None and p is not None:
-                    if not (r[0] <= p <= r[1]):
-                        warnings.warn(f"position {p} is not within the range {r}")
+                    # Cannot supply both position and range in same annotation, ignore position
+                    warnings.warn(f"cannot supply both 'range' and 'position' in the same annotation; "
+                                  f"ignoring 'position'")
+                    position_removes.append(i)
+                    # if not (r[0] <= p <= r[1]):
+                    #     warnings.warn(f"position {p} is not within the range {r}")
+
                 for kwarg, value in annotation.items():
                     # Range must be an iterable of length 2
                     if kwarg == "range":
@@ -128,8 +140,11 @@ class Viewer(html.Div):
                     elif kwarg == "color":
                         if not isinstance(value, str):
                             raise TypeError(f"'color' must be a color name (string)")
-                    else:
+                    elif kwarg != "name":
                         raise ValueError(f"'{kwarg}' is not currently supported as a keyword in annotations")
+
+        for position in position_removes:
+            annotations[position].pop('position')
 
         # Component spectra shape should be (#components, #wavenumber)
         component_spectra_array = np.asarray(component_spectra)
@@ -293,6 +308,12 @@ class Viewer(html.Div):
             dbc.CardBody(children=[view_selector])
         )
 
+        # Annotations layout
+        self.spectra_graph_annotations = dbc.ListGroup(id='spectra-graph-annotations',
+                                                       children=[])
+        self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
+        annotations_layout = dbc.Card(dbc.CardBody(children=[self.spectra_graph_annotations, self.spectra_graph_add_annotation]))
+
         # Settings tab layout
         # TODO put in function so we can use with callback
         decomposition_layout = dbc.Card(
@@ -306,6 +327,7 @@ class Viewer(html.Div):
 
         tabs = [dbc.Tab(label='Map', tab_id='map-tab', children=map_layout),
                 dbc.Tab(label='Views', tab_id='views-tab', children=views_layout),
+                dbc.Tab(label='Annotations', tab_id='annotations-tab', children=annotations_layout),
                 dbc.Tab(label="Info", tab_id="info-tab", children=info_layout),
                 ]
         if decomposition is not None:
@@ -333,6 +355,7 @@ class Viewer(html.Div):
                           app=self._app)
 
 
+        # TODO: move dialog to dialog factory function
         header = dbc.ModalHeader("Add Annotation", id='header')
         self.spectra_graph_annotation_dialog_name = dbc.Input(type="input", id='name', placeholder="Enter annotation name", required=True)
         name = dbc.FormGroup(
@@ -366,7 +389,6 @@ class Viewer(html.Div):
         self.spectra_graph_annotation_dialog_add_button = dbc.Button("Add", id='add', className="ml-auto", n_clicks=0)
         footer = dbc.ModalFooter([self.spectra_graph_annotation_dialog_add_button, self.spectra_graph_annotation_dialog_cancel_button])
         self.spectra_graph_annotation_dialog = dbc.Modal([header, body, footer], id='annotation-modal')
-        self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
 
         # Open dialog when the "Add Annotation" button is clicked
         targeted_callback(lambda _: True,
@@ -374,11 +396,33 @@ class Viewer(html.Div):
                           Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
                           app=self._app)
 
-        # Close dialog if "Cancel" is clicked within it
+        # Close dialog if Add/Cancel is clicked within it
         targeted_callback(lambda _: False,
                           Input(self.spectra_graph_annotation_dialog_cancel_button.id, 'n_clicks'),
                           Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
                           app=self._app)
+        targeted_callback(lambda _: False,
+                          Input(self.spectra_graph_annotation_dialog_add_button.id, 'n_clicks'),
+                          Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
+                          app=self._app)
+
+        # When the Add button is clicked, update the annotations settings panel and add the new annotation to the graph
+        # Add new shape for the new annotation
+        targeted_callback(self._add_annotation_from_dialog,
+                          Input(self.spectra_graph_annotation_dialog_add_button.id, 'n_clicks'),
+                          Output(self.spectra_graph_annotations.id, 'children'),
+                          State(self.spectra_graph_annotation_dialog_name.id, 'value'),
+                          State(self.spectra_graph_annotation_dialog_lower_bound.id, 'value'),
+                          State(self.spectra_graph_annotation_dialog_upper_bound.id, 'value'),
+                          app=self._app)
+        # Then, chain to callback that lets the graph update its figure
+        targeted_callback(self.spectra_graph._update_figure,
+                          Input(self.spectra_graph_annotations.id, 'children'),
+                          Output(self.spectra_graph.id, 'figure'),
+                          app=self._app)
+
+        for annotation in annotations:
+            self._add_spectra_annotation(annotation)
 
         # Initialize layout
         layout_div_children = [self.map_graph,
@@ -386,7 +430,6 @@ class Viewer(html.Div):
                                self.decomposition_graph,
                                config_view,
                                self.spectra_graph,
-                               self.spectra_graph_add_annotation,
                                self.pair_plot_graph,
                                self.notifier,
                                self.spectra_graph_annotation_dialog]
@@ -431,6 +474,29 @@ class Viewer(html.Div):
         """The spatial position of the current spectrum"""
         return self.spectra_graph.position
 
+    @property
+    def annotations(self):
+        # TODO: Add map annotations
+        """User-defined annotations on the spectra graph"""
+        return self.spectra_graph.annotations
+
+    def _add_spectra_annotation(self, annotation):
+        self.spectra_graph.add_annotation(annotation)
+        self.spectra_graph_annotations.children += str(annotation)
+
+    def _add_annotation_from_dialog(self, n_clicks):
+        # Get the form input values
+        input_states = dash.callback_context.states
+        annotation = dict()
+        if input_states['upper-bound.value'] is None:
+            annotation['position'] = input_states['lower-bound.value']
+        else:
+            annotation['range'] = (input_states['lower-bound.value'], input_states['upper-bound.value'])
+
+        annotation['name'] = input_states['name.value']
+        self._add_spectra_annotation(annotation)
+
+        return self.spectra_graph_annotations.children
 
 
 def notebook_viewer(data,
@@ -480,27 +546,30 @@ def notebook_viewer(data,
         CSS-style width value that defines the width of the rendered Viewer app
     height : int or str
         CSS-style height value that defines the height of the rendered Viewer app
-    annotations : dict[str, dict]
-        Dictionary that contains annotation names that map to annotations.
-        The annotation dictionaries support the following keys:
-            'range' : list or tuple of length 2
-            'position' : number
-            'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
-        Example:
-            annotations={
-                'x': {
-                    'range': (1000, 1500),
-                    'color': 'green'
-                },
-                'y': {
-                    'position': 300,
-                    'range': [200, 500]
-                },
-                'z': {
-                    'position': 900,
-                    'color': '#34afdd'
-                }
-            }
+    annotations : List[dict]
+            Dictionary that contains annotation names that map to annotations.
+            The annotation dictionaries support the following keys:
+                'name' : the name of the annotation
+                'range' : list or tuple of length 2
+                'position' : number
+                'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
+            Example:
+                annotations=[
+                    {
+                        'name': 'x',
+                        'range': (1000, 1500),
+                        'color': 'green'
+                    },
+                    {
+                        'name': 'y',
+                        'position': 300,
+                        'range': [200, 500]
+                    },
+                    {   'name': 'z',
+                        'position': 900,
+                        'color': '#34afdd'
+                    }
+                ]
 
     Returns
     -------
