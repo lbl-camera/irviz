@@ -111,13 +111,13 @@ class OpticalGraph(SliceGraph):
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent.graph_toggles.id, 'value'),
+                          Input(self._parent._graph_toggles.id, 'value'),
                           Output(self.id, 'style'),
                           app=self._parent._app)
 
         # Change color scale from selector
         targeted_callback(self.set_color_scale,
-                          Input(self._parent.map_color_scale_selector.id, 'label'),
+                          Input(self._parent._map_color_scale_selector.id, 'label'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 

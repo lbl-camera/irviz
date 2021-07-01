@@ -1,6 +1,8 @@
+from functools import partial
+
 import dash_core_components as dcc
 import numpy as np
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output, ALL
 from dask import array as da
 from plotly import graph_objects as go
 
@@ -16,7 +18,7 @@ __all__ = ['SpectraPlotGraph']
 class SpectraPlotGraph(dcc.Graph):
     title = 'Spectra Intensities'
 
-    def __init__(self, data, bounds, parent, component_spectra=None, invert_spectra_axis=False, **kwargs):
+    def __init__(self, data, bounds, parent, component_spectra=None, invert_spectra_axis=False, error_func=None, **kwargs):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -32,12 +34,16 @@ class SpectraPlotGraph(dcc.Graph):
             List of component spectra from the decomposition
         invert_spectra_axis : bool
             Indicates whether or not to invert the spectra axis (x axis) of the plot (default is False)
+        error_func : Callable[[NDArray[(Any, Any)]], np.ndarray[Any]]
+            A callable function that takes an array of shape (E, N), where E is the length of the spectral dimension and
+            N is the number of curves over which to calculate error. The return value is expected to be a 1-D array of
+            length E. The default is to apply a std dev over the N axis.
         kwargs
             Additional keyword arguments to be passed into Graph
         """
         self._data = data
         self._invert_spectra_axis = invert_spectra_axis
-
+        self._error_func = error_func or partial(np.std, axis=1)
         self._parent = parent
         self._bounds = bounds
         self._component_spectra = np.asarray(component_spectra)
@@ -131,21 +137,18 @@ class SpectraPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
-        # When the slice graph is clicked, update plot with the clicked x,y coord
+        # When any slice graph is clicked, update plot with the clicked x,y coord
         targeted_callback(self.show_click,
-                          Input(self._parent.map_graph.id, 'clickData'),
-                          Output(self.id, 'figure'),
-                          app=self._parent._app)
-
-        # When the decomposition graph is clicked update plot with clicked x,y coord
-        targeted_callback(self.show_click,
-                          Input(self._parent.decomposition_graph.id, 'clickData'),
+                          Input({'type': 'slice_graph',
+                                 'subtype': ALL,
+                                 'index': self._parent._instance_index},
+                                'clickData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent.graph_toggles.id, 'value'),
+                          Input(self._parent._graph_toggles.id, 'value'),
                           Output(self.id, 'style'),
                           app=self._parent._app)
 
@@ -287,10 +290,10 @@ class SpectraPlotGraph(dcc.Graph):
             # Dask arrays do fancy indexing differently, and the results have different orientations
             if isinstance(self._data, da.Array):
                 self._avg_plot.y = np.mean(self._data.vindex[:, y_indexes, x_indexes], axis=0)
-                error = np.std(self._data.vindex[:, y_indexes, x_indexes], axis=0)
+                error = self._error_func(np.asarray(self._data.vindex[:, y_indexes, x_indexes].T))
             else:
                 self._avg_plot.y = np.mean(self._data[:, y_indexes, x_indexes], axis=1)
-                error = np.std(self._data[:, y_indexes, x_indexes], axis=1)
+                error = self._error_func(np.asarray(self._data[:, y_indexes, x_indexes]))
             self._avg_plot.x = self._plot.x
             self._avg_plot.visible = True
 

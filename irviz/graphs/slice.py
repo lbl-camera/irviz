@@ -169,7 +169,7 @@ class SliceGraph(dcc.Graph):
 
         # Bind the labels toggle to its trace's visibility
         targeted_callback(self.set_clusters_visibility,
-                          Input(self._parent.graph_toggles.id, 'value'),
+                          Input(self._parent._graph_toggles.id, 'value'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
@@ -187,23 +187,24 @@ class SliceGraph(dcc.Graph):
                           app=self._parent._app)
 
     def sync_zoom(self, relayoutData):
-        print(relayoutData)
+        figure = self._update_figure()
+
         if f'"type":"{self.id["type"]}"' in dash.callback_context.triggered[0]['prop_id']:
             # Don't self-update
             if f'"subtype":"{self.id["subtype"]}"' in dash.callback_context.triggered[0]['prop_id']:
                 raise PreventUpdate
 
             try:
-                self.figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
+                figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
                                                            relayoutData['xaxis.range[1]']]
-                self.figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
+                figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
                                                            relayoutData['yaxis.range[1]']]
-                self.figure['layout']['xaxis']['autorange'] = False
-                self.figure['layout']['yaxis']['autorange'] = False
+                figure['layout']['xaxis']['autorange'] = False
+                figure['layout']['yaxis']['autorange'] = False
             except KeyError:  # ignore when we haven't already zoomed
                 pass
 
-            return self.figure
+            return figure
 
         raise PreventUpdate
 
@@ -274,3 +275,19 @@ class SliceGraph(dcc.Graph):
     def position(self):
         """The current spatial position of the crosshair"""
         return self._v_line.x0, self._h_line.y0
+
+    @property
+    def position_index(self):
+        """The spatial position of the current spectrum as an index (y, x)"""
+        return nearest_bin(self._x_line.y0, self._bounds[1], self._ata.shape[1]), \
+               nearest_bin(self._v_line.x0, self._bounds[2], self._data.shape[2])
+
+    @property
+    def selection(self):
+        """A mask array representing the current spatial selection region"""
+        return self._selection_mask.z
+
+    @property
+    def selection_indices(self):
+        """The indices of all currently selected points, returned as (y, x)"""
+        return np.argwhere(self._selection_mask.z)
