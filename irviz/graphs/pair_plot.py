@@ -19,7 +19,7 @@ class PairPlotGraph(dcc.Graph):
         # Cache our data and parent for use in the callbacks
         self._data = data
         self._parent = parent
-        self._component1 = self._component2 = 0
+        self._xaxis_title = self._yaxis_title = ''
         self._cluster_labels = cluster_labels
         self._cluster_label_names = cluster_label_names
         self.traces = []
@@ -90,56 +90,61 @@ class PairPlotGraph(dcc.Graph):
         """ Remake the figure to force a display update """
         fig = go.Figure(self.traces)
         fig.update_layout(title=self.title,
-                          xaxis_title=f'Component #{self._component1+1}',
-                          yaxis_title=f'Component #{self._component2+1}')
+                          xaxis_title=self._xaxis_title,
+                          yaxis_title=self._yaxis_title)
         return fig
 
     def show_pair_plot(self, component1, component2, selectedData):
         if component1 is None or component2 is None:
             raise PreventUpdate
 
-        x = self._data[component1]
-        y = self._data[component2]
-
         self.traces = []
 
-        multi_mode = self._cluster_labels is not None
+        multi_mode = component2 == 'ALL'
+        cluster_label_mode = not multi_mode and self._cluster_labels is not None
 
-        # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
-        selected_points = None
-        triggered = dash.callback_context.triggered
-        if '"type":"slice_graph"' in triggered[0]['prop_id'] and triggered[0]['value'] is not None:
-            # selected data being None indicates that the user has selected data
-            # selected data 'points' being empty indicates the user has selected data outside of the region
-            selected_points = self._indexes_from_selection(triggered[0]['value'])
+        match_components = list(range(component1)) + list(range(component1+1, self._data.shape[0])) if multi_mode else [component2]
 
-        self.traces.append(go.Scattergl(x=np.asarray(x.ravel()),
-                                        y=np.asarray(y.ravel()),
-                                        mode='markers',
-                                        marker={'color': 'rgba(0,0,0,0)'} if multi_mode else None,
-                                        hoverinfo='skip' if multi_mode else None,
-                                        showlegend=False,
-                                        selectedpoints=selected_points))
+        for component2 in match_components:
+            # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
+            selected_points = None
+            triggered = dash.callback_context.triggered
+            if '"type":"slice_graph"' in triggered[0]['prop_id'] and triggered[0]['value'] is not None:
+                # selected data being None indicates that the user has selected data
+                # selected data 'points' being empty indicates the user has selected data outside of the region
+                selected_points = self._indexes_from_selection(triggered[0]['value'])
 
-        if self._cluster_labels is not None:
-            min_index = 0
-            for i, name in enumerate(self._cluster_label_names):
-                label_mask = self._cluster_labels.ravel() == i
-                masked_selected_points = None
-                if selected_points is not None:
-                    masked_selected_points = np.asarray(selected_points) - min_index
-                    masked_selected_points = masked_selected_points[np.logical_and(0<=masked_selected_points,
-                                                                                   masked_selected_points<np.count_nonzero(label_mask))]
-                trace = go.Scattergl(x=np.asarray(x.ravel())[label_mask],
-                                     y=np.asarray(y.ravel())[label_mask],
-                                     name=name,
-                                     mode='markers',
-                                     selectedpoints=masked_selected_points)
-                self.traces.append(trace)
-                min_index += np.count_nonzero(label_mask)
+            x = self._data[component1]
+            y = self._data[component2]
 
-        self._component1 = component1
-        self._component2 = component2
+            self.traces.append(go.Scattergl(x=np.asarray(x.ravel()),
+                                            y=np.asarray(y.ravel()),
+                                            mode='markers',
+                                            marker={'color': 'rgba(0,0,0,0)'} if cluster_label_mode else None,
+                                            hoverinfo='skip' if cluster_label_mode else None,
+                                            showlegend=True if multi_mode else False,
+                                            selectedpoints=selected_points,
+                                            name=f'Component #{component2+1}' if multi_mode else None))
+
+            if cluster_label_mode:
+                min_index = 0
+                for i, name in enumerate(self._cluster_label_names):
+                    label_mask = self._cluster_labels.ravel() == i
+                    masked_selected_points = None
+                    if selected_points is not None:
+                        masked_selected_points = np.asarray(selected_points) - min_index
+                        masked_selected_points = masked_selected_points[np.logical_and(0<=masked_selected_points,
+                                                                                       masked_selected_points<np.count_nonzero(label_mask))]
+                    trace = go.Scattergl(x=np.asarray(x.ravel())[label_mask],
+                                         y=np.asarray(y.ravel())[label_mask],
+                                         name=name,
+                                         mode='markers',
+                                         selectedpoints=masked_selected_points)
+                    self.traces.append(trace)
+                    min_index += np.count_nonzero(label_mask)
+
+        self._xaxis_title = f'Component #{component1+1}'
+        self._yaxis_title = f'Other components' if multi_mode else f'Component #{component2+1}'
 
         return self._update_figure()
 
