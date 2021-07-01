@@ -6,13 +6,14 @@ from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
 from irviz.utils.dash import targeted_callback
+from irviz.utils.math import nearest_bin
 __all__ = ['PairPlotGraph']
 
 
 class PairPlotGraph(dcc.Graph):
     title = 'Pair Plot'
 
-    def __init__(self, data, cluster_labels, cluster_label_names, parent):
+    def __init__(self, data, bounds, cluster_labels, cluster_label_names, parent):
         # Track if the selection help has been displayed yet, don't want to annoy users
         self._selection_help_displayed_already = False
 
@@ -22,7 +23,20 @@ class PairPlotGraph(dcc.Graph):
         self._component1 = self._component2 = 0
         self._cluster_labels = cluster_labels
         self._cluster_label_names = cluster_label_names
+        self._bounds = bounds
         self.traces = []
+        self.crosshair_trace = None
+        self._crosshair_index = None
+
+        # Initialize persistent traces
+        self.crosshair_trace = go.Scattergl(x=[],
+                                            y=[],
+                                            showlegend=False,
+                                            mode='markers',
+                                            marker={'color': 'white',
+                                                    'size': 10,
+                                                    'line': {'width': 2}},
+                                            hoverinfo='skip')
 
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
@@ -54,6 +68,11 @@ class PairPlotGraph(dcc.Graph):
                    'subtype': ALL,
                    'index': self._parent._instance_index},
                   'selectedData'),
+            # When any SliceGraph is clicked, update its x,y slicer lines
+            Input({'type': 'slice_graph',
+                   'subtype': ALL,
+                   'index': self._parent._instance_index},
+                  'clickData'),
         )(self.show_pair_plot)
 
         # Set up selection tool callbacks
@@ -94,7 +113,7 @@ class PairPlotGraph(dcc.Graph):
                           yaxis_title=f'Component #{self._component2+1}')
         return fig
 
-    def show_pair_plot(self, component1, component2, selectedData):
+    def show_pair_plot(self, component1, component2, selectedData, click_data):
         if component1 is None or component2 is None:
             raise PreventUpdate
 
@@ -108,7 +127,9 @@ class PairPlotGraph(dcc.Graph):
         # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
         selected_points = None
         triggered = dash.callback_context.triggered
-        if '"type":"slice_graph"' in triggered[0]['prop_id'] and triggered[0]['value'] is not None:
+        if '"type":"slice_graph"' in triggered[0]['prop_id'] and \
+                'selectedData' in triggered[0]['prop_id'] and \
+                triggered[0]['value'] is not None:
             # selected data being None indicates that the user has selected data
             # selected data 'points' being empty indicates the user has selected data outside of the region
             selected_points = self._indexes_from_selection(triggered[0]['value'])
@@ -137,6 +158,20 @@ class PairPlotGraph(dcc.Graph):
                                      selectedpoints=masked_selected_points)
                 self.traces.append(trace)
                 min_index += np.count_nonzero(label_mask)
+
+        if 'clickData' in triggered[0]['prop_id']:
+            click_data = triggered[0]['value']
+            y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])
+            x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
+            self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
+
+        if self._crosshair_index is not None:
+            x = self._data[component1].ravel()[self._crosshair_index]
+            y = self._data[component2].ravel()[self._crosshair_index]
+            self.crosshair_trace.x = [x]
+            self.crosshair_trace.y = [y]
+
+        self.traces.append(self.crosshair_trace)
 
         self._component1 = component1
         self._component2 = component2

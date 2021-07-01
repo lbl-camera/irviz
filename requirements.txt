@@ -5,3 +5,4 @@ jupyter-dash
 numpy
 sklearn
 dash_bootstrap_components
+dash_bootstrap_templates
