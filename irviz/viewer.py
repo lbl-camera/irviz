@@ -154,6 +154,7 @@ class Viewer(html.Div):
         self.spectra_graph = SpectraPlotGraph(data,
                                               self._bounds,
                                               self,
+                                              decomposition=decomposition,
                                               component_spectra=component_spectra,
                                               xaxis_title=spectra_axis_title,
                                               yaxis_title=intensity_axis_title,
