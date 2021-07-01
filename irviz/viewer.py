@@ -1,12 +1,14 @@
 import numbers
 import warnings
 from itertools import count
+from typing import Callable, Any
 
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
 from dash_core_components import Graph, Slider
 from dash.dependencies import Input, Output
+from nptyping import NDArray
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, OpticalGraph, MapGraph, PairPlotGraph, SpectraPlotGraph
@@ -37,7 +39,8 @@ class Viewer(html.Div):
                  spectra_axis_title='Spectral Units',
                  intensity_axis_title='Intensity',
                  invert_spectra_axis=False,
-                 annotations=None):
+                 annotations=None,
+                 error_func=None):
         """Viewer on the Dash app.
 
         Provides some properties for accessing visualized data (e.g. the current spectrum).
@@ -89,6 +92,10 @@ class Viewer(html.Div):
                         'color': '#34afdd'
                     }
                 }
+        error_func : Callable[[NDArray[(Any, Any)]], np.ndarray[Any]]
+            A callable function that takes an array of shape (E, N), where E is the length of the spectral dimension and
+            N is the number of curves over which to calculate error. The return value is expected to be a 1-D array of
+            length E. The default is to apply a std dev over the N axis.
         """
 
         self.data = data
@@ -148,7 +155,8 @@ class Viewer(html.Div):
                                               xaxis_title=spectra_axis_title,
                                               yaxis_title=intensity_axis_title,
                                               invert_spectra_axis=invert_spectra_axis,
-                                              annotations=annotations)
+                                              annotations=annotations,
+                                              error_func=error_func)
         self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         if optical is not None:
             self.optical_graph = OpticalGraph(data, optical, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
@@ -164,7 +172,7 @@ class Viewer(html.Div):
                                                           self,
                                                           xaxis_title=x_axis_title,
                                                           yaxis_title=y_axis_title)
-            self.pair_plot_graph = PairPlotGraph(self.decomposition, cluster_labels, cluster_label_names, self)
+            self.pair_plot_graph = PairPlotGraph(self.decomposition, bounds, cluster_labels, cluster_label_names, self)
         else:
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
             self.pair_plot_graph = Graph(id='empty-pair-plot-graph', style={'display': 'none'})
@@ -396,6 +404,7 @@ def notebook_viewer(data,
                     invert_spectra_axis=False,
                     cluster_labels=None,
                     cluster_label_names=None,
+                    error_func=None,
                     mode='inline',
                     width='100%',
                     height=650,
@@ -486,7 +495,8 @@ def notebook_viewer(data,
                     spectra_axis_title=spectra_axis_title,
                     intensity_axis_title=intensity_axis_title,
                     invert_spectra_axis=invert_spectra_axis,
-                    annotations=annotations)
+                    annotations=annotations,
+                    error_func=error_func)
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
