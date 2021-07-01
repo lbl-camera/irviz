@@ -51,6 +51,8 @@ class Viewer(html.Div):
             Reference to the Dash application to add components to
         data : dask.array
             3D array data (with axes E/wave-number, Y, and X)
+        optical : np.ndarray
+            (optional) An optical image registered with the spectral data
         decomposition : np.ndarray
             (optional) Decomposition of the data
         bounds : list
@@ -392,6 +394,7 @@ class Viewer(html.Div):
 
 
 def notebook_viewer(data,
+                    optical=None,
                     decomposition=None,
                     bounds=None,
                     component_spectra=None,
@@ -413,6 +416,8 @@ def notebook_viewer(data,
     ----------
     data : dask.array
         3D data to visualize in the Viewer
+    optical : np.ndarray
+        (optional) An optical image registered with the spectral data
     decomposition : np.ndarray
         Component values for the decomposed data
     bounds : list
