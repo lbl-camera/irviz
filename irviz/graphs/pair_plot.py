@@ -171,10 +171,10 @@ class PairPlotGraph(dcc.Graph):
             self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
 
         if self._crosshair_index is not None:
-            x = self._data[component1].ravel()[self._crosshair_index]
-            y = self._data[component2].ravel()[self._crosshair_index]
-            self.crosshair_trace.x = [x]
-            self.crosshair_trace.y = [y]
+            x = [self._data[component1].ravel()[self._crosshair_index] for component2 in match_components]
+            y = [self._data[component2].ravel()[self._crosshair_index] for component2 in match_components]
+            self.crosshair_trace.x = x
+            self.crosshair_trace.y = y
 
         self.traces.append(self.crosshair_trace)
 
