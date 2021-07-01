@@ -169,7 +169,7 @@ class SliceGraph(dcc.Graph):
 
         # Bind the labels toggle to its trace's visibility
         targeted_callback(self.set_clusters_visibility,
-                          Input(self._parent.graph_toggles.id, 'value'),
+                          Input(self._parent._graph_toggles.id, 'value'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 

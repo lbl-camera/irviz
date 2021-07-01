@@ -29,7 +29,7 @@ class MapGraph(SliceGraph):
 
         # Change color scale from selector
         targeted_callback(self.set_color_scale,
-                          Input(self._parent.map_color_scale_selector.id, 'label'),
+                          Input(self._parent._map_color_scale_selector.id, 'label'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
