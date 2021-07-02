@@ -102,17 +102,20 @@ class SpectraPlotGraph(dcc.Graph):
         # Find the closest wavenumber / energy value to use
         default_slice_index = x[np.abs(np.array(x) - default_slice_index).argmin()]
 
+        self._slicer_index = default_slice_index
+        self._slicer_name = 'slicer'
+
         # x coords positioned relative to the x-axis values
         # y coords positioned according to the plot height (0 = bottom, 1.0 = top)
-        self._energy_line = go.layout.Shape(type='line',
-                                            name='slicer',
-                                            # width=3,
-                                            xref='x',
-                                            yref='paper',
-                                            x0=default_slice_index,
-                                            x1=default_slice_index,
-                                            y0=0,
-                                            y1=1)
+        # self._energy_line = go.layout.Shape(type='line',
+        #                                     name='slicer',
+        #                                     # width=3,
+        #                                     xref='x',
+        #                                     yref='paper',
+        #                                     x0=default_slice_index,
+        #                                     x1=default_slice_index,
+        #                                     y0=0,
+        #                                     y1=1)
 
         fig = self._update_figure()
 
@@ -205,17 +208,17 @@ class SpectraPlotGraph(dcc.Graph):
     @property
     def spectral_value(self):
         """The current value of the crosshair position in energy/wavenumber"""
-        return self._energy_line.x0
+        return self._slicer_index
 
     @property
     def spectral_index(self):
         """The current index of the crosshair position along the energy/wavenumber domain"""
-        return self._plot.x.tolist().index(self._energy_line.x0)
+        return self._plot.x.tolist().index(self._slicer_index)
 
     @property
     def intensity(self):
         """The intensity value of the crosshair position"""
-        intensity_index = self._plot.x.tolist().index(self._energy_line.x0)
+        intensity_index = self._plot.x.tolist().index(self._slicer_index)
         return self._plot.y[intensity_index]
 
     @property
@@ -283,16 +286,21 @@ class SpectraPlotGraph(dcc.Graph):
             new_figure.update_xaxes(autorange="reversed")
 
         # Always add the slicer line
-        new_figure.add_shape(self._energy_line)
+        new_figure.add_vline(x=self._slicer_index,
+                             name=f'{self._slicer_name}',
+                             annotation_name=f'{self._slicer_name}',
+                             annotation_text=f'{self._slicer_index:.2f}',
+                             annotation_position='top')
 
         for shape in shapes:
             # Ignore slicer line as a user-annotation shape
-            if shape.name != self._energy_line.name:
+            if shape.name != self._slicer_name:
                 new_figure.add_shape(shape)
 
         # Add in the plotly annotations (the text above the shapes)
         for annotation in annotations:
-            new_figure.add_annotation(annotation)
+            if annotation.name != self._slicer_name:
+                new_figure.add_annotation(annotation)
 
         return new_figure
 
@@ -327,9 +335,7 @@ class SpectraPlotGraph(dcc.Graph):
         return self._update_figure()
 
     def _update_energy_line(self, click_data):
-        e = click_data["points"][0]["x"]
-        self._energy_line.x0 = e
-        self._energy_line.x1 = e
+        self._slicer_index = click_data["points"][0]["x"]
         return self._update_figure()
 
     def _id(self):
