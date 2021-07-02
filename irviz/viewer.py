@@ -11,7 +11,8 @@ from dash_core_components import Graph, Slider
 from dash.dependencies import Input, Output, State
 from nptyping import NDArray
 
-from irviz.components import ColorScaleSelector
+from irviz.components import spectra_annotation_dialog
+from irviz.components.color_scale_selector import ColorScaleSelector
 from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
 from irviz.graphs._colors import decomposition_color_scales
 from irviz.utils.dash import targeted_callback
@@ -367,72 +368,11 @@ class Viewer(html.Div):
                           Output(self._notifier.id, 'is_open'),
                           app=self._app)
 
-
-        # TODO: move dialog to dialog factory function
-        header = dbc.ModalHeader("Add Annotation", id='header')
-        self.spectra_graph_annotation_dialog_name = dbc.Input(type="input", id='name', placeholder="Enter annotation name", required=True)
-        name = dbc.FormGroup(
-            [
-                dbc.Label("Name"),
-                self.spectra_graph_annotation_dialog_name
-                # dbc.FormText(
-                #     "little text below the input component",
-                #     color="secondary",
-                # ),
-            ]
-        )
-        self.spectra_graph_annotation_dialog_lower_bound = dbc.Input(type="number", id='lower-bound', step=1, required=True)
-        x0 = dbc.FormGroup(
-            [
-                dbc.Label("Lower bound"),
-                self.spectra_graph_annotation_dialog_lower_bound
-            ],
-            id="styled-numeric-input",
-        )
-        self.spectra_graph_annotation_dialog_upper_bound = dbc.Input(type="number", id='upper-bound', step=1, required=False)
-        x1 = dbc.FormGroup(
-            [
-                dbc.Label("Upper bound (optional)"),
-                self.spectra_graph_annotation_dialog_upper_bound
-            ]
-        )
-        body = dbc.ModalBody([name, x0, x1], id='body')
-
-        self.spectra_graph_annotation_dialog_cancel_button = dbc.Button("Cancel", id='cancel', className="ml-auto", n_clicks=0)
-        self.spectra_graph_annotation_dialog_add_button = dbc.Button("Add", id='add', className="ml-auto", n_clicks=0)
-        footer = dbc.ModalFooter([self.spectra_graph_annotation_dialog_add_button, self.spectra_graph_annotation_dialog_cancel_button])
-        self.spectra_graph_annotation_dialog = dbc.Modal([header, body, footer], id='annotation-modal')
-
-        # Open dialog when the "Add Annotation" button is clicked
-        targeted_callback(lambda _: True,
-                          Input(self.spectra_graph_add_annotation.id, 'n_clicks'),
-                          Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
-                          app=self._app)
-
-        # Close dialog if Add/Cancel is clicked within it
-        targeted_callback(lambda _: False,
-                          Input(self.spectra_graph_annotation_dialog_cancel_button.id, 'n_clicks'),
-                          Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
-                          app=self._app)
-        targeted_callback(lambda _: False,
-                          Input(self.spectra_graph_annotation_dialog_add_button.id, 'n_clicks'),
-                          Output(self.spectra_graph_annotation_dialog.id, 'is_open'),
-                          app=self._app)
-
-        # When the Add button is clicked, update the annotations settings panel and add the new annotation to the graph
-        # Add new shape for the new annotation
-        targeted_callback(self._add_annotation_from_dialog,
-                          Input(self.spectra_graph_annotation_dialog_add_button.id, 'n_clicks'),
-                          Output(self.spectra_graph_annotations.id, 'children'),
-                          State(self.spectra_graph_annotation_dialog_name.id, 'value'),
-                          State(self.spectra_graph_annotation_dialog_lower_bound.id, 'value'),
-                          State(self.spectra_graph_annotation_dialog_upper_bound.id, 'value'),
-                          app=self._app)
-        # Then, chain to callback that lets the graph update its figure
-        targeted_callback(self.spectra_graph._update_figure,
-                          Input(self.spectra_graph_annotations.id, 'children'),
-                          Output(self.spectra_graph.id, 'figure'),
-                          app=self._app)
+        self.spectra_annotation_dialog = spectra_annotation_dialog(app,
+                                                                   'spectra-annotation-dialog',
+                                                                   success_callback=self._add_annotation_from_dialog,
+                                                                   success_output=Output(self.spectra_graph_annotations.id, 'children'),
+                                                                   open_input=Input(self.spectra_graph_add_annotation.id, 'n_clicks'))
 
         for annotation in annotations:
             self._add_spectra_annotation(annotation)
@@ -445,7 +385,7 @@ class Viewer(html.Div):
                                self.spectra_graph,
                                self.pair_plot_graph,
                                self._notifier,
-                               self.spectra_graph_annotation_dialog]
+                               self.spectra_annotation_dialog]
         children = html.Div(children=layout_div_children,
                             className='row well')
 
@@ -521,12 +461,12 @@ class Viewer(html.Div):
         # Get the form input values
         input_states = dash.callback_context.states
         annotation = dict()
-        if input_states['upper-bound.value'] is None:
-            annotation['position'] = input_states['lower-bound.value']
+        if input_states['spectra-annotation-dialog-upper-bound.value'] is None:
+            annotation['position'] = input_states['spectra-annotation-dialog-lower-bound.value']
         else:
-            annotation['range'] = (input_states['lower-bound.value'], input_states['upper-bound.value'])
+            annotation['range'] = (input_states['spectra-annotation-dialog-lower-bound.value'], input_states['spectra-annotation-dialog-upper-bound.value'])
 
-        annotation['name'] = input_states['name.value']
+        annotation['name'] = input_states['spectra-annotation-dialog-name.value']
         self._add_spectra_annotation(annotation)
 
         return self.spectra_graph_annotations.children
