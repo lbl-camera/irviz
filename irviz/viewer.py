@@ -13,6 +13,7 @@ from nptyping import NDArray
 
 from irviz.components import spectra_annotation_dialog
 from irviz.components.color_scale_selector import ColorScaleSelector
+from irviz.components.modal_dialogs import slice_annotation_dialog
 from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
 from irviz.graphs._colors import decomposition_color_scales
 from irviz.utils.dash import targeted_callback
@@ -325,8 +326,15 @@ class Viewer(html.Div):
         # Annotations layout
         self.spectra_graph_annotations = dbc.ListGroup(id='spectra-graph-annotations',
                                                        children=[])
+        self.slice_graph_annotations = dbc.ListGroup(id='slice-graph-annotations',
+                                                     children=[])
         self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
-        annotations_layout = dbc.Card(dbc.CardBody(children=[self.spectra_graph_annotations, self.spectra_graph_add_annotation]))
+        self.slice_graph_add_annotation = dbc.Button("Annotate Selection", id='slice-graph-add-annotation', n_clicks=0)
+        annotations_layout = dbc.Card(dbc.CardBody(children=[self.slice_graph_annotations,
+                                                             self.slice_graph_add_annotation,
+                                                             self.spectra_graph_annotations,
+                                                             self.spectra_graph_add_annotation,
+                                                             ]))
 
         # Settings tab layout
         # TODO put in function so we can use with callback
@@ -374,6 +382,12 @@ class Viewer(html.Div):
                                                                    success_output=Output(self.spectra_graph_annotations.id, 'children'),
                                                                    open_input=Input(self.spectra_graph_add_annotation.id, 'n_clicks'))
 
+        self.slice_annotation_dialog = slice_annotation_dialog(app,
+                                                               'slice-annotation-dialog',
+                                                               success_callback=self._add_slice_annotation_from_dialog,
+                                                               success_output=Output(self.slice_graph_annotations.id, 'children'),
+                                                               open_input=Input(self.slice_graph_add_annotation.id, 'n_clicks'))
+
         for annotation in annotations:
             self._add_spectra_annotation(annotation)
 
@@ -385,7 +399,8 @@ class Viewer(html.Div):
                                self.spectra_graph,
                                self.pair_plot_graph,
                                self._notifier,
-                               self.spectra_annotation_dialog]
+                               self.spectra_annotation_dialog,
+                               self.slice_annotation_dialog]
         children = html.Div(children=layout_div_children,
                             className='row well')
 
@@ -457,6 +472,12 @@ class Viewer(html.Div):
         self.spectra_graph.add_annotation(annotation)
         self.spectra_graph_annotations.children += str(annotation)
 
+    def _add_slice_annotation(self, annotation):
+        for graph in [self.map_graph, self.optical_graph, self.decomposition_graph]:
+            if hasattr(graph, 'add_annotation'):
+                graph.add_annotation(annotation)
+        self.slice_graph_annotations.children += str(annotation)
+
     def _add_annotation_from_dialog(self, n_clicks):
         # Get the form input values
         input_states = dash.callback_context.states
@@ -467,9 +488,22 @@ class Viewer(html.Div):
             annotation['range'] = (input_states['spectra-annotation-dialog-lower-bound.value'], input_states['spectra-annotation-dialog-upper-bound.value'])
 
         annotation['name'] = input_states['spectra-annotation-dialog-name.value']
+        annotation['type'] = 'spectrum'
         self._add_spectra_annotation(annotation)
 
         return self.spectra_graph_annotations.children
+
+    def _add_slice_annotation_from_dialog(self, n_clicks):
+        # Get the form input values
+        input_states = dash.callback_context.states
+        annotation = dict()
+        annotation['name'] = input_states['slice-annotation-dialog-name.value']
+        annotation['mask'] = self.map_graph._selection_mask.z
+        annotation['type'] = 'slice'
+
+        self._add_slice_annotation(annotation)
+
+        return self.slice_graph_annotations.children
 
 
 def notebook_viewer(data,

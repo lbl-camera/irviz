@@ -271,6 +271,18 @@ class SliceGraph(dcc.Graph):
 
         return self._update_figure()
 
+    def add_annotation(self, annotation):
+        annotation_trace = self._get_image_trace(annotation['mask'],
+                                                 bounds=self._bounds,
+                                                 colorscale='reds',
+                                                 opacity=0.3,
+                                                 showscale=False,
+                                                 hoverinfo='skip',
+                                                 )
+        self._traces.append(annotation_trace)
+
+        return annotation_trace
+
     @property
     def position(self):
         """The current spatial position of the crosshair"""
