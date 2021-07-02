@@ -121,14 +121,15 @@ class Viewer(html.Div):
         # Validate annotations TODO: reorganize
         position_removes = []
         if annotations is not None:
-            for i, annotation in enumerate(annotations):
+            for i in reversed(range(len(annotations))):
+                annotation = annotations[i]
                 r = annotation.get('range', None)
                 p = annotation.get('position', None)
                 if r is not None and p is not None:
                     # Cannot supply both position and range in same annotation, ignore position
                     warnings.warn(f"cannot supply both 'range' and 'position' in the same annotation; "
                                   f"ignoring 'position'")
-                    position_removes.append(i)
+                    annotation.pop('position')
                     # if not (r[0] <= p <= r[1]):
                     #     warnings.warn(f"position {p} is not within the range {r}")
 
@@ -153,8 +154,7 @@ class Viewer(html.Div):
                     elif kwarg != "name":
                         raise ValueError(f"'{kwarg}' is not currently supported as a keyword in annotations")
 
-        for position in position_removes:
-            annotations[position].pop('position')
+
 
         # Component spectra shape should be (#components, #wavenumber)
         component_spectra_array = np.asarray(component_spectra)
