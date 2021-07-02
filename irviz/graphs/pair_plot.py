@@ -62,8 +62,8 @@ class PairPlotGraph(dcc.Graph):
         # Note: this can't be a targeted callback, since multiple values are required
         self._parent._app.callback(
             Output(self.id, 'figure'),
-            Input(self._parent.decomposition_component_1.id, 'value'),
-            Input(self._parent.decomposition_component_2.id, 'value'),
+            Input(self._parent._decomposition_component_1.id, 'value'),
+            Input(self._parent._decomposition_component_2.id, 'value'),
             Input({'type': 'slice_graph',
                    'subtype': ALL,
                    'index': self._parent._instance_index},
@@ -78,18 +78,18 @@ class PairPlotGraph(dcc.Graph):
         # Set up selection tool callbacks
         targeted_callback(self._show_selection_info,
                           Input(self.id, 'selectedData'),
-                          Output(self._parent.info_content.id, 'children'),
+                          Output(self._parent._info_content.id, 'children'),
                           app=self._parent._app)
 
         # Set up help notifications for selection tools
         targeted_callback(self._update_selection_help_text,
                           Input(self.id, 'selectedData'),
-                          Output(self._parent.notifier.id, 'children'),
+                          Output(self._parent._notifier.id, 'children'),
                           app=self._parent._app)
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent.graph_toggles.id, 'value'),
+                          Input(self._parent._graph_toggles.id, 'value'),
                           Output(self.id, 'style'),
                           app=self._parent._app)
 

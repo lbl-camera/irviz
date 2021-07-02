@@ -2,7 +2,7 @@ from functools import partial
 
 import dash_core_components as dcc
 import numpy as np
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, ALL
 from dask import array as da
 from plotly import graph_objects as go
 
@@ -14,7 +14,7 @@ __all__ = ['SpectraPlotGraph']
 class SpectraPlotGraph(dcc.Graph):
     title = 'Spectra Intensities'
 
-    def __init__(self, data, bounds, parent, component_spectra=None, invert_spectra_axis=False, annotations=None, error_func=None, **kwargs):
+    def __init__(self, data, bounds, parent, decomposition=None, component_spectra=None, invert_spectra_axis=False, annotations=None, error_func=None, **kwargs):
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -26,6 +26,8 @@ class SpectraPlotGraph(dcc.Graph):
             (e.g. a list that contains 3 min/max pairs)
         parent : Component
             Reference to Component that created this Graph (for registering callbacks)
+        decomposition : np.ndarray
+            (optional) Decomposition of the data
         component_spectra : list or np.ndarray
             List of component spectra from the decomposition
         invert_spectra_axis : bool
@@ -59,6 +61,7 @@ class SpectraPlotGraph(dcc.Graph):
             Additional keyword arguments to be passed into Graph
         """
         self._data = data
+        self._decomposition = decomposition
         self._invert_spectra_axis = invert_spectra_axis
         self._error_func = error_func or partial(np.std, axis=1)
         self._parent = parent
@@ -81,6 +84,11 @@ class SpectraPlotGraph(dcc.Graph):
                                   y=y,
                                   name=f'spectrum @ {init_x_name:.2f}, {init_y_name:.2f}',
                                   mode='lines')
+        self._weighted_sum = go.Scattergl(name=f'weighted component sum',
+                                          mode='lines')
+        if self._decomposition is not None and self._component_spectra is not None:
+            self._weighted_sum.x = x
+            self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
         self._avg_plot = go.Scattergl(name='average',
                                       mode='lines')
         self._upper_error_plot = go.Scatter(line=dict(width=0),
@@ -136,7 +144,6 @@ class SpectraPlotGraph(dcc.Graph):
                                                           minHeight='450px'),
                                                )
 
-
     def register_callbacks(self):
         # When points are selected on the MapGraph, add additional statistics and components plots
         targeted_callback(self._update_average_plot,
@@ -156,21 +163,18 @@ class SpectraPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
-        # When the slice graph is clicked, update plot with the clicked x,y coord
+        # When any slice graph is clicked, update plot with the clicked x,y coord
         targeted_callback(self.show_click,
-                          Input(self._parent.map_graph.id, 'clickData'),
-                          Output(self.id, 'figure'),
-                          app=self._parent._app)
-
-        # When the decomposition graph is clicked update plot with clicked x,y coord
-        targeted_callback(self.show_click,
-                          Input(self._parent.decomposition_graph.id, 'clickData'),
+                          Input({'type': 'slice_graph',
+                                 'subtype': ALL,
+                                 'index': self._parent._instance_index},
+                                'clickData'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent.graph_toggles.id, 'value'),
+                          Input(self._parent._graph_toggles.id, 'value'),
                           Output(self.id, 'style'),
                           app=self._parent._app)
 
@@ -183,6 +187,11 @@ class SpectraPlotGraph(dcc.Graph):
 
         # update the legend for the spectrum plot
         self._plot.name = f'spectrum @ {x:.2f}, {y:.2f}'
+
+        # update the weighted sum
+        if self._decomposition is not None and self._component_spectra is not None:
+            self._weighted_sum.x = self._plot.x
+            self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
 
         return self._update_figure()
 
@@ -249,6 +258,7 @@ class SpectraPlotGraph(dcc.Graph):
     def _update_figure(self):
         fig = go.Figure([self._plot,
                          self._avg_plot,
+                         self._weighted_sum,
                          self._upper_error_plot,
                          self._lower_error_plot,
                          *self._component_plots])

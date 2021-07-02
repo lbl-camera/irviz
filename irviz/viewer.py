@@ -19,6 +19,8 @@ from irviz.utils.dash import targeted_callback
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
 
 # TODO: update docstrings for annotation; validate annotation
+from irviz.utils.math import nearest_bin
+
 
 class Viewer(html.Div):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
@@ -51,6 +53,8 @@ class Viewer(html.Div):
             Reference to the Dash application to add components to
         data : dask.array
             3D array data (with axes E/wave-number, Y, and X)
+        optical : np.ndarray
+            (optional) An optical image registered with the spectral data
         decomposition : np.ndarray
             (optional) Decomposition of the data
         bounds : list
@@ -98,16 +102,15 @@ class Viewer(html.Div):
             length E. The default is to apply a std dev over the N axis.
         """
 
-        self.data = data
+        self._data = data
         self._app = app
         self._instance_index = next(self._instance_counter)
-        self.decomposition = decomposition
 
-        self.bounds = np.asarray(bounds)
-        if self.bounds is None or self.bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self.bounds = [[0, self.data.shape[0] - 1],
-                           [0, self.data.shape[1] - 1],
-                           [0, self.data.shape[2] - 1]]
+        self._bounds = np.asarray(bounds)
+        if self._bounds is None or self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
+            self._bounds = [[0, self._data.shape[0] - 1],
+                            [0, self._data.shape[1] - 1],
+                            [0, self._data.shape[2] - 1]]
 
         # Validate annotations TODO: reorganize
         if annotations is not None:
@@ -141,38 +144,39 @@ class Viewer(html.Div):
         # Component spectra shape should be (#components, #wavenumber)
         component_spectra_array = np.asarray(component_spectra)
         if len(component_spectra_array.shape) > 0:
-            if (component_spectra_array.shape[0] != self.decomposition.shape[0]
-                    or component_spectra_array.shape[1] != self.data.shape[0]):
+            if (component_spectra_array.shape[0] != decomposition.shape[0]
+                    or component_spectra_array.shape[1] != self._data.shape[0]):
                 warnings.warn(f"The provided 'component_spectra' does not have a valid shape: "
                               f"{component_spectra_array.shape}; "
                               f"shape should be number of components, number of energies (wave-numbers).")
 
         # Initialize graphs
         self.spectra_graph = SpectraPlotGraph(data,
-                                              self.bounds,
+                                              self._bounds,
                                               self,
+                                              decomposition=decomposition,
                                               component_spectra=component_spectra,
                                               xaxis_title=spectra_axis_title,
                                               yaxis_title=intensity_axis_title,
                                               invert_spectra_axis=invert_spectra_axis,
                                               annotations=annotations,
                                               error_func=error_func)
-        self.map_graph = MapGraph(data, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        self.map_graph = MapGraph(data, self._bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         if optical is not None:
-            self.optical_graph = OpticalGraph(data, optical, self.bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+            self.optical_graph = OpticalGraph(data, optical, self._bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         else:
             self.optical_graph = Graph(id='empty-optical-graph', style={'display': 'none'})
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
-        if self.decomposition is not None:
-            self.decomposition_graph = DecompositionGraph(self.decomposition,
-                                                          self.bounds,
+        if decomposition is not None:
+            self.decomposition_graph = DecompositionGraph(decomposition,
+                                                          self._bounds,
                                                           cluster_labels,
                                                           cluster_label_names,
                                                           self,
                                                           xaxis_title=x_axis_title,
                                                           yaxis_title=y_axis_title)
-            self.pair_plot_graph = PairPlotGraph(self.decomposition, bounds, cluster_labels, cluster_label_names, self)
+            self.pair_plot_graph = PairPlotGraph(decomposition, bounds, cluster_labels, cluster_label_names, self)
         else:
             self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
             self.pair_plot_graph = Graph(id='empty-pair-plot-graph', style={'display': 'none'})
@@ -183,18 +187,18 @@ class Viewer(html.Div):
 
         # Switches for views
         initial_views = ["show_spectra"]
-        if self.decomposition is not None:
+        if decomposition is not None:
             initial_views.extend(["show_decomposition", "show_pair_plot"])
         if optical is not None:
             initial_views.append('show_optical')
         if cluster_labels is not None:
             initial_views.append('show_clusters')
-        self.graph_toggles = dbc.Checklist(
+        self._graph_toggles = dbc.Checklist(
             options=[
                 {"label": "Show Spectra", "value": "show_spectra"},
                 {"label": "Show Optical", 'value': 'show_optical', 'disabled': optical is None},
-                {"label": "Show Decomposition", "value": "show_decomposition", "disabled": self.decomposition is None},
-                {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": self.decomposition is None},
+                {"label": "Show Decomposition", "value": "show_decomposition", "disabled": decomposition is None},
+                {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": decomposition is None},
                 {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"},
                 {"label": "Show Cluster Labels", "value": "show_clusters", "disabled": cluster_labels is None}
             ],
@@ -205,7 +209,7 @@ class Viewer(html.Div):
         view_switches = dbc.FormGroup(
             [
                 html.H3("Toggle Views"),
-                self.graph_toggles
+                self._graph_toggles
             ]
         )
         view_selector = dbc.Form([view_switches])
@@ -213,7 +217,7 @@ class Viewer(html.Div):
         # Decomposition and pair plot component selectors
         decomposition_selector_layout = html.Div()
         pair_plot_component_selector = html.Div()
-        if self.decomposition is not None:
+        if decomposition is not None:
             radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
                                 labelClassName="btn btn-secondary",
                                 labelCheckedClassName="active",
@@ -222,12 +226,12 @@ class Viewer(html.Div):
 
                                 )
 
-            self.decomposition_component_selector = dbc.Checklist(id='decomposition-component-selector',
-                                                                  value=[0],
-                                                                  style={'paddingLeft': 0, 'paddingRight': 0},
-                                                                  **radio_kwargs)
+            self._decomposition_component_selector = dbc.Checklist(id='decomposition-component-selector',
+                                                                   value=[0],
+                                                                   style={'paddingLeft': 0, 'paddingRight': 0},
+                                                                   **radio_kwargs)
 
-            self.component_opacity_sliders = html.Div(
+            self._component_opacity_sliders = html.Div(
                 [Slider(
                     id={'type': 'component-opacity',
                         'index': i},
@@ -237,20 +241,20 @@ class Viewer(html.Div):
                     value=.5 if i else 1,
                     className='centered-slider',
                     disabled=True if i else False
-                ) for i in range(self.decomposition.shape[0])],
+                ) for i in range(decomposition.shape[0])],
                 className='col-sm',
                 style={'paddingLeft': 0, 'paddingRight': 0},
                 id='component-opacity-sliders'
             )
 
-            self.component_color_scale_selectors = html.Div(
+            self._component_color_scale_selectors = html.Div(
                 [ColorScaleSelector(app,
                                     {'type':'color-scale-selector',
                                     'index': i},
                                     values=decomposition_color_scales,
                                     value=decomposition_color_scales[i % len(decomposition_color_scales)]
                                     )
-                 for i in range(self.decomposition.shape[0])],
+                 for i in range(decomposition.shape[0])],
                 className='col-sm-auto',
                 style={'paddingLeft':0, 'paddingRight':0, 'marginTop':2.5},
             )
@@ -260,9 +264,9 @@ class Viewer(html.Div):
                     html.H3(id="decomposition-component-selector-p", className="card-text",
                             children="Decomposition Component"),
                     html.Div([
-                        html.Div([self.decomposition_component_selector,
-                                  self.component_color_scale_selectors,
-                                  self.component_opacity_sliders,],
+                        html.Div([self._decomposition_component_selector,
+                                  self._component_color_scale_selectors,
+                                  self._component_opacity_sliders, ],
                                  className='row well'
                                  ),
                     ],
@@ -274,24 +278,24 @@ class Viewer(html.Div):
 
             radio_kwargs['className'] = 'btn-group'  # wipe out other classes
 
-            self.decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
+            self._decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
             radio_kwargs = radio_kwargs.copy()
             radio_kwargs['options'] = radio_kwargs['options'].copy() + [{'label': 'ALL', 'value': 'ALL'}]
-            self.decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
+            self._decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
 
             pair_plot_component_selector = dbc.FormGroup(
                 [
                     html.H3(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
-                    self.decomposition_component_1,
+                    self._decomposition_component_1,
                     html.Br(),
-                    self.decomposition_component_2,
+                    self._decomposition_component_2,
                 ],
                 className='radio-group',
             )
 
-        self.map_color_scale_selector = ColorScaleSelector(app=self._app, _id='map-color-scale-selector', value='Viridis')
+        self._map_color_scale_selector = ColorScaleSelector(app=self._app, _id='map-color-scale-selector', value='Viridis')
 
-        map_settings_form = dbc.Form(dbc.FormGroup([html.H3("Map Color Scale"), self.map_color_scale_selector]))
+        map_settings_form = dbc.Form(dbc.FormGroup([html.H3("Map Color Scale"), self._map_color_scale_selector]))
 
         # Views layout
         map_layout = dbc.Card(
@@ -311,8 +315,8 @@ class Viewer(html.Div):
 
         # Info tab layout
         # TODO
-        self.info_content = html.Div(id='info-content', children=["info"])
-        info_layout = dbc.Card(dbc.CardBody(children=[self.info_content]))
+        self._info_content = html.Div(id='info-content', children=["info"])
+        info_layout = dbc.Card(dbc.CardBody(children=[self._info_content]))
 
         tabs = [dbc.Tab(label='Map', tab_id='map-tab', children=map_layout),
                 dbc.Tab(label='Views', tab_id='views-tab', children=views_layout),
@@ -325,21 +329,21 @@ class Viewer(html.Div):
         config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-3')
 
         # Create the Toast (notification thingy)
-        self.notifier = dbc.Toast("placeholder",
-            id="notifier",
-            header="Tip",
-            is_open=False,
-            dismissable=True,
-            icon="info",
-            duration=4000,
-            # top: 66 positions the toast below the navbar
-            style={"position": "fixed", "top": 66, "right": 10, "width": 350}
-        )
+        self._notifier = dbc.Toast("placeholder",
+                                   id="notifier",
+                                   header="Tip",
+                                   is_open=False,
+                                   dismissable=True,
+                                   icon="info",
+                                   duration=4000,
+                                   # top: 66 positions the toast below the navbar
+                                   style={"position": "fixed", "top": 66, "right": 10, "width": 350}
+                                   )
 
         # Wireup toast chained callback
         targeted_callback(lambda _: True,
-                          Input(self.notifier.id, 'children'),
-                          Output(self.notifier.id, 'is_open'),
+                          Input(self._notifier.id, 'children'),
+                          Output(self._notifier.id, 'is_open'),
                           app=self._app)
 
         # Initialize layout
@@ -349,7 +353,7 @@ class Viewer(html.Div):
                                config_view,
                                self.spectra_graph,
                                self.pair_plot_graph,
-                               self.notifier]
+                               self._notifier]
         children = html.Div(children=layout_div_children,
                             className='row well')
 
@@ -358,13 +362,18 @@ class Viewer(html.Div):
         self.map_graph.register_callbacks()
         if optical is not None:
             self.optical_graph.register_callbacks()
-        if self.decomposition is not None:
+        if decomposition is not None:
             self.pair_plot_graph.register_callbacks()
             self.decomposition_graph.register_callbacks()
 
         super(Viewer, self).__init__(children=children,
                                      className='container-fluid',
                                      )
+
+    @property
+    def map(self):
+        """The currently displayed map slice at the current spectral index"""
+        return self.map_graph.map
 
     @property
     def spectrum(self):
@@ -389,11 +398,26 @@ class Viewer(html.Div):
     @property
     def position(self):
         """The spatial position of the current spectrum"""
-        return self.spectra_graph.position
+        return self.map_graph.position
 
+    @property
+    def position_index(self):
+        """The spatial position of the current spectrum as an index (y, x)"""
+        return self.map_graph.position_index
+
+    @property
+    def selection(self):
+        """A mask array representing the current spatial selection region"""
+        return self.map_graph.selection
+
+    @property
+    def selection_indices(self):
+        """The indices of all currently selected points, returned as (y, x)"""
+        return self.map_graph.selection_indices
 
 
 def notebook_viewer(data,
+                    optical=None,
                     decomposition=None,
                     bounds=None,
                     component_spectra=None,
@@ -415,6 +439,8 @@ def notebook_viewer(data,
     ----------
     data : dask.array
         3D data to visualize in the Viewer
+    optical : np.ndarray
+        (optional) An optical image registered with the spectral data
     decomposition : np.ndarray
         Component values for the decomposed data
     bounds : list

@@ -50,7 +50,7 @@ class DecompositionGraph(SliceGraph):
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent.graph_toggles.id, 'value'),
+                          Input(self._parent._graph_toggles.id, 'value'),
                           Output(self.id, 'style'),
                           app=self._parent._app)
 
@@ -62,7 +62,7 @@ class DecompositionGraph(SliceGraph):
 
         # Show components when selected
         targeted_callback(self.show_components,
-                          Input(self._parent.decomposition_component_selector.id, 'value'),
+                          Input(self._parent._decomposition_component_selector.id, 'value'),
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
@@ -92,8 +92,8 @@ class DecompositionGraph(SliceGraph):
 
         # Disable sliders when their component is hidden
         targeted_callback(self.disable_sliders,
-                          Input(self._parent.decomposition_component_selector.id, 'value'),
-                          Output(self._parent.component_opacity_sliders.id, 'children'),
+                          Input(self._parent._decomposition_component_selector.id, 'value'),
+                          Output(self._parent._component_opacity_sliders.id, 'children'),
                           app=self._parent._app)
 
     def set_color_scale(self, color_scale):
@@ -104,10 +104,10 @@ class DecompositionGraph(SliceGraph):
         return self._update_figure()
 
     def _opacity_slider(self, i):
-        return self._parent.component_opacity_sliders.children[i]
+        return self._parent._component_opacity_sliders.children[i]
 
     def _color_scale_selector(self, i):
-        return self._parent.component_color_scale_selectors.children[i]
+        return self._parent._component_color_scale_selectors.children[i]
 
     def set_component_opacity(self, value):
         i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
@@ -118,7 +118,7 @@ class DecompositionGraph(SliceGraph):
     def _update_opacity(self):
         # Get a sum of all enabled slider values minus the first enabled value
         total = 0
-        for slider in self._parent.component_opacity_sliders.children:
+        for slider in self._parent._component_opacity_sliders.children:
             if not slider.disabled:
                 total += slider.value
 
@@ -145,7 +145,7 @@ class DecompositionGraph(SliceGraph):
         for i, trace in enumerate(self._component_traces):
             self._opacity_slider(i).disabled = not (i in component_indices)
 
-        return self._parent.component_opacity_sliders.children
+        return self._parent._component_opacity_sliders.children
 
 
     @staticmethod
