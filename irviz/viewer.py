@@ -279,6 +279,8 @@ class Viewer(html.Div):
             radio_kwargs['className'] = 'btn-group'  # wipe out other classes
 
             self._decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
+            radio_kwargs = radio_kwargs.copy()
+            radio_kwargs['options'] = radio_kwargs['options'].copy() + [{'label': 'ALL', 'value': 'ALL'}]
             self._decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
 
             pair_plot_component_selector = dbc.FormGroup(
