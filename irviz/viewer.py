@@ -119,7 +119,6 @@ class Viewer(html.Div):
                             [0, self._data.shape[2] - 1]]
 
         # Validate annotations TODO: reorganize
-        position_removes = []
         if annotations is not None:
             for i in reversed(range(len(annotations))):
                 annotation = annotations[i]
