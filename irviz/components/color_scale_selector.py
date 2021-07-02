@@ -1,9 +1,11 @@
 from functools import partial
+
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
-import dash
+
 from irviz.utils.dash import targeted_callback
 
+__all__ = ['color_scales', 'ColorScaleSelector']
 
 color_scales = ["Greys", "YlGnBu", "Greens", "YlOrRd", "Bluered", "RdBu", "Reds", "Blues", "Picnic", "Rainbow",
                 "Portland", "Jet", "Hot", "Blackbody", "Earth", "Electric", "Viridis", "Cividis"]
