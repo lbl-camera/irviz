@@ -11,10 +11,15 @@ from irviz.utils.math import nearest_bin
 __all__ = ['SpectraPlotGraph']
 
 
+# TODO no annotations outside bounds (check in viewer)
+# TODO color picker for annotations in modal dialog (and maybe in the annotations settings layout?)
+# TODO (extra): dynamic energy slicer name (name is its value)
+
 class SpectraPlotGraph(dcc.Graph):
     title = 'Spectra Intensities'
 
-    def __init__(self, data, bounds, parent, decomposition=None, component_spectra=None, invert_spectra_axis=False, annotations=None, error_func=None, **kwargs):
+    def __init__(self, data, bounds, parent, decomposition=None, component_spectra=None, invert_spectra_axis=False, error_func=None, **kwargs):
+
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
         Parameters
@@ -32,27 +37,6 @@ class SpectraPlotGraph(dcc.Graph):
             List of component spectra from the decomposition
         invert_spectra_axis : bool
             Indicates whether or not to invert the spectra axis (x axis) of the plot (default is False)
-        annotations : dict[str, dict]
-            Dictionary that contains annotation names that map to annotations.
-            The annotation dictionaries support the following keys:
-                'range' : list or tuple of length 2
-                'position' : number
-                'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
-            Example:
-                annotations={
-                    'x': {
-                        'range': (1000, 1500),
-                        'color': 'green'
-                    },
-                    'y': {
-                        'position': 300,
-                        'range': [200, 500]
-                    },
-                    'z': {
-                        'position': 900,
-                        'color': '#34afdd'
-                    }
-                }
         error_func : Callable[[NDArray[(Any, Any)]], np.ndarray[Any]]
             A callable function that takes an array of shape (E, N), where E is the length of the spectral dimension and
             N is the number of curves over which to calculate error. The return value is expected to be a 1-D array of
@@ -121,6 +105,7 @@ class SpectraPlotGraph(dcc.Graph):
         # x coords positioned relative to the x-axis values
         # y coords positioned according to the plot height (0 = bottom, 1.0 = top)
         self._energy_line = go.layout.Shape(type='line',
+                                            name='slicer',
                                             # width=3,
                                             xref='x',
                                             yref='paper',
@@ -128,9 +113,6 @@ class SpectraPlotGraph(dcc.Graph):
                                             x1=default_slice_index,
                                             y0=0,
                                             y1=1)
-
-        # Handle annotations
-        self._annotations = annotations
 
         fig = self._update_figure()
 
@@ -196,6 +178,26 @@ class SpectraPlotGraph(dcc.Graph):
         return self._update_figure()
 
     @property
+    def annotations(self):
+        annotations = []
+        for shape in self.figure.layout.shapes:
+            # Ignore the energy slicer line
+            if shape.name != self._energy_line.name:
+                if shape.visible is not False:  # visible by default set to None instead of True ...
+                    annotation = dict(name=shape.name)
+                    x0 = shape.x0
+                    x1 = shape.x1
+                    if x0 == x1:
+                        annotation['position'] = x0
+                    else:
+                        annotation['range'] = (x0, x1)
+                    annotations.append(annotation)
+                    # x0 = span[0], x1 = span[1], name = name,
+                    # fillcolor = color, opacity = 0.2, line_width = 0
+                # TODO: support color, etc.
+        return annotations
+
+    @property
     def spectrum(self):
         """The currently shown spectrum energy/wavenumber and intensity values"""
         return self._plot.x, self._plot.y
@@ -228,50 +230,71 @@ class SpectraPlotGraph(dcc.Graph):
         else:
             return {'display': 'none'}
 
-    def _add_annotations(self, fig):
-        if self._annotations is not None:
+    def add_annotation(self, annotation):
+        fig = getattr(self, 'figure', None)
+        if fig is None:
+            fig = self._update_figure()
+        if annotation is not None:
             line_kwargs = {'annotation_position': 'top',
                            'line_dash': 'dot',
                            'opacity': 0.6}
-            for name, annotation in self._annotations.items():
-                span = annotation.get('range', None)
-                position = annotation.get('position', None)
-                color = annotation.get('color', 'gray')
-                line_kwargs['line'] = {'color': color}
+            span = annotation.get('range', None)
+            position = annotation.get('position', None)
+            color = annotation.get('color', 'gray')
+            name = annotation.get('name', 'Unnamed')
+            line_kwargs['line'] = {'color': color}
 
-                # Don't add two annotation texts if we are creating both a vrect and vline
-                if span is not None and position is not None:
-                    fig.add_vrect(x0=span[0], x1=span[1],
-                                  fillcolor=color, opacity=0.2, line_width=0)
-                    fig.add_vline(x=position, annotation_text=name, **line_kwargs)
+            # # TODO: consider turning off range and position in same annotation
+            # # Don't add two annotation texts if we are creating both a vrect and vline
+            # if span is not None and position is not None:
+            #     fig.add_vrect(x0=span[0], x1=span[1], name=name,
+            #                   fillcolor=color, opacity=0.2, line_width=0)
+            #     fig.add_vline(x=position, annotation_text=name, **line_kwargs)
 
-                elif span is not None:
-                    fig.add_vrect(x0=span[0], x1=span[1],
-                                  fillcolor=color, opacity=0.2, line_width=0)
-                    # Create invisible vline so we can get the text annotation above the middle of the rect range
-                    center = (span[0] + span[1]) / 2
-                    fig.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
+            if span is not None:
+                fig.add_vrect(x0=span[0], x1=span[1], name=name,
+                              fillcolor=color, opacity=0.2, line_width=0)
+                # Create invisible vline so we can get the text annotation above the middle of the rect range
+                center = (span[0] + span[1]) / 2
+                fig.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
 
-                elif position is not None:
-                    fig.add_vline(x=position, annotation_text=name, **line_kwargs)
+            elif position is not None:
+                fig.add_vline(x=position, name=name, annotation_text=name, **line_kwargs)
 
-    def _update_figure(self):
-        fig = go.Figure([self._plot,
+    def _update_figure(self, *_):
+        # Get shapes
+        current_figure = getattr(self, 'figure', None)
+        shapes = []
+        annotations = []
+        if current_figure is not None:
+            shapes = list(filter(lambda shape: shape.visible is not False, current_figure.layout.shapes))  # visible defaults to None?
+            shapes.extend(list(filter(lambda shape: shape.visible is False, current_figure.layout.shapes)))
+            annotations = current_figure.layout.annotations
+        new_figure = go.Figure([self._plot,
                          self._avg_plot,
                          self._weighted_sum,
                          self._upper_error_plot,
                          self._lower_error_plot,
                          *self._component_plots])
-        fig.update_layout(title=self.title,
+        new_figure.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title)
         if self._invert_spectra_axis:
-            fig.update_xaxes(autorange="reversed")
-        fig.add_shape(self._energy_line)
+            new_figure.update_xaxes(autorange="reversed")
 
-        self._add_annotations(fig)
+        # Always add the slicer line
+        new_figure.add_shape(self._energy_line)
 
-        return fig
+        for shape in shapes:
+            # Ignore slicer line as a user-annotation shape
+            if shape.name != self._energy_line.name:
+                new_figure.add_shape(shape)
+
+        # Add in the plotly annotations (the text above the shapes)
+        for annotation in annotations:
+            new_figure.add_annotation(annotation)
+
+        return new_figure
 
     def _update_average_plot(self, selected_data):
         if selected_data is not None and len(selected_data['points']) > 0:

@@ -86,20 +86,22 @@ if __name__ == "__main__":
                     invert_spectra_axis=True,
                     cluster_labels=cluster_labels,
                     cluster_label_names=cluster_label_names,
-                    annotations={
-                        'x': {
+                    annotations=[
+                        {
+                            'name': 'x',
                             'range': (1000, 1500),
                             'color': 'green'
                         },
-                        'y': {
+                        {
+                            'name': 'y',
                             'position': 300,
                             'range': [200, 500]
                         },
-                        'z': {
-                            'position': 900,
-                            'color': '#34afdd'
+                        {'name': 'z',
+                         'position': 900,
+                         'color': '#34afdd'
                         }
-                    },
+                    ],
                     error_func=partial(np.percentile, q=90, axis=1)
                     )
 
