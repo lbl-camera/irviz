@@ -574,6 +574,7 @@ def notebook_viewer(data,
 
     viewer = Viewer(irdash.app,
                     data,
+                    optical=optical,
                     decomposition=decomposition,
                     component_spectra=component_spectra,
                     bounds=bounds,
