@@ -93,3 +93,25 @@ def spectra_annotation_dialog(app, _id, **kwargs):
                                 State(upper_bound_input.id, 'value'),
                                 State(color_input.id, 'value')],
                         **kwargs)
+
+
+def slice_annotation_dialog(app, _id, **kwargs):
+
+    name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
+    name_form = dbc.FormGroup(
+        [
+            dbc.Label("Name"),
+            name_input
+            # dbc.FormText(
+            #     "little text below the input component",
+            #     color="secondary",
+            # ),
+        ]
+    )
+
+    return modal_dialog(app,
+                        _id,
+                        'Add Annotation',
+                        [name_form],
+                        states=[State(name_input.id, 'value')],
+                        **kwargs)

@@ -74,19 +74,22 @@ class SpectraPlotGraph(dcc.Graph):
             self._weighted_sum.x = x
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
         self._avg_plot = go.Scattergl(name='average',
-                                      mode='lines')
+                                      mode='lines',
+                                      legendgroup='_average')
         self._upper_error_plot = go.Scatter(line=dict(width=0),
                                             marker=dict(color="#444"),
                                             hoverinfo='skip',
                                             showlegend=False,
-                                            mode='lines')
+                                            mode='lines',
+                                            legendgroup='_average')
         self._lower_error_plot = go.Scatter(line=dict(width=0),
                                             marker=dict(color="#444"),
                                             fill='tonexty',
                                             fillcolor='rgba(68, 68, 68, 0.3)',
                                             showlegend=False,
                                             hoverinfo='skip',
-                                            mode='lines')
+                                            mode='lines',
+                                            legendgroup='_average')
 
         if self._component_spectra.ndim != 2:
             self._component_plots = []
@@ -94,7 +97,8 @@ class SpectraPlotGraph(dcc.Graph):
             self._component_plots = [go.Scattergl(x=self._plot.x,
                                                   y=self._component_spectra[i],
                                                   name=f'Component #{i+1}',
-                                                  visible='legendonly')
+                                                  visible='legendonly',
+                                                  legendgroup='_components')
                                      for i in range(self._component_spectra.shape[0])]
 
         # Define starting point for energy index (for the slicer line trace)
@@ -169,6 +173,12 @@ class SpectraPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # update with slice annotations
+        targeted_callback(self.update_annotations,
+                          Input(self._parent.slice_graph_annotations.id, 'children'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
     def show_click(self, click_data):
         y = click_data["points"][0]["y"]
         x = click_data["points"][0]["x"]
@@ -184,6 +194,9 @@ class SpectraPlotGraph(dcc.Graph):
             self._weighted_sum.x = self._plot.x
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
 
+        return self._update_figure()
+
+    def update_annotations(self, *_):
         return self._update_figure()
 
     @property
@@ -240,33 +253,71 @@ class SpectraPlotGraph(dcc.Graph):
             return {'display': 'none'}
 
     def add_annotation(self, annotation):
-        fig = getattr(self, 'figure', None)
-        if fig is None:
-            fig = self._update_figure()
-        if annotation is not None:
-            span = annotation.get('range', None)
-            position = annotation.get('position', None)
-            color = annotation.get('color', 'gray')
-            name = annotation.get('name', 'Unnamed')
+        span = annotation.get('range', None)
+        position = annotation.get('position', None)
+        color = annotation.get('color', 'gray')
+        name = annotation.get('name', 'Unnamed')
+        line_kwargs = dict(annotation_position='top', line_dash='dot', line={'color': color})
+        rect_kwargs = dict(name=name, fillcolor=color, line_width=0)
 
-            line_kwargs = dict(annotation_position='top', line_dash='dot')
-            rect_kwargs = dict(name=name, fillcolor=color, line_width=0)
+        # Handle opacities for annotations that aren't interactively defined (i.e. passed into viewer)
+        #    or that don't have colors with alpha values
+        if 'rgba' not in color:
+            rect_kwargs['opacity'] = 0.25
+            line_kwargs['opacity'] = 0.25
 
-            # Handle opacities for annotations that aren't interactively defined (i.e. passed into viewer)
-            #    or that don't have colors with alpha values
-            line_kwargs['line'] = dict(color=color)
-            if 'rgba' not in color:
-                rect_kwargs['opacity'] = 0.25
-                line_kwargs['opacity'] = 0.25
+        if span is not None:
+            self.figure.add_vrect(x0=span[0], x1=span[1], **rect_kwargs)
+            # Create invisible vline so we can get the text annotation above the middle of the rect range
+            center = (span[0] + span[1]) / 2
+            self.figure.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
 
-            if span is not None:
-                fig.add_vrect(x0=span[0], x1=span[1], **rect_kwargs)
-                # Create invisible vline so we can get the text annotation above the middle of the rect range
-                center = (span[0] + span[1]) / 2
-                fig.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
+        elif position is not None:
+            self.figure.add_vline(x=position, name=name, annotation_text=name, **line_kwargs)
 
-            elif position is not None:
-                fig.add_vline(x=position, name=name, annotation_text=name, **line_kwargs)
+    def _traces_from_annotations(self, annotations):
+        traces = []
+
+        for annotation in annotations:
+            mask = annotation['mask']
+
+            # Dask arrays do fancy indexing differently, and the results have different orientations
+            if isinstance(self._data, da.Array):
+                y_mask, x_mask = np.nonzero(mask)
+                data_slice = self._data.vindex[:, y_mask, x_mask]
+                y = np.mean(data_slice, axis=0)
+                error = self._error_func(np.asarray(data_slice.T))
+            else:
+                data_slice = self._data[:, mask]
+                y = np.mean(data_slice, axis=1)
+                error = self._error_func(np.asarray(data_slice))
+
+            average_trace = go.Scatter(y=y,
+                                       x=self._plot.x,
+                                       name=f'average @ {annotation["name"]}',
+                                       mode='lines',
+                                       legendgroup=annotation['name'])
+            upper_error_trace = go.Scatter(y=error + self._avg_plot.y,
+                                           x=self._plot.x,
+                                           line=dict(width=0),
+                                           marker=dict(color="#444"),
+                                           hoverinfo='skip',
+                                           showlegend=False,
+                                           mode='lines',
+                                           legendgroup=annotation['name'])
+            lower_error_trace = go.Scatter(line=dict(width=0),
+                                           y=self._avg_plot.y - error,
+                                           x=self._plot.x,
+                                           marker=dict(color="#444"),
+                                           fill='tonexty',
+                                           fillcolor='rgba(68, 68, 68, 0.3)',
+                                           showlegend=False,
+                                           hoverinfo='skip',
+                                           mode='lines',
+                                           legendgroup=annotation['name'])
+            traces.extend([average_trace, upper_error_trace, lower_error_trace])
+
+        return traces
 
     def _update_figure(self, *_):
         # Get shapes
@@ -282,6 +333,7 @@ class SpectraPlotGraph(dcc.Graph):
                          self._weighted_sum,
                          self._upper_error_plot,
                          self._lower_error_plot,
+                         *self._traces_from_annotations(self._parent.slice_annotations),
                          *self._component_plots])
         new_figure.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
