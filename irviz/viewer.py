@@ -388,7 +388,7 @@ class Viewer(html.Div):
                                                                success_output=Output(self.slice_graph_annotations.id, 'children'),
                                                                open_input=Input(self.slice_graph_add_annotation.id, 'n_clicks'))
 
-        for annotation in annotations:
+        for annotation in annotations or []:
             self._add_spectra_annotation(annotation)
 
         # Initialize layout
@@ -468,12 +468,18 @@ class Viewer(html.Div):
         """User-defined annotations on the spectra graph"""
         return self.spectra_graph.annotations
 
+    @property
+    def slice_annotations(self):
+        if not hasattr(self, 'map_graph'):
+            return []
+        return self.map_graph.annotations
+
     def _add_spectra_annotation(self, annotation):
         self.spectra_graph.add_annotation(annotation)
         self.spectra_graph_annotations.children += str(annotation)
 
     def _add_slice_annotation(self, annotation):
-        for graph in [self.map_graph, self.optical_graph, self.decomposition_graph]:
+        for graph in [self.map_graph, self.optical_graph, self.decomposition_graph, self.spectra_graph]:
             if hasattr(graph, 'add_annotation'):
                 graph.add_annotation(annotation)
         self.slice_graph_annotations.children += str(annotation)

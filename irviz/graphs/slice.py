@@ -31,6 +31,7 @@ class SliceGraph(dcc.Graph):
         self._parent = parent
         self._bounds = bounds
         self._traces = traces or []
+        self._annotation_traces = []
         self._shapes = shapes or []
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -186,6 +187,12 @@ class SliceGraph(dcc.Graph):
                                 'figure'),
                           app=self._parent._app)
 
+        # update with annotations
+        targeted_callback(self.update_annotations,
+                          Input(self._parent.slice_graph_annotations.id, 'children'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
     def sync_zoom(self, relayoutData):
         figure = self._update_figure()
 
@@ -228,7 +235,7 @@ class SliceGraph(dcc.Graph):
         return self._update_figure()
 
     def _update_figure(self):
-        fig = go.Figure(self._traces)
+        fig = go.Figure(self._traces + self._annotation_traces)
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title,
@@ -271,6 +278,9 @@ class SliceGraph(dcc.Graph):
 
         return self._update_figure()
 
+    def update_annotations(self, *_):
+        return self._update_figure()
+
     def add_annotation(self, annotation):
         annotation_trace = self._get_image_trace(annotation['mask'],
                                                  bounds=self._bounds,
@@ -278,10 +288,20 @@ class SliceGraph(dcc.Graph):
                                                  opacity=0.3,
                                                  showscale=False,
                                                  hoverinfo='skip',
+                                                 name=annotation['name']
                                                  )
-        self._traces.append(annotation_trace)
+        self._annotation_traces.append(annotation_trace)
 
         return annotation_trace
+
+    @property
+    def annotations(self):
+        annotations = []
+        for trace in self._annotation_traces:
+            annotation = {'name': trace.name,
+                           'mask': trace.z == 1}
+            annotations.append(annotation)
+        return annotations
 
     @property
     def position(self):
