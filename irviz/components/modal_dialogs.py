@@ -1,6 +1,7 @@
 from typing import List, Any, Callable
 
 import dash_bootstrap_components as dbc
+import dash_daq as daq
 from dash.dependencies import Input, Output, State
 
 from irviz.utils.dash import targeted_callback
@@ -79,13 +80,18 @@ def spectra_annotation_dialog(app, _id, **kwargs):
         ]
     )
 
+    color_input = daq.ColorPicker(id=f'{_id}-color-picker',
+                                  label='Color Picker',
+                                  value=dict(rgb=dict(r='100', g='200', b='200', a=.25)))
+
     return modal_dialog(app,
                         _id,
                         'Add Annotation',
-                        [name_form, lower_bound_form, upper_bound_form],
+                        [name_form, lower_bound_form, upper_bound_form, color_input],
                         states=[State(name_input.id, 'value'),
                                 State(lower_bound_input.id, 'value'),
-                                State(upper_bound_input.id, 'value'),],
+                                State(upper_bound_input.id, 'value'),
+                                State(color_input.id, 'value')],
                         **kwargs)
 
 

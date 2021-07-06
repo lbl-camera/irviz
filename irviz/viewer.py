@@ -494,6 +494,14 @@ class Viewer(html.Div):
             annotation['range'] = (input_states['spectra-annotation-dialog-lower-bound.value'], input_states['spectra-annotation-dialog-upper-bound.value'])
 
         annotation['name'] = input_states['spectra-annotation-dialog-name.value']
+        
+        # Color will come back as 'rgb': {'r': r, 'g': g, 'b': b, 'a': a},
+        #     need to convert to plotly color: 'rgba(r,g,b,a)'
+        color_picker = input_states['spectra-annotation-dialog-color-picker.value']
+        rgb = color_picker['rgb']
+        color = f"rgba({rgb['r']}, {rgb['g']}, {rgb['b']}, {rgb['a']})"
+
+        annotation['color'] = color
         annotation['type'] = 'spectrum'
         self._add_spectra_annotation(annotation)
 
