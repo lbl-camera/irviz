@@ -73,7 +73,7 @@ class SpectraPlotGraph(dcc.Graph):
         if self._decomposition is not None and self._component_spectra is not None:
             self._weighted_sum.x = x
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
-        self._avg_plot = go.Scattergl(name='average',
+        self._avg_plot = go.Scattergl(name='selection average',
                                       mode='lines',
                                       legendgroup='_average')
         self._upper_error_plot = go.Scatter(line=dict(width=0),
@@ -366,7 +366,9 @@ class SpectraPlotGraph(dcc.Graph):
 
     def _update_average_plot(self, selected_data):
         if selected_data is not None and len(selected_data['points']) > 0:
-            raveled_indexes = list(map(lambda point: point['pointIndex'], selected_data['points']))
+            raveled_indexes = list(map(lambda point: point['pointIndex'],
+                                       filter(lambda point: point['curveNumber']==0,
+                                              selected_data['points'])))
             y_indexes, x_indexes = np.unravel_index(raveled_indexes, self._data.shape[1:])
 
             # Dask arrays do fancy indexing differently, and the results have different orientations
