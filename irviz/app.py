@@ -102,7 +102,7 @@ if __name__ == "__main__":
                          'color': '#34afdd'
                         }
                     ],
-                    error_func=partial(np.percentile, q=90, axis=1)
+                    # error_func=partial(np.percentile, q=90, axis=1)
                     )
 
     # Testing None decomposition
