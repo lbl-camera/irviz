@@ -82,7 +82,7 @@ def spectra_annotation_dialog(app, _id, **kwargs):
 
     color_input = daq.ColorPicker(id=f'{_id}-color-picker',
                                   label='Color Picker',
-                                  value=dict(rgb=dict(r='100', g='200', b='200', a=1)))
+                                  value=dict(rgb=dict(r='100', g='200', b='200', a=.25)))
 
     return modal_dialog(app,
                         _id,

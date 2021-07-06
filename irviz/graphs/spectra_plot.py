@@ -244,25 +244,23 @@ class SpectraPlotGraph(dcc.Graph):
         if fig is None:
             fig = self._update_figure()
         if annotation is not None:
-            line_kwargs = {'annotation_position': 'top',
-                           'line_dash': 'dot',
-                           'opacity': 0.6}
             span = annotation.get('range', None)
             position = annotation.get('position', None)
             color = annotation.get('color', 'gray')
             name = annotation.get('name', 'Unnamed')
-            line_kwargs['line'] = {'color': color}
 
-            # # TODO: consider turning off range and position in same annotation
-            # # Don't add two annotation texts if we are creating both a vrect and vline
-            # if span is not None and position is not None:
-            #     fig.add_vrect(x0=span[0], x1=span[1], name=name,
-            #                   fillcolor=color, opacity=0.2, line_width=0)
-            #     fig.add_vline(x=position, annotation_text=name, **line_kwargs)
+            line_kwargs = dict(annotation_position='top', line_dash='dot')
+            rect_kwargs = dict(name=name, fillcolor=color, line_width=0)
+
+            # Handle opacities for annotations that aren't interactively defined (i.e. passed into viewer)
+            #    or that don't have colors with alpha values
+            line_kwargs['line'] = dict(color=color)
+            if 'rgba' not in color:
+                rect_kwargs['opacity'] = 0.25
+                line_kwargs['opacity'] = 0.25
 
             if span is not None:
-                fig.add_vrect(x0=span[0], x1=span[1], name=name,
-                              fillcolor=color, opacity=0.2, line_width=0)
+                fig.add_vrect(x0=span[0], x1=span[1], **rect_kwargs)
                 # Create invisible vline so we can get the text annotation above the middle of the rect range
                 center = (span[0] + span[1]) / 2
                 fig.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
