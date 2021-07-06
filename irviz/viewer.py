@@ -469,7 +469,6 @@ class Viewer(html.Div):
         annotation['name'] = input_states['spectra-annotation-dialog-name.value']
         # Color will come back as 'rgb': {'r': r, 'g': g, 'b': b, 'a': a},
         #     need to convert to plotly color: 'rgba(r,g,b,a)'
-        # TODO: should we ignore the alpha since shapes created on spectra plot already have opacity set?
         color_picker = input_states['spectra-annotation-dialog-color-picker.value']
         rgb = color_picker['rgb']
         color = f"rgba({rgb['r']}, {rgb['g']}, {rgb['b']}, {rgb['a']})"
