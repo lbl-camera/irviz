@@ -17,14 +17,14 @@ from irviz.components.modal_dialogs import slice_annotation_dialog
 from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
 from irviz.graphs._colors import decomposition_color_scales
 from irviz.utils.dash import targeted_callback
+from irviz.utils.math import nearest_bin
+from irviz.utils.strings import phonetic_from_int
 
 
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
 # TODO: update docstrings for annotation; validate annotation
 # TODO: JSON schema validation for annotations
-
 # TODO: functools.wraps for notebook_viewer
-from irviz.utils.math import nearest_bin
 
 
 class Viewer(html.Div):
@@ -109,66 +109,39 @@ class Viewer(html.Div):
             N is the number of curves over which to calculate error. The return value is expected to be a 1-D array of
             length E. The default is to apply a std dev over the N axis.
         """
-
-        self._data = data
         self._app = app
         self._instance_index = next(self._instance_counter)
 
-        self._bounds = np.asarray(bounds)
-        if self._bounds is None or self._bounds.shape != (3, 2):  # bounds should contain a min/max pair for each dimension
-            self._bounds = [[0, self._data.shape[0] - 1],
-                            [0, self._data.shape[1] - 1],
-                            [0, self._data.shape[2] - 1]]
+        # Normalize bounds
+        if bounds is None or np.asarray(bounds).shape != (
+        3, 2):  # bounds should contain a min/max pair for each dimension
+            bounds = [[0, self._data.shape[0] - 1],
+                      [0, self._data.shape[1] - 1],
+                      [0, self._data.shape[2] - 1]]
+        bounds = np.asarray(bounds)
 
-        # Validate annotations TODO: reorganize
-        if annotations is not None:
-            for i in reversed(range(len(annotations))):
-                annotation = annotations[i]
-                r = annotation.get('range', None)
-                p = annotation.get('position', None)
-                if r is not None and p is not None:
-                    # Cannot supply both position and range in same annotation, ignore position
-                    warnings.warn(f"cannot supply both 'range' and 'position' in the same annotation; "
-                                  f"ignoring 'position'")
-                    annotation.pop('position')
-                    # if not (r[0] <= p <= r[1]):
-                    #     warnings.warn(f"position {p} is not within the range {r}")
+        # Normalize labels
+        if cluster_labels is not None and cluster_label_names is None:
+            cluster_label_names = [phonetic_from_int(i) for i in range(np.unique(cluster_labels).size)]
 
-                for kwarg, value in annotation.items():
-                    # Range must be an iterable of length 2
-                    if kwarg == "range":
-                        try:
-                            iter(value)
-                        except TypeError:
-                            raise TypeError(f"'range' must contain a tuple or list as its value")
-                        else:
-                            if len(value) != 2:
-                                raise ValueError(f"'range' must contain a list/tuple of two numerical values")
-                    # Position must be a number
-                    elif kwarg == "position":
-                        if not isinstance(value, numbers.Real):
-                            raise ValueError(f"'position' must be a numerical value")
-                    # Only color names supported right now
-                    elif kwarg == "color":
-                        if not isinstance(value, str):
-                            raise TypeError(f"'color' must be a color name (string)")
-                    elif kwarg != "name":
-                        raise ValueError(f"'{kwarg}' is not currently supported as a keyword in annotations")
-
-
-
-        # Component spectra shape should be (#components, #wavenumber)
-        component_spectra_array = np.asarray(component_spectra)
-        if len(component_spectra_array.shape) > 0:
-            if (component_spectra_array.shape[0] != decomposition.shape[0]
-                    or component_spectra_array.shape[1] != self._data.shape[0]):
-                warnings.warn(f"The provided 'component_spectra' does not have a valid shape: "
-                              f"{component_spectra_array.shape}; "
-                              f"shape should be number of components, number of energies (wave-numbers).")
+        self._validate(data,
+                       optical,
+                       decomposition,
+                       bounds,
+                       cluster_labels,
+                       cluster_label_names,
+                       component_spectra,
+                       x_axis_title,
+                       y_axis_title,
+                       spectra_axis_title,
+                       intensity_axis_title,
+                       invert_spectra_axis,
+                       annotations,
+                       error_func)
 
         # Initialize graphs
         self.spectra_graph = SpectraPlotGraph(data,
-                                              self._bounds,
+                                              bounds,
                                               self,
                                               decomposition=decomposition,
                                               component_spectra=component_spectra,
@@ -177,16 +150,16 @@ class Viewer(html.Div):
                                               invert_spectra_axis=invert_spectra_axis,
                                               annotations=annotations,
                                               error_func=error_func)
-        self.map_graph = MapGraph(data, self._bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+        self.map_graph = MapGraph(data, bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         if optical is not None:
-            self.optical_graph = OpticalGraph(data, optical, self._bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
+            self.optical_graph = OpticalGraph(data, optical, bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
         else:
             self.optical_graph = Graph(id='empty-optical-graph', style={'display': 'none'})
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
         if decomposition is not None:
             self.decomposition_graph = DecompositionGraph(decomposition,
-                                                          self._bounds,
+                                                          bounds,
                                                           cluster_labels,
                                                           cluster_label_names,
                                                           self,
@@ -199,7 +172,6 @@ class Viewer(html.Div):
 
 
         # Initialize configuration bits
-        # TODO: callback for switching tabs and rendering the Card content
 
         # Switches for views
         initial_views = ["show_spectra"]
@@ -224,7 +196,7 @@ class Viewer(html.Div):
         )
         view_switches = dbc.FormGroup(
             [
-                html.H3("Toggle Views"),
+                dbc.Label("Toggle Views"),
                 self._graph_toggles
             ]
         )
@@ -275,9 +247,9 @@ class Viewer(html.Div):
                 style={'paddingLeft':0, 'paddingRight':0, 'marginTop':2.5},
             )
 
-            decomposition_selector_layout = html.Div(
+            decomposition_selector_layout = dbc.FormGroup(
                 [
-                    html.H3(id="decomposition-component-selector-p", className="card-text",
+                    dbc.Label(id="decomposition-component-selector-p", className="card-text",
                             children="Decomposition Component"),
                     html.Div([
                         html.Div([self._decomposition_component_selector,
@@ -301,7 +273,8 @@ class Viewer(html.Div):
 
             pair_plot_component_selector = dbc.FormGroup(
                 [
-                    html.H3(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
+                    dbc.Label(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
+                    html.Br(),
                     self._decomposition_component_1,
                     html.Br(),
                     self._decomposition_component_2,
@@ -310,8 +283,17 @@ class Viewer(html.Div):
             )
 
         self._map_color_scale_selector = ColorScaleSelector(app=self._app, _id='map-color-scale-selector', value='Viridis')
+        self._cluster_overlay_opacity = Slider(id={'type': 'cluster-opacity'},
+                                               min=0,
+                                               max=1,
+                                               step=.05,
+                                               value=.3,
+                                               className='centered-slider',
+                                               disabled=True if cluster_labels is None else False,
+                                               )
 
-        map_settings_form = dbc.Form(dbc.FormGroup([html.H3("Map Color Scale"), self._map_color_scale_selector]))
+        map_settings_form = dbc.Form([dbc.FormGroup([dbc.Label("Map Color Scale"), self._map_color_scale_selector]),
+                                     dbc.FormGroup([dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])])
 
         # Views layout
         map_layout = dbc.Card(
@@ -518,6 +500,66 @@ class Viewer(html.Div):
         self._add_slice_annotation(annotation)
 
         return self.slice_graph_annotations.children
+
+    def _validate(self,
+                  data,
+                  optical,
+                  decomposition,
+                  bounds,
+                  cluster_labels,
+                  cluster_label_names,
+                  component_spectra,
+                  x_axis_title,
+                  y_axis_title,
+                  spectra_axis_title,
+                  intensity_axis_title,
+                  invert_spectra_axis,
+                  annotations,
+                  error_func):
+
+        # Validate annotations TODO: reorganize
+        if annotations is not None:
+            for i in reversed(range(len(annotations))):
+                annotation = annotations[i]
+                r = annotation.get('range', None)
+                p = annotation.get('position', None)
+                if r is not None and p is not None:
+                    # Cannot supply both position and range in same annotation, ignore position
+                    warnings.warn(f"cannot supply both 'range' and 'position' in the same annotation; "
+                                  f"ignoring 'position'")
+                    annotation.pop('position')
+                    # if not (r[0] <= p <= r[1]):
+                    #     warnings.warn(f"position {p} is not within the range {r}")
+
+                for kwarg, value in annotation.items():
+                    # Range must be an iterable of length 2
+                    if kwarg == "range":
+                        try:
+                            iter(value)
+                        except TypeError:
+                            raise TypeError(f"'range' must contain a tuple or list as its value")
+                        else:
+                            if len(value) != 2:
+                                raise ValueError(f"'range' must contain a list/tuple of two numerical values")
+                    # Position must be a number
+                    elif kwarg == "position":
+                        if not isinstance(value, numbers.Real):
+                            raise ValueError(f"'position' must be a numerical value")
+                    # Only color names supported right now
+                    elif kwarg == "color":
+                        if not isinstance(value, str):
+                            raise TypeError(f"'color' must be a color name (string)")
+                    elif kwarg != "name":
+                        raise ValueError(f"'{kwarg}' is not currently supported as a keyword in annotations")
+
+        # Component spectra shape should be (#components, #wavenumber)
+        component_spectra_array = np.asarray(component_spectra)
+        if len(component_spectra_array.shape) > 0:
+            if (component_spectra_array.shape[0] != decomposition.shape[0]
+                    or component_spectra_array.shape[1] != data.shape[0]):
+                warnings.warn(f"The provided 'component_spectra' does not have a valid shape: "
+                              f"{component_spectra_array.shape}; "
+                              f"shape should be number of components, number of energies (wave-numbers).")
 
 
 def notebook_viewer(data,

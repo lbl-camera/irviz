@@ -193,6 +193,17 @@ class SliceGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=self._parent._app)
 
+        # update cluster overlay opacity
+        targeted_callback(self.update_opacity,
+                          Input(self._parent._cluster_overlay_opacity.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=self._parent._app)
+
+    def update_opacity(self, value):
+        self._clusters.opacity = value
+
+        return self._update_figure()
+
     def sync_zoom(self, relayoutData):
         figure = self._update_figure()
 
