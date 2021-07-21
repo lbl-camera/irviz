@@ -2,12 +2,13 @@ from functools import partial
 
 import dash_core_components as dcc
 import numpy as np
-from dash.dependencies import Input, Output, ALL
+from dash.dependencies import ALL, Input, Output
 from dask import array as da
 from plotly import graph_objects as go
 
 from irviz.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
+
 __all__ = ['SpectraPlotGraph']
 
 
@@ -252,6 +253,14 @@ class SpectraPlotGraph(dcc.Graph):
         else:
             return {'display': 'none'}
 
+    def remove_annotation(self, index):
+        """Remove a spectra annotation by its unique integer index."""
+        remaining_shapes = list(filter(lambda shape: shape.name != str(index), self.figure.layout.shapes))
+        self.figure.layout.shapes = remaining_shapes
+        remaining_annotations = list(filter(lambda a: a.name != str(index), self.figure.layout.annotations))
+        self.figure.layout.annotations = remaining_annotations
+        return self._update_figure()
+
     def add_annotation(self, annotation):
         line_kwargs = {'annotation_position': 'top',
                        'line_dash': 'dot',
@@ -260,24 +269,28 @@ class SpectraPlotGraph(dcc.Graph):
         position = annotation.get('position', None)
         color = annotation.get('color', 'gray')
         name = annotation.get('name', 'Unnamed')
+        # Annotation index will be used as a unique "name" for each annotation
+        annotation_index = annotation.get('annotation_index', name)
         line_kwargs['line'] = {'color': color}
 
-        # # TODO: consider turning off range and position in same annotation
-        # # Don't add two annotation texts if we are creating both a vrect and vline
-        # if span is not None and position is not None:
-        #     fig.add_vrect(x0=span[0], x1=span[1], name=name,
-        #                   fillcolor=color, opacity=0.2, line_width=0)
-        #     fig.add_vline(x=position, annotation_text=name, **line_kwargs)
-
         if span is not None:
-            self.figure.add_vrect(x0=span[0], x1=span[1], name=name,
-                          fillcolor=color, opacity=0.2, line_width=0)
+            self.figure.add_vrect(x0=span[0], x1=span[1], name=annotation_index,
+                                  fillcolor=color, opacity=0.2, line_width=0)
             # Create invisible vline so we can get the text annotation above the middle of the rect range
             center = (span[0] + span[1]) / 2
-            self.figure.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
+            self.figure.add_vline(x=center,
+                                  name=annotation_index,
+                                  annotation_text=name,
+                                  annotation_name=annotation_index,
+                                  visible=False,
+                                  **line_kwargs)
 
         elif position is not None:
-            self.figure.add_vline(x=position, name=name, annotation_text=name, **line_kwargs)
+            self.figure.add_vline(x=position,
+                                  name=annotation_index,
+                                  annotation_text=name,
+                                  annotation_name=annotation_index,
+                                  **line_kwargs)
 
     def _traces_from_annotations(self, annotations):
         traces = []

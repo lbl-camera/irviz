@@ -1,0 +1,28 @@
+/*
+.annotations-list {
+    max-height: 200px;
+    overflow-y: scroll;
+}
+*/
+
+
+
+/*
+.card-body .table-responsive {
+    max-height: 100px;
+    overflow-y: scroll;
+}
+
+.annotations-list td {
+    padding: 0.5rem;
+}
+
+.annotation > .list-group-item {
+    padding-bottom: 0;
+    padding-top: 0;
+}
+*/
+
+.annotation-content {
+    text-overflow: ellipsis;
+}
