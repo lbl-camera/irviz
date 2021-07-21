@@ -1,9 +1,36 @@
 import numpy as np
 from dash.dependencies import Input, Output
+import dash_bootstrap_components as dbc
 
+from irviz.components import ColorScaleSelector
+from irviz.graphs._colors import decomposition_color_scales
 from irviz.graphs.slice import SliceGraph
-from irviz.utils.dash import targeted_callback
+from ryujin.components import Panel
+from ryujin.utils.dash import targeted_callback
+
 __all__ = ['OpticalGraph']
+
+
+class OpticalGraphPanel(Panel):
+    def __init__(self, instance_index):
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='optical-visibility', instance_index=instance_index), checked=True)
+        self.color_scale_selector = ColorScaleSelector(_id={'type': 'color-scale-selector',
+                                                           'subtype': 'optical',
+                                                           'index': instance_index},
+                           values=decomposition_color_scales,
+                           value=decomposition_color_scales[0]
+                           )
+
+        children = [dbc.FormGroup([self.visibility_toggle,
+                                   dbc.Label('Show Optical Image')]),
+                    dbc.FormGroup([dbc.Label('Color Theme'),
+                                   self.color_scale_selector])]
+
+        super(OpticalGraphPanel, self).__init__('Optical Image', children)
+
+    def init_callbacks(self, app):
+        super(OpticalGraphPanel, self).init_callbacks(app)
+        self.color_scale_selector.init_callbacks(app)
 
 
 class OpticalGraph(SliceGraph):
@@ -19,7 +46,9 @@ class OpticalGraph(SliceGraph):
     """
     title = 'Optical Image'
 
-    def __init__(self, map_data, optical_data, bounds, cluster_labels, cluster_label_names, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
+    def __init__(self, map_data, instance_index, optical_data, bounds, cluster_labels, cluster_label_names, slice_axis=0, traces=None, shapes=None, **kwargs):
+        self.configuration_panel = OpticalGraphPanel(instance_index)
+
         #
         # default_slice_index = 0
         self._map_data = map_data
@@ -84,10 +113,10 @@ class OpticalGraph(SliceGraph):
         # map_data is passed here rather than optical_data as a matter of convenience in class composition
         # All the other traces are scaled according to map_data's shape; the image trace is swapped out next
         super(OpticalGraph, self).__init__(map_data,
-                                           bounds,
+                                           instance_index,
                                            cluster_labels,
                                            cluster_label_names,
-                                           parent,
+                                           bounds=bounds,
                                            slice_axis=slice_axis,
                                            traces=traces,
                                            shapes=shapes,
@@ -106,30 +135,32 @@ class OpticalGraph(SliceGraph):
         self._traces.insert(0, self._image)
         self.figure = self._update_figure()
 
-    def register_callbacks(self):
-        super(OpticalGraph, self).register_callbacks()
+    def init_callbacks(self, app):
+        super(OpticalGraph, self).init_callbacks(app)
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent._graph_toggles.id, 'value'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
                           Output(self.id, 'style'),
-                          app=self._parent._app)
+                          app=app)
 
         # Change color scale from selector
         targeted_callback(self.set_color_scale,
-                          Input(self._parent._map_color_scale_selector.id, 'label'),
+                          Input(self.configuration_panel.color_scale_selector.id, 'label'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
+
+        self.configuration_panel.init_callbacks(app)
 
     @staticmethod
-    def _set_visibility(switches_value):
-        if 'show_optical' in switches_value:
+    def _set_visibility(checked):
+        if checked:
             return {'display': 'block'}
         else:
             return {'display': 'none'}
 
-    def _id(self):
-        _id = super(OpticalGraph, self)._id()
+    def _id(self, instance_index):
+        _id = super(OpticalGraph, self)._id(instance_index)
         _id['subtype'] = 'optical'
         return _id
 

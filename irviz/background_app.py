@@ -12,6 +12,7 @@ from PIL import Image
 from dash_bootstrap_templates import load_figure_template
 
 import ryujin.utils.dash
+from irviz.background_isolator import BackgroundIsolator
 from irviz.viewer import Viewer
 
 TEST_FILE = 'E:\\BP-area3a.h5'
@@ -53,8 +54,8 @@ if __name__ == "__main__":
     try:
         from jupyter_dash import JupyterDash
 
-        ryujin.utils.dash.app = JupyterDash(__name__, **app_kwargs)
-        _jupyter_app_kwargs['mode'] = 'inline'
+        ryujin.utils.dash.app = dash.Dash(__name__, **app_kwargs)
+
     except ImportError:
         ryujin.utils.dash.app = dash.Dash(__name__, update_title=None, **app_kwargs)
 
@@ -73,37 +74,37 @@ if __name__ == "__main__":
     cluster_labels = np.argmax(decomposition, axis=0)
     cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
-    viewer = Viewer(ryujin.utils.dash.app,
-                    data,
-                    optical=optical,
-                    decomposition=decomposition,
-                    bounds=bounds,
-                    component_spectra=model.components_,
-                    spectra_axis_title='Wavenumber (cm⁻¹)',
-                    intensity_axis_title='Intensity',
-                    x_axis_title='X (μm)',
-                    y_axis_title='Y (μm)',
-                    invert_spectra_axis=True,
-                    cluster_labels=cluster_labels,
-                    # cluster_label_names=cluster_label_names,
-                    annotations=[
-                        {
-                            'name': 'x',
-                            'range': (1000, 1500),
-                            'color': 'green'
-                        },
-                        {
-                            'name': 'y',
-                            'position': 300,
-                            'range': [200, 500]
-                        },
-                        {'name': 'z',
-                         'position': 900,
-                         'color': '#34afdd'
-                        }
-                    ],
-                    # error_func=partial(np.percentile, q=90, axis=1)
-                    )
+    viewer = BackgroundIsolator(ryujin.utils.dash.app,
+                                data=data,
+                                # optical=optical,
+                                # decomposition=decomposition,
+                                # bounds=bounds,
+                                # component_spectra=model.components_,
+                                # spectra_axis_title='Wavenumber (cm⁻¹)',
+                                # intensity_axis_title='Intensity',
+                                # x_axis_title='X (μm)',
+                                # y_axis_title='Y (μm)',
+                                # invert_spectra_axis=True,
+                                # cluster_labels=cluster_labels,
+                                # # cluster_label_names=cluster_label_names,
+                                # annotations=[
+                                #     {
+                                #         'name': 'x',
+                                #         'range': (1000, 1500),
+                                #         'color': 'green'
+                                #     },
+                                #     {
+                                #         'name': 'y',
+                                #         'position': 300,
+                                #         'range': [200, 500]
+                                #     },
+                                #     {'name': 'z',
+                                #      'position': 900,
+                                #      'color': '#34afdd'
+                                #      }
+                                # ],
+                                # error_func=partial(np.percentile, q=90, axis=1)
+                                )
 
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)
@@ -112,6 +113,8 @@ if __name__ == "__main__":
     # viewer2 = Viewer(data.compute(), app=_app)
     # div = html.Div(children=[viewer, viewer2])  # TEST for jupyter
     ryujin.utils.dash.app.layout = div
+
+    ryujin.utils.dash.app.config.suppress_callback_exceptions = True
 
     ryujin.utils.dash.app.run_server(debug=True,
                                      # dev_tools_props_check=False,

@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import dash_daq as daq
 from dash.dependencies import Input, Output, State
 
-from irviz.utils.dash import targeted_callback
+from ryujin.utils.dash import targeted_callback
 
 __all__ = ['spectra_annotation_dialog', 'modal_dialog']
 

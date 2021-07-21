@@ -1,5 +1,6 @@
 import numbers
 import warnings
+from functools import lru_cache
 from itertools import count
 from typing import Callable, Any
 
@@ -11,14 +12,17 @@ from dash_core_components import Graph, Slider
 from dash.dependencies import Input, Output, State
 from nptyping import NDArray
 
+import ryujin.utils.dash
 from irviz.components import spectra_annotation_dialog
 from irviz.components.color_scale_selector import ColorScaleSelector
 from irviz.components.modal_dialogs import slice_annotation_dialog
 from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
 from irviz.graphs._colors import decomposition_color_scales
-from irviz.utils.dash import targeted_callback
+from ryujin import ComposableDisplay
+from ryujin.components import Panel
+from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
-from irviz.utils.strings import phonetic_from_int
+from ryujin.utils.strings import phonetic_from_int
 
 
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
@@ -26,8 +30,25 @@ from irviz.utils.strings import phonetic_from_int
 # TODO: JSON schema validation for annotations
 # TODO: functools.wraps for notebook_viewer
 
+class AnnotationsPanel(Panel):
+    def __init__(self, instance_index):
+        # Annotations layout
+        self.spectra_graph_annotations = dbc.ListGroup(id='spectra-graph-annotations',
+                                                       children=[])
+        self.slice_graph_annotations = dbc.ListGroup(id='slice-graph-annotations',
+                                                     children=[])
+        self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
+        self.slice_graph_add_annotation = dbc.Button("Annotate Selection", id='slice-graph-add-annotation', n_clicks=0)
+        children = [self.slice_graph_annotations,
+                    self.slice_graph_add_annotation,
+                    self.spectra_graph_annotations,
+                    self.spectra_graph_add_annotation,
+                    ]
 
-class Viewer(html.Div):
+        super(AnnotationsPanel, self).__init__('Annotations', children)
+
+
+class Viewer(ComposableDisplay):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
 
     _instance_counter = count(0)
@@ -109,15 +130,12 @@ class Viewer(html.Div):
             N is the number of curves over which to calculate error. The return value is expected to be a 1-D array of
             length E. The default is to apply a std dev over the N axis.
         """
-        self._app = app
-        self._instance_index = next(self._instance_counter)
-
         # Normalize bounds
         if bounds is None or np.asarray(bounds).shape != (
-        3, 2):  # bounds should contain a min/max pair for each dimension
-            bounds = [[0, self._data.shape[0] - 1],
-                      [0, self._data.shape[1] - 1],
-                      [0, self._data.shape[2] - 1]]
+                3, 2):  # bounds should contain a min/max pair for each dimension
+            bounds = [[0, data.shape[0] - 1],
+                      [0, data.shape[1] - 1],
+                      [0, data.shape[2] - 1]]
         bounds = np.asarray(bounds)
 
         # Normalize labels
@@ -139,206 +157,109 @@ class Viewer(html.Div):
                        annotations,
                        error_func)
 
+        self._app = app
+        self._data = data
+        self._bounds = bounds
+        self._cluster_labels = cluster_labels
+        self._cluster_label_names = cluster_label_names
+        self._optical = optical
+        self._decomposition = decomposition
+        self._component_spectra = component_spectra
+        self._x_axis_title = x_axis_title
+        self._y_axis_title = y_axis_title
+        self._spectra_axis_title = spectra_axis_title
+        self._intensity_axis_title = intensity_axis_title
+        self._invert_spectra_axis = invert_spectra_axis
+        self._annotations = annotations
+        self._error_func = error_func
+
+        super(Viewer, self).__init__(app)
+
+    def init_components(self, *args, **kwargs):
+        self.graphs = {}
         # Initialize graphs
-        self.spectra_graph = SpectraPlotGraph(data,
-                                              bounds,
-                                              self,
-                                              decomposition=decomposition,
-                                              component_spectra=component_spectra,
-                                              xaxis_title=spectra_axis_title,
-                                              yaxis_title=intensity_axis_title,
-                                              invert_spectra_axis=invert_spectra_axis,
-                                              annotations=annotations,
-                                              error_func=error_func)
-        self.map_graph = MapGraph(data, bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
-        if optical is not None:
-            self.optical_graph = OpticalGraph(data, optical, bounds, cluster_labels, cluster_label_names, self, xaxis_title=x_axis_title, yaxis_title=y_axis_title)
-        else:
-            self.optical_graph = Graph(id='empty-optical-graph', style={'display': 'none'})
+        self.graphs['map_graph'] = MapGraph(self._data,
+                                            self._instance_index,
+                                            self._cluster_labels,
+                                            self._cluster_label_names,
+                                            bounds=self._bounds,
+                                            xaxis_title=self._x_axis_title,
+                                            yaxis_title=self._y_axis_title,
+                                            graph_kwargs=dict(style=dict(display='flex',
+                                                                         flexDirection='row',
+                                                                         height='100%',
+                                                                         minHeight='450px'),
+                                                              className='col-lg-4 p-0',
+                                                              responsive=True,
+                                                              )
+                                            )
+
+        if self._optical is not None:
+            self.graphs['optical_graph'] = OpticalGraph(self._data,
+                                                        self._instance_index,
+                                                        self._optical,
+                                                        self._bounds,
+                                                        self._cluster_labels,
+                                                        self._cluster_label_names,
+                                                        self,
+                                                        xaxis_title=self._x_axis_title,
+                                                        yaxis_title=self._y_axis_title,
+                                                        graph_kwargs=dict(style=dict(display='flex',
+                                                                                     flexDirection='row',
+                                                                                     height='100%',
+                                                                                     minHeight='450px'),
+                                                                          className='col-lg-4 p-0',
+                                                                          responsive=True,
+                                                                          )
+                                                        )
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
-        if decomposition is not None:
-            self.decomposition_graph = DecompositionGraph(decomposition,
-                                                          bounds,
-                                                          cluster_labels,
-                                                          cluster_label_names,
-                                                          self,
-                                                          xaxis_title=x_axis_title,
-                                                          yaxis_title=y_axis_title)
-            self.pair_plot_graph = PairPlotGraph(decomposition, bounds, cluster_labels, cluster_label_names, self)
-        else:
-            self.decomposition_graph = Graph(id='empty-decomposition-graph', style={'display': 'none'})
-            self.pair_plot_graph = Graph(id='empty-pair-plot-graph', style={'display': 'none'})
+        if self._decomposition is not None:
+            self.graphs['decomposition_graph'] = DecompositionGraph(self._decomposition,
+                                                                    self._instance_index,
+                                                                    self._cluster_labels,
+                                                                    self._cluster_label_names,
+                                                                    self._bounds,
+                                                                    xaxis_title=self._x_axis_title,
+                                                                    yaxis_title=self._y_axis_title,
+                                                                    graph_kwargs=dict(style=dict(display='flex',
+                                                                                                 flexDirection='row',
+                                                                                                 height='100%',
+                                                                                                 minHeight='450px'),
+                                                                                      className='col-lg-4 p-0',
+                                                                                      responsive=True,
+                                                                                      )
+                                                                    )
 
-
-        # Initialize configuration bits
-
-        # Switches for views
-        initial_views = ["show_spectra"]
-        if decomposition is not None:
-            initial_views.extend(["show_decomposition", "show_pair_plot"])
-        if optical is not None:
-            initial_views.append('show_optical')
-        if cluster_labels is not None:
-            initial_views.append('show_clusters')
-        self._graph_toggles = dbc.Checklist(
-            options=[
-                {"label": "Show Spectra", "value": "show_spectra"},
-                {"label": "Show Optical", 'value': 'show_optical', 'disabled': optical is None},
-                {"label": "Show Decomposition", "value": "show_decomposition", "disabled": decomposition is None},
-                {"label": "Show Pair Plot", "value": "show_pair_plot", "disabled": decomposition is None},
-                {"label": "Show Orthogonal Slices", "value": "show_orthogonal_slices"},
-                {"label": "Show Cluster Labels", "value": "show_clusters", "disabled": cluster_labels is None}
-            ],
-            value=initial_views,
-            id="view-checklist",
-            switch=True,
-        )
-        view_switches = dbc.FormGroup(
-            [
-                dbc.Label("Toggle Views"),
-                self._graph_toggles
-            ]
-        )
-        view_selector = dbc.Form([view_switches])
-
-        # Decomposition and pair plot component selectors
-        decomposition_selector_layout = html.Div()
-        pair_plot_component_selector = html.Div()
-        if decomposition is not None:
-            radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
-                                labelClassName="btn btn-secondary",
-                                labelCheckedClassName="active",
-                                options=[{'label': f'{i+1}', 'value': i}
-                                         for i in range(decomposition.shape[0])]
-
-                                )
-
-            self._decomposition_component_selector = dbc.Checklist(id='decomposition-component-selector',
-                                                                   value=[0],
-                                                                   style={'paddingLeft': 0, 'paddingRight': 0},
-                                                                   **radio_kwargs)
-
-            self._component_opacity_sliders = html.Div(
-                [Slider(
-                    id={'type': 'component-opacity',
-                        'index': i},
-                    min=0,
-                    max=1,
-                    step=.1,
-                    value=.5 if i else 1,
-                    className='centered-slider',
-                    disabled=True if i else False
-                ) for i in range(decomposition.shape[0])],
-                className='col-sm',
-                style={'paddingLeft': 0, 'paddingRight': 0},
-                id='component-opacity-sliders'
-            )
-
-            self._component_color_scale_selectors = html.Div(
-                [ColorScaleSelector(app,
-                                    {'type':'color-scale-selector',
-                                    'index': i},
-                                    values=decomposition_color_scales,
-                                    value=decomposition_color_scales[i % len(decomposition_color_scales)]
-                                    )
-                 for i in range(decomposition.shape[0])],
-                className='col-sm-auto',
-                style={'paddingLeft':0, 'paddingRight':0, 'marginTop':2.5},
-            )
-
-            decomposition_selector_layout = dbc.FormGroup(
-                [
-                    dbc.Label(id="decomposition-component-selector-p", className="card-text",
-                            children="Decomposition Component"),
-                    html.Div([
-                        html.Div([self._decomposition_component_selector,
-                                  self._component_color_scale_selectors,
-                                  self._component_opacity_sliders, ],
-                                 className='row well'
-                                 ),
-                    ],
-                    className='container'
-                    ),
-                ],
-                className='radio-group'
-            )
-
-            radio_kwargs['className'] = 'btn-group'  # wipe out other classes
-
-            self._decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
-            radio_kwargs = radio_kwargs.copy()
-            radio_kwargs['options'] = radio_kwargs['options'].copy() + [{'label': 'ALL', 'value': 'ALL'}]
-            self._decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
-
-            pair_plot_component_selector = dbc.FormGroup(
-                [
-                    dbc.Label(id='pair-plot-component-selector-p', className='card-text', children="Pair Plot Components"),
-                    html.Br(),
-                    self._decomposition_component_1,
-                    html.Br(),
-                    self._decomposition_component_2,
-                ],
-                className='radio-group',
-            )
-
-        self._map_color_scale_selector = ColorScaleSelector(app=self._app, _id='map-color-scale-selector', value='Viridis')
-        self._cluster_overlay_opacity = Slider(id={'type': 'cluster-opacity'},
-                                               min=0,
-                                               max=1,
-                                               step=.05,
-                                               value=.3,
-                                               className='centered-slider',
-                                               disabled=True if cluster_labels is None else False,
-                                               )
-
-        map_settings_form = dbc.Form([dbc.FormGroup([dbc.Label("Map Color Scale"), self._map_color_scale_selector]),
-                                     dbc.FormGroup([dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])])
-
-        # Views layout
-        map_layout = dbc.Card(
-            dbc.CardBody(children=[map_settings_form])
-        )
-
-        # Views layout
-        views_layout = dbc.Card(
-            dbc.CardBody(children=[view_selector])
-        )
-
-        # Annotations layout
-        self.spectra_graph_annotations = dbc.ListGroup(id='spectra-graph-annotations',
-                                                       children=[])
-        self.slice_graph_annotations = dbc.ListGroup(id='slice-graph-annotations',
-                                                     children=[])
-        self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
-        self.slice_graph_add_annotation = dbc.Button("Annotate Selection", id='slice-graph-add-annotation', n_clicks=0)
-        annotations_layout = dbc.Card(dbc.CardBody(children=[self.slice_graph_annotations,
-                                                             self.slice_graph_add_annotation,
-                                                             self.spectra_graph_annotations,
-                                                             self.spectra_graph_add_annotation,
-                                                             ]))
-
-        # Settings tab layout
-        # TODO put in function so we can use with callback
-        decomposition_layout = dbc.Card(
-            dbc.CardBody(children=[decomposition_selector_layout, pair_plot_component_selector])
-        )
-
-        # Info tab layout
-        # TODO
-        self._info_content = html.Div(id='info-content', children=["info"])
-        info_layout = dbc.Card(dbc.CardBody(children=[self._info_content]))
-
-        tabs = [dbc.Tab(label='Map', tab_id='map-tab', children=map_layout),
-                dbc.Tab(label='Views', tab_id='views-tab', children=views_layout),
-                dbc.Tab(label='Annotations', tab_id='annotations-tab', children=annotations_layout),
-                dbc.Tab(label="Info", tab_id="info-tab", children=info_layout),
-                ]
-        if decomposition is not None:
-            tabs.insert(1, dbc.Tab(label="Decomposition", tab_id="settings-tab", children=decomposition_layout))
-
-        # Create the entire configuration layout
-        config_view = html.Div(dbc.Tabs(id='config-view', children=tabs), className='col-lg-3')
+        self.graphs['spectra_graph'] = SpectraPlotGraph(self._data,
+                                                        self._instance_index,
+                                                        self._bounds,
+                                                        decomposition=self._decomposition,
+                                                        component_spectra=self._component_spectra,
+                                                        xaxis_title=self._spectra_axis_title,
+                                                        yaxis_title=self._intensity_axis_title,
+                                                        invert_spectra_axis=self._invert_spectra_axis,
+                                                        annotations=self._annotations,
+                                                        error_func=self._error_func,
+                                                        graph_kwargs=dict(style=dict(display='flex',
+                                                                                     flexDirection='row',
+                                                                                     height='100%',
+                                                                                     minHeight='450px'),
+                                                                          className='col-lg-9 p-0',
+                                                                          responsive=True
+                                                                          ))
+        if self._decomposition is not None:
+            self.graphs['pair_plot_graph'] = PairPlotGraph(self._instance_index,
+                                                           self._decomposition,
+                                                           self._bounds,
+                                                           self._cluster_labels,
+                                                           self._cluster_label_names,
+                                                           graph_kwargs=dict(className='col-lg-3 p-0',
+                                                                             responsive=True,
+                                                                             style=dict(display='flex',
+                                                                                        flexDirection='row',
+                                                                                        height='100%',
+                                                                                        minHeight='450px')))
 
         # Create the Toast (notification thingy)
         self._notifier = dbc.Toast("placeholder",
@@ -358,46 +279,42 @@ class Viewer(html.Div):
                           Output(self._notifier.id, 'is_open'),
                           app=self._app)
 
-        self.spectra_annotation_dialog = spectra_annotation_dialog(app,
+        self.annotations_panel = AnnotationsPanel(self._instance_index)
+
+        self.spectra_annotation_dialog = spectra_annotation_dialog(self._app,
                                                                    'spectra-annotation-dialog',
                                                                    success_callback=self._add_annotation_from_dialog,
-                                                                   success_output=Output(self.spectra_graph_annotations.id, 'children'),
-                                                                   open_input=Input(self.spectra_graph_add_annotation.id, 'n_clicks'))
+                                                                   success_output=Output(
+                                                                       self.annotations_panel.spectra_graph_annotations.id,
+                                                                       'children'),
+                                                                   open_input=Input(
+                                                                       self.annotations_panel.spectra_graph_add_annotation.id,
+                                                                       'n_clicks'))
 
-        self.slice_annotation_dialog = slice_annotation_dialog(app,
+        self.slice_annotation_dialog = slice_annotation_dialog(self._app,
                                                                'slice-annotation-dialog',
                                                                success_callback=self._add_slice_annotation_from_dialog,
-                                                               success_output=Output(self.slice_graph_annotations.id, 'children'),
-                                                               open_input=Input(self.slice_graph_add_annotation.id, 'n_clicks'))
+                                                               success_output=Output(
+                                                                   self.annotations_panel.slice_graph_annotations.id,
+                                                                   'children'),
+                                                               open_input=Input(
+                                                                   self.annotations_panel.slice_graph_add_annotation.id,
+                                                                   'n_clicks'))
 
-        for annotation in annotations or []:
+        for annotation in self._annotations or []:
             self._add_spectra_annotation(annotation)
 
-        # Initialize layout
-        layout_div_children = [self.map_graph,
-                               self.optical_graph,
-                               self.decomposition_graph,
-                               config_view,
-                               self.spectra_graph,
-                               self.pair_plot_graph,
-                               self._notifier,
-                               self.spectra_annotation_dialog,
-                               self.slice_annotation_dialog]
-        children = html.Div(children=layout_div_children,
-                            className='row well')
+        return list(self.graphs.values()) + [self._notifier, self.spectra_annotation_dialog,
+                                             self.slice_annotation_dialog]
 
-        # Set up callbacks (Graphs need to wait until all children in this viewer are init'd)
-        self.spectra_graph.register_callbacks()
-        self.map_graph.register_callbacks()
-        if optical is not None:
-            self.optical_graph.register_callbacks()
-        if decomposition is not None:
-            self.pair_plot_graph.register_callbacks()
-            self.decomposition_graph.register_callbacks()
+    def make_layout(self):
+        return html.Div(html.Div(self.components, className='row'),
+                        className='container-fluid')  # , style={'flexGrow': 1})
 
-        super(Viewer, self).__init__(children=children,
-                                     className='container-fluid',
-                                     )
+    @property
+    @lru_cache(maxsize=1)
+    def panels(self):
+        return super(Viewer, self).panels + [self.annotations_panel]
 
     @property
     def map(self):
@@ -457,12 +374,12 @@ class Viewer(html.Div):
         return self.map_graph.annotations
 
     def _add_spectra_annotation(self, annotation):
-        self.spectra_graph.add_annotation(annotation)
-        self.spectra_graph_annotations.children += str(annotation)
+        self.graphs['spectra_graph'].add_annotation(annotation)
+        self.annotations_panel.spectra_graph_annotations.children += str(annotation)
 
     def _add_slice_annotation(self, annotation):
-        for graph in [self.map_graph, self.optical_graph, self.decomposition_graph, self.spectra_graph]:
-            if hasattr(graph, 'add_annotation'):
+        for graph in self.graphs.values():
+            if hasattr(graph, 'add_slice_annotation'):
                 graph.add_annotation(annotation)
         self.slice_graph_annotations.children += str(annotation)
 
@@ -473,10 +390,11 @@ class Viewer(html.Div):
         if input_states['spectra-annotation-dialog-upper-bound.value'] is None:
             annotation['position'] = input_states['spectra-annotation-dialog-lower-bound.value']
         else:
-            annotation['range'] = (input_states['spectra-annotation-dialog-lower-bound.value'], input_states['spectra-annotation-dialog-upper-bound.value'])
+            annotation['range'] = (input_states['spectra-annotation-dialog-lower-bound.value'],
+                                   input_states['spectra-annotation-dialog-upper-bound.value'])
 
         annotation['name'] = input_states['spectra-annotation-dialog-name.value']
-        
+
         # Color will come back as 'rgb': {'r': r, 'g': g, 'b': b, 'a': a},
         #     need to convert to plotly color: 'rgba(r,g,b,a)'
         color_picker = input_states['spectra-annotation-dialog-color-picker.value']
@@ -657,12 +575,12 @@ def notebook_viewer(data,
     except ImportError:
         print("Please install jupyter-dash first.")
     else:
-        if not irdash.app:
+        if not ryujin.utils.dash.app:
             # Creating a new app means we never ran the server
-            irdash.app = JupyterDash(__name__, **app_kwargs)
+            ryujin.utils.dash.app = JupyterDash(__name__, **app_kwargs)
             was_running = False
 
-    viewer = Viewer(irdash.app,
+    viewer = Viewer(ryujin.utils.dash.app,
                     data,
                     optical=optical,
                     decomposition=decomposition,
@@ -680,28 +598,28 @@ def notebook_viewer(data,
     # viewer2 = Viewer(data.compute(), app=app)
 
     div = html.Div(children=[viewer])  # , viewer2])
-    irdash.app.layout = div
+    ryujin.utils.dash.app.layout = div
 
     # Prevent server from being run multiple times; only one instance allowed
     if not was_running:
-        irdash.app.run_server(mode=mode,
-                              width=width,
-                              height=height)
+        ryujin.utils.dash.app.run_server(mode=mode,
+                                         width=width,
+                                         height=height)
     else:
         # Values passed here are from
         # jupyter_app.jupyter_dash.JupyterDash.run_server
 
-        if irdash.app._in_colab:
-            irdash.app._display_in_colab(dashboard_url='http://127.0.0.1:8050/',
-                                         mode=mode,
-                                         port=8050,
-                                         width=width,
-                                         height=height)
+        if ryujin.utils.dash.app._in_colab:
+            ryujin.utils.dash.app._display_in_colab(dashboard_url='http://127.0.0.1:8050/',
+                                                    mode=mode,
+                                                    port=8050,
+                                                    width=width,
+                                                    height=height)
         else:
-            irdash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
-                                           mode=mode,
-                                           port=8050,
-                                           width=width,
-                                           height=height)
+            ryujin.utils.dash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
+                                                      mode=mode,
+                                                      port=8050,
+                                                      width=width,
+                                                      height=height)
 
     return viewer
