@@ -289,14 +289,16 @@ class SliceGraph(dcc.Graph):
                                                  showscale=False,
                                                  hoverinfo='skip',
                                                  name=annotation['name'],
-                                                 meta=annotation['annotation_index']
+                                                 meta={'annotation_index': annotation['annotation_index']}
                                                  )
         self._annotation_traces.append(annotation_trace)
 
         return annotation_trace
 
     def remove_annotation(self, index):
-        print(index)
+        remaining_annotations = list(filter(lambda a: a.meta['annotation_index'] != index, self._annotation_traces))
+        self._annotation_traces = remaining_annotations
+        return self._update_figure()
 
     @property
     def annotations(self):
