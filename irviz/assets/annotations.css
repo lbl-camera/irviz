@@ -26,3 +26,7 @@
 .annotation-content {
     text-overflow: ellipsis;
 }
+
+.annotation .nav-link {
+    padding: .5rem .5rem;
+}
