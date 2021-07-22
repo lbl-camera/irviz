@@ -18,6 +18,7 @@ TEST_FILE = 'E:\\BP-area3a.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 OPTICAL_TEST_FILE = 'E:\\BP-area3a_clean.JPG'
+OPTICAL_TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a_clean.JPG'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 
 
@@ -48,7 +49,8 @@ def open_ir_file(h5_file):
 if __name__ == "__main__":
     load_figure_template("darkly")
 
-    app_kwargs = {'external_stylesheets': [dbc.themes.DARKLY]}
+    FONT_AWESOME = "https://use.fontawesome.com/releases/v5.11.1/css/all.css"
+    app_kwargs = {'external_stylesheets': [dbc.themes.DARKLY, FONT_AWESOME]}
     _jupyter_app_kwargs = dict()
     try:
         from jupyter_dash import JupyterDash

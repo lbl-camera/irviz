@@ -1,16 +1,15 @@
+import json
 import numbers
 import warnings
 from functools import lru_cache
 from itertools import count
-from typing import Callable, Any
 
 import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
+from dash.dependencies import ALL, Input, Output
 from dash_core_components import Graph, Slider
-from dash.dependencies import Input, Output, State
-from nptyping import NDArray
 
 import ryujin.utils.dash
 from irviz.components import spectra_annotation_dialog
@@ -32,28 +31,70 @@ from ryujin.utils.strings import phonetic_from_int
 
 class AnnotationsPanel(Panel):
     def __init__(self, instance_index):
-        # Annotations layout
-        self.spectra_graph_annotations = dbc.ListGroup(id={'type': 'spectra_annotations',
+        self._instance_index = instance_index
+        self.spectra_graph_annotations = dbc.Nav(id={'type': 'spectra_annotations',
                                                            'index': instance_index},
-                                                       children=[])
-        self.slice_graph_annotations = dbc.ListGroup(id={'type': 'slice_annotations',
+                                                 pills=True,
+                                                 vertical='md',
+                                                 children=[])
+        self.slice_graph_annotations = dbc.Nav(id={'type': 'slice_annotations',
                                                          'index': instance_index},
-                                                     children=[])
-        self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
+                                               pills=True,
+                                               vertical='md',
+                                               children=[])
+        self.spectra_graph_add_annotation = dbc.Button("Add Spectra Annotation", id='spectra-graph-add-annotation', n_clicks=0)
         self.slice_graph_add_annotation = dbc.Button("Annotate Selection", id='slice-graph-add-annotation', n_clicks=0)
-        children = [self.slice_graph_annotations,
-                    self.slice_graph_add_annotation,
-                    self.spectra_graph_annotations,
-                    self.spectra_graph_add_annotation,
-                    ]
 
-        super(AnnotationsPanel, self).__init__('Annotations', children)
+        a = html.Div([
+                html.Div([
+                    self.slice_graph_annotations,
+                    self.slice_graph_add_annotation
+                ]),
+                html.Div([
+                    self.spectra_graph_annotations,
+                    self.spectra_graph_add_annotation
+                ])
+        ])
+
+        annotations_layout_children = html.Div(className="row", children=[
+            html.Div(className="col-sm", children=[
+                self.slice_graph_annotations,
+                self.slice_graph_add_annotation
+            ]),
+            html.Div(className="col-sm", children=[
+                self.spectra_graph_annotations,
+                self.spectra_graph_add_annotation
+            ])
+        ])
+      
+        super(AnnotationsPanel, self).__init__('Annotations', annotations_layout_children)
+        
+    def init_callbacks(self, app):
+        # spectra annotation removal callback
+        targeted_callback(self._remove_spectra_annotation,
+                          Input({"type": "remove-spectra-annotation-btn",
+                                 "index": self._instance_index,
+                                 "annotation_index": ALL}, 
+                                "n_clicks"),
+                          Output(self.spectra_graph_annotations.id, 'children'),
+                          app=app)
+        
+        # slice annotation removal callback
+        targeted_callback(self._remove_slice_annotation,
+                          Input({"type": "remove-slice-annotation-btn",
+                                 "index": self._instance_index,
+                                 "annotation_index": ALL}, 
+                                "n_clicks"),
+                          Output(self.slice_graph_annotations.id, 'children'),
+                          app=app)
+
 
 
 class Viewer(ComposableDisplay):
     """Interactive viewer that creates and contains all of the visualized components within the Dash app"""
 
     _instance_counter = count(0)
+    _annotation_counter = count(0)
 
     def __init__(self,
                  app,
@@ -216,6 +257,7 @@ class Viewer(ComposableDisplay):
                                                         )
         # self.orthogonal_x_graph = SliceGraph(data, self)
         # self.orthogonal_y_graph = SliceGraph(data, self)
+
         if self._decomposition is not None:
             self.graphs['decomposition_graph'] = DecompositionGraph(self._decomposition,
                                                                     self._instance_index,
@@ -364,10 +406,13 @@ class Viewer(ComposableDisplay):
         return self.graphs['map_graph'].selection_indices
 
     @property
-    def annotations(self):
-        # TODO: Add map annotations
+    def spectra_annotations(self):
         """User-defined annotations on the spectra graph"""
+        if 'spectra_graph' not in self.graphs:
+          return []
+        
         return self.graphs['spectra_graph'].annotations
+
 
     @property
     def slice_annotations(self):
@@ -376,14 +421,98 @@ class Viewer(ComposableDisplay):
         return self.graphs['map_graph'].annotations
 
     def _add_spectra_annotation(self, annotation):
+        annotation_index = next(self._annotation_counter)
+        annotation['annotation_index'] = annotation_index
         self.graphs['spectra_graph'].add_annotation(annotation)
-        self.annotations_panel.spectra_graph_annotations.children += [str(annotation)]
+
+        annotation_content = f'{annotation["name"]}'
+        if 'range' in annotation:
+            r = annotation['range']
+            annotation_content += f": {r[0]}, {r[1]} "
+        elif 'position' in annotation:
+            annotation_content += f": {annotation['position']} "
+
+        # TODO add color
+
+        btn = dbc.Button(
+                html.I(className="fas fa-times"),
+                color='danger',
+                className='btn-sm',
+                n_clicks=0,
+                id={"type": "remove-spectra-annotation-btn",
+                    "index": self._instance_index,
+                    "annotation_index": annotation_index}
+        )
+
+        item = dbc.NavItem(id={"type": "spectra-annotation-entry",
+                               "index": self._instance_index,
+                               "annotation_index": annotation_index},
+                           children=[dbc.NavLink(active=True, children=[
+                               html.Span(children=annotation_content, className="annotation-content"),
+                               btn
+                           ])])
+
+        self.annotations_panel.spectra_graph_annotations.children.append(item)
+
+    def _remove_spectra_annotation(self, _):
+        index = json.loads(dash.callback_context.triggered[0]["prop_id"].split(".")[0])['annotation_index']
+        if index is not None:
+            annotation_entries = self.annotations_panel.spectra_graph_annotations.children
+            if annotation_entries is not None:
+                # Remove the annotation entry (row) with matching annotation_index
+                self.graphs['spectra_graph'].remove_annotation(index)
+                spectra_annotations = filter(lambda annotation: annotation.id['annotation_index'] != index,
+                                             annotation_entries)
+
+                # Update the current spectra annotations list
+                self.annotations_panel.spectra_graph_annotations.children = list(spectra_annotations)
+        return self.annotations_panel.spectra_graph_annotations.children
 
     def _add_slice_annotation(self, annotation):
+        annotation_index = next(self._annotation_counter)
+        annotation['annotation_index'] = annotation_index
+
         for graph in self.graphs.values():
             if hasattr(graph, 'add_slice_annotation'):
                 graph.add_slice_annotation(annotation)
-        self.annotations_panel.slice_graph_annotations.children += [str(annotation)]
+
+        btn = dbc.Button(
+            html.I(className="fas fa-times"),
+            color='danger',
+            className='btn-sm',
+            n_clicks=0,
+            id={"type": "remove-slice-annotation-btn",
+                "index": self._instance_index,
+                "annotation_index": annotation_index}
+        )
+
+        annotation_content = f'{annotation["name"]}: {annotation.get("color")} '
+        item = dbc.NavItem(id={"type": "slice-annotation-entry",
+                               "index": self._instance_index,
+                               "annotation_index": annotation_index},
+                           children=[dbc.NavLink(active=True, children=[
+                               html.Span(children=annotation_content,
+                                         className='annotation-content'),
+                               btn
+                           ])])
+
+        self.annotations_panel.slice_graph_annotations.children.append(item)
+
+    def _remove_slice_annotation(self, _):
+        index = json.loads(dash.callback_context.triggered[0]["prop_id"].split(".")[0])['annotation_index']
+        if index is not None:
+            annotation_entries = self.annotations_panel.slice_graph_annotations.children
+            if annotation_entries is not None:
+                for graph in self.graphs.values():
+                    if hasattr(graph, 'remove_slice_annotation'):
+                        graph.remove_slice_annotation(index)
+
+                slice_annotations = filter(lambda annotation: annotation.id['annotation_index'] != index,
+                                             annotation_entries)
+
+                # Update the current spectra annotations list
+                self.annotations_panel.slice_graph_annotations.children = list(slice_annotations)
+        return self.annotations_panel.slice_graph_annotations
 
     def _add_annotation_from_dialog(self, n_clicks):
         # Get the form input values
