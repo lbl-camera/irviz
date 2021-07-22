@@ -481,8 +481,8 @@ class Viewer(html.Div):
         #     need to convert to plotly color: 'rgba(r,g,b,a)'
         color_picker = input_states['spectra-annotation-dialog-color-picker.value']
         rgb = color_picker['rgb']
-        color = f"rgba({rgb['r']}, {rgb['g']}, {rgb['b']}, {rgb['a']})"
-
+        color = f"rgb({rgb['r']}, {rgb['g']}, {rgb['b']})"
+        annotation['opacity'] = rgb['a']
         annotation['color'] = color
         annotation['type'] = 'spectrum'
         self._add_spectra_annotation(annotation)
@@ -496,6 +496,14 @@ class Viewer(html.Div):
         annotation['name'] = input_states['slice-annotation-dialog-name.value']
         annotation['mask'] = self.map_graph._selection_mask.z
         annotation['type'] = 'slice'
+
+        # Color will come back as 'rgb': {'r': r, 'g': g, 'b': b, 'a': a},
+        #     need to convert to plotly color: 'rgba(r,g,b,a)'
+        color_picker = input_states['slice-annotation-dialog-color-picker.value']
+        rgb = color_picker['rgb']
+        color = f"rgb({rgb['r']}, {rgb['g']}, {rgb['b']})"
+        annotation['color'] = color
+        annotation['opacity'] = rgb['a']
 
         self._add_slice_annotation(annotation)
 
