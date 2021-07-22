@@ -1,25 +1,69 @@
 import dash
-import dash_core_components as dcc
 import numpy as np
 from dash.dependencies import Output, Input, ALL
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
 
-from irviz.utils.dash import targeted_callback
+from ryujin.components import Panel
+from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
 __all__ = ['PairPlotGraph']
+
+
+class PairPlotGraphPanel(Panel):
+    def __init__(self, instance_index, component_count):
+        radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
+                            labelClassName="btn btn-secondary",
+                            labelCheckedClassName="active",
+                            options=[{'label': f'{i+1}', 'value': i}
+                                     for i in range(component_count)]
+
+                            )
+
+        radio_kwargs['className'] = 'btn-group'  # wipe out other classes
+
+        self._decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
+        radio_kwargs = radio_kwargs.copy()
+        radio_kwargs['options'] = radio_kwargs['options'].copy() + [{'label': 'ALL', 'value': 'ALL'}]
+        self._decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
+
+        pair_plot_component_selector = dbc.FormGroup(
+            [
+                self._decomposition_component_1,
+                html.Br(),
+                self._decomposition_component_2,
+            ],
+            className='radio-group',
+        )
+
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='pair-plot-visibility', instance_index=instance_index), checked=True)
+
+        children = [dbc.FormGroup([self.visibility_toggle,
+                                   dbc.Label('Show Decomposition Image')]),
+                    dbc.FormGroup([dbc.Label('Shown Components'),
+                                   pair_plot_component_selector])]
+
+        super(PairPlotGraphPanel, self).__init__('Pair Plot', children)
+
+    def init_callbacks(self, app):
+        super(PairPlotGraphPanel, self).init_callbacks(app)
 
 
 class PairPlotGraph(dcc.Graph):
     title = 'Pair Plot'
 
-    def __init__(self, data, bounds, cluster_labels, cluster_label_names, parent):
+    def __init__(self, instance_index, data, bounds, cluster_labels, cluster_label_names, graph_kwargs=None):
+        self.configuration_panel = PairPlotGraphPanel(instance_index, data.shape[0])
+
         # Track if the selection help has been displayed yet, don't want to annoy users
         self._selection_help_displayed_already = False
 
-        # Cache our data and parent for use in the callbacks
+        # Cache our data for use in the callbacks
+        self._instance_index = instance_index
         self._data = data
-        self._parent = parent
         self._xaxis_title = self._yaxis_title = ''
         self._cluster_labels = cluster_labels
         self._cluster_label_names = cluster_label_names
@@ -41,18 +85,14 @@ class PairPlotGraph(dcc.Graph):
         figure = self._update_figure()
         super(PairPlotGraph, self).__init__(figure=figure,
                                             id=self._id(),
-                                            className='col-lg-3 p-0',
-                                            responsive=True,
-                                            style=dict(display='flex',
-                                                       flexDirection='row',
-                                                       height='100%',
-                                                       minHeight='450px'),)
+                                            **graph_kwargs or {})
 
     def _id(self):
         return {'type': 'pair_plot',
-                'index': self._parent._instance_index}
+                'index': self._instance_index,
+                'wildcard': True} # The wildcard field is only here to enable 0-match patterns
 
-    def register_callbacks(self):
+    def init_callbacks(self, app):
         # Set up callbacks
         # ----------------
 
@@ -60,38 +100,34 @@ class PairPlotGraph(dcc.Graph):
         #     we need to update the internal Figure for this Graph
         # When MapGraph is lasso'd, show that selection here too
         # Note: this can't be a targeted callback, since multiple values are required
-        self._parent._app.callback(
+        app.callback(
             Output(self.id, 'figure'),
-            Input(self._parent._decomposition_component_1.id, 'value'),
-            Input(self._parent._decomposition_component_2.id, 'value'),
+            Input(self.configuration_panel._decomposition_component_1.id, 'value'),
+            Input(self.configuration_panel._decomposition_component_2.id, 'value'),
             Input({'type': 'slice_graph',
                    'subtype': ALL,
-                   'index': self._parent._instance_index},
+                   'index': self._instance_index},
                   'selectedData'),
             # When any SliceGraph is clicked, update its x,y slicer lines
             Input({'type': 'slice_graph',
                    'subtype': ALL,
-                   'index': self._parent._instance_index},
+                   'index': self._instance_index},
                   'clickData'),
         )(self.show_pair_plot)
-
-        # Set up selection tool callbacks
-        targeted_callback(self._show_selection_info,
-                          Input(self.id, 'selectedData'),
-                          Output(self._parent._info_content.id, 'children'),
-                          app=self._parent._app)
 
         # Set up help notifications for selection tools
         targeted_callback(self._update_selection_help_text,
                           Input(self.id, 'selectedData'),
-                          Output(self._parent._notifier.id, 'children'),
-                          app=self._parent._app)
+                          Output({'type': 'notifier',
+                                  'index': self._instance_index},
+                                 'children'),
+                          app=app)
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent._graph_toggles.id, 'value'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
                           Output(self.id, 'style'),
-                          app=self._parent._app)
+                          app=app)
 
     def _update_selection_help_text(self, selected_data):
         if not self._selection_help_displayed_already:
@@ -188,8 +224,8 @@ class PairPlotGraph(dcc.Graph):
         return list(map(lambda point: point['pointIndex'], selection['points']))
 
     @staticmethod
-    def _set_visibility(switches_value):
-        if 'show_pair_plot' in switches_value:
+    def _set_visibility(checked):
+        if checked:
             return {'display': 'block'}
         else:
             return {'display': 'none'}

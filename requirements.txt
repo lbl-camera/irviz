@@ -1,9 +1,14 @@
 # List required packages in this file, one per line.
 dash
-dash-slicer
 jupyter-dash
 numpy
 nptyping
 sklearn
 dash_bootstrap_components
 dash_bootstrap_templates
+dash_daq
+h5py
+dask
+pillow
+phonetic_alphabet
+ipywidgets

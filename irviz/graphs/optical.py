@@ -1,9 +1,50 @@
 import numpy as np
 from dash.dependencies import Input, Output
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+from plotly import graph_objects as go
 
+
+from irviz.components import ColorScaleSelector
+from irviz.graphs._colors import decomposition_color_scales
 from irviz.graphs.slice import SliceGraph
-from irviz.utils.dash import targeted_callback
+from ryujin.components import Panel
+from ryujin.utils.dash import targeted_callback
+
 __all__ = ['OpticalGraph']
+
+
+class OpticalGraphPanel(Panel):
+    def __init__(self, instance_index, cluster_labels):
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='optical-visibility', instance_index=instance_index),
+                                              checked=True)
+        self.color_scale_selector = ColorScaleSelector(_id={'type': 'color-scale-selector',
+                                                            'subtype': 'optical',
+                                                            'index': instance_index},
+                                                       )
+        self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity',
+                                                       'index': instance_index,
+                                                       'subtype': 'optical'},
+                                                   min=0,
+                                                   max=1,
+                                                   step=.05,
+                                                   value=.3,
+                                                   className='centered-slider',
+                                                   disabled=True if cluster_labels is None else False,
+                                                   )
+
+        children = [dbc.FormGroup([self.visibility_toggle,
+                                   dbc.Label('Show Optical Image')]),
+                    dbc.FormGroup([dbc.Label('Color Theme'),
+                                   self.color_scale_selector]),
+                    dbc.FormGroup(
+                        [dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])]
+
+        super(OpticalGraphPanel, self).__init__('Optical Image', children)
+
+    def init_callbacks(self, app):
+        super(OpticalGraphPanel, self).init_callbacks(app)
+        self.color_scale_selector.init_callbacks(app)
 
 
 class OpticalGraph(SliceGraph):
@@ -19,75 +60,17 @@ class OpticalGraph(SliceGraph):
     """
     title = 'Optical Image'
 
-    def __init__(self, map_data, optical_data, bounds, cluster_labels, cluster_label_names, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
-        #
-        # default_slice_index = 0
+    def __init__(self, map_data, instance_index, optical_data, bounds, cluster_labels, cluster_label_names, slice_axis=0, traces=None, shapes=None, **kwargs):
+        self.configuration_panel = OpticalGraphPanel(instance_index, cluster_labels)
         self._map_data = map_data
-        #
-        # if optical_data.ndim == 2:
-        #     optical_data = np.expand_dims(optical_data, 0)
-        #
-        # # Create traces (i.e. 'glyphs') that will comprise a plotly Figure
-        # optical_graph_bounds = dict(y0=bounds[1][0],
-        #                             dy=(bounds[1][1]-bounds[1][0])/optical_data.shape[1],
-        #                             x0=bounds[2][0],
-        #                             dx=(bounds[2][1]-bounds[2][0])/optical_data.shape[2])
-        # map_graph_bounds = dict(y0=bounds[1][0],
-        #                         dy=(bounds[1][1]-bounds[1][0])/map_data.shape[1],
-        #                         x0=bounds[2][0],
-        #                         dx=(bounds[2][1]-bounds[2][0])/map_data.shape[2])
-        # # Template for custom hover text
-        # x_label = kwargs.get('xaxis_title', '')
-        # y_label = kwargs.get('yaxis_title', '')
-        # i_label = 'I'
-        # extra_kwargs = {}
-        # if cluster_label_names is not None and cluster_labels is not None:
-        #     extra_kwargs['text'] = np.asarray(cluster_label_names)[cluster_labels]
-        #     hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />{i_label}: %{{z}}<br />Label: %{{text}}<extra></extra>'
-        # else:
-        #     hovertemplate = f'{x_label}: %{{x}}<br />{y_label}: %{{y}}<br />{i_label}: %{{z}}<extra></extra>'
-        # self._image = go.Heatmap(z=np.asarray(optical_data[default_slice_index]),
-        #                          colorscale='viridis',
-        #                          hovertemplate=hovertemplate,
-        #                          **optical_graph_bounds,
-        #                          **extra_kwargs
-        #                          )
-        # self._selection_mask = go.Heatmap(z=np.ones(map_data[0].shape) * np.NaN,
-        #                                   colorscale='reds',
-        #                                   opacity=0.3,
-        #                                   showscale=False,
-        #                                   hoverinfo='skip',
-        #                                   **map_graph_bounds
-        #                                   )
-        # x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], map_data.shape[2]),
-        #                    np.linspace(bounds[1][0], bounds[1][1], map_data.shape[1]))
-        #
-        # # This dummy scatter trace is added to support lasso selection
-        # self._dummy_scatter = go.Scattergl(x=x.ravel(),
-        #                                    y=y.ravel(),
-        #                                    mode='markers',
-        #                                    marker={'color': 'rgba(0,0,0,0)'},
-        #                                    hoverinfo='skip'
-        #                                    )
-        # # Add another transparent heatmap overlay for labels
-        # self._clusters = go.Heatmap(z=np.ones(map_data[0].shape) * np.NaN,
-        #                             colorscale='Portland',
-        #                             **map_graph_bounds,
-        #                             opacity=0.3,
-        #                             showscale=False,
-        #                             hoverinfo='skip',
-        #                             )
-        # if cluster_labels is not None:
-        #     self._clusters.z = cluster_labels  # NaNs are transparent
-        #
 
         # map_data is passed here rather than optical_data as a matter of convenience in class composition
         # All the other traces are scaled according to map_data's shape; the image trace is swapped out next
         super(OpticalGraph, self).__init__(map_data,
-                                           bounds,
+                                           instance_index,
                                            cluster_labels,
                                            cluster_label_names,
-                                           parent,
+                                           bounds=bounds,
                                            slice_axis=slice_axis,
                                            traces=traces,
                                            shapes=shapes,
@@ -103,33 +86,33 @@ class OpticalGraph(SliceGraph):
                                             bounds,
                                             hovertemplate=hovertemplate,
                                             text=text)
+
+        # disable color themes for rgb images
+        if isinstance(self._image, go.Image):
+            self.configuration_panel.color_scale_selector.disabled = True
+
         self._traces.insert(0, self._image)
         self.figure = self._update_figure()
 
-    def register_callbacks(self):
-        super(OpticalGraph, self).register_callbacks()
+    def init_callbacks(self, app):
+        super(OpticalGraph, self).init_callbacks(app)
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self._parent._graph_toggles.id, 'value'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
                           Output(self.id, 'style'),
-                          app=self._parent._app)
+                          app=app)
 
         # Change color scale from selector
         targeted_callback(self.set_color_scale,
-                          Input(self._parent._map_color_scale_selector.id, 'label'),
+                          Input(self.configuration_panel.color_scale_selector.id, 'label'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
-    @staticmethod
-    def _set_visibility(switches_value):
-        if 'show_optical' in switches_value:
-            return {'display': 'block'}
-        else:
-            return {'display': 'none'}
+        self.configuration_panel.init_callbacks(app)
 
-    def _id(self):
-        _id = super(OpticalGraph, self)._id()
+    def _id(self, instance_index):
+        _id = super(OpticalGraph, self)._id(instance_index)
         _id['subtype'] = 'optical'
         return _id
 
