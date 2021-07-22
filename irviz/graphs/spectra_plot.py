@@ -180,17 +180,21 @@ class SpectraPlotGraph(dcc.Graph):
         #                   Output(self.id, 'style'),
         #                   app=app)
         #
-        # # Chain annotations update to refresh figure
-        # targeted_callback(self._update_figure,
-        #                   Input(self._parent.spectra_graph_annotations.id, 'children'),  # TODO: fix this!!!!!!!!!!!!!!
-        #                   Output(self.id, 'figure'),
-        #                   app=app)
-        #
-        # # update with slice annotations
-        # targeted_callback(self.update_annotations,
-        #                   Input(self._parent.slice_graph_annotations.id, 'children'),  # TODO: fix this!!!!!!!!!!!!!!
-        #                   Output(self.id, 'figure'),
-        #                   app=app)
+        # Chain annotations update to refresh figure
+        targeted_callback(self._update_figure,
+                          Input({'type': 'spectra_annotations',
+                                 'index': self._instance_index},
+                                'children'),
+                          Output(self.id, 'figure'),
+                          app=app)
+
+        # update with slice annotations
+        targeted_callback(self.update_annotations,
+                          Input({'type': 'slice_annotations',
+                                 'index': self._instance_index},
+                                'children'),
+                          Output(self.id, 'figure'),
+                          app=app)
 
     def show_click(self, click_data):
         y = click_data["points"][0]["y"]

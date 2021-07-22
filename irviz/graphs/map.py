@@ -16,7 +16,9 @@ class MapGraphPanel(Panel):
         self.visibility_toggle = dbc.Checkbox(id=dict(type='map-visibility', instance_index=instance_index), checked=True)
         self._map_color_scale_selector = ColorScaleSelector(_id='map-color-scale-selector',
                                                             value='Viridis')
-        self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity'},
+        self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity',
+                                                       'index': instance_index,
+                                                       'subtype': 'map'},
                                                min=0,
                                                max=1,
                                                step=.05,
@@ -60,6 +62,12 @@ class MapGraph(SliceGraph):
     def init_callbacks(self, app):
         super(MapGraph, self).init_callbacks(app)
 
+        # Wire-up visibility toggle
+        targeted_callback(self._set_visibility,
+                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
+                          Output(self.id, 'style'),
+                          app=app)
+
         # When the spectra graph is clicked, update image slicing
         targeted_callback(self.update_slice,
                           Input({'type': 'spectraplot',
@@ -67,11 +75,11 @@ class MapGraph(SliceGraph):
                           Output(self.id, 'figure'),
                           app=app)
 
-        # # Change color scale from selector
-        # targeted_callback(self.set_color_scale,
-        #                   Input(self._parent._map_color_scale_selector.id, 'label'),  # TODO: fix this!!!!!!!!!!!!!!
-        #                   Output(self.id, 'figure'),
-        #                   app=app)
+        # Change color scale from selector
+        targeted_callback(self.set_color_scale,
+                          Input(self.configuration_panel._map_color_scale_selector.id, 'label'),
+                          Output(self.id, 'figure'),
+                          app=app)
 
         self.configuration_panel.init_callbacks(app)
 

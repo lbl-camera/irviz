@@ -32,9 +32,6 @@ class PairPlotGraphPanel(Panel):
 
         pair_plot_component_selector = dbc.FormGroup(
             [
-                dbc.Label(id='pair-plot-component-selector-p', className='card-text',
-                          children="Pair Plot Components"),
-                html.Br(),
                 self._decomposition_component_1,
                 html.Br(),
                 self._decomposition_component_2,
@@ -46,10 +43,10 @@ class PairPlotGraphPanel(Panel):
 
         children = [dbc.FormGroup([self.visibility_toggle,
                                    dbc.Label('Show Decomposition Image')]),
-                    dbc.FormGroup([dbc.Label('Show Components'),
+                    dbc.FormGroup([dbc.Label('Shown Components'),
                                    pair_plot_component_selector])]
 
-        super(PairPlotGraphPanel, self).__init__('Optical Image', children)
+        super(PairPlotGraphPanel, self).__init__('Pair Plot', children)
 
     def init_callbacks(self, app):
         super(PairPlotGraphPanel, self).init_callbacks(app)
@@ -92,7 +89,8 @@ class PairPlotGraph(dcc.Graph):
 
     def _id(self):
         return {'type': 'pair_plot',
-                'index': self._instance_index}
+                'index': self._instance_index,
+                'wildcard': True} # The wildcard field is only here to enable 0-match patterns
 
     def init_callbacks(self, app):
         # Set up callbacks
@@ -116,12 +114,6 @@ class PairPlotGraph(dcc.Graph):
                    'index': self._instance_index},
                   'clickData'),
         )(self.show_pair_plot)
-
-        # # Set up selection tool callbacks
-        # targeted_callback(self._show_selection_info,
-        #                   Input(self.id, 'selectedData'),
-        #                   Output(self.configuration_panel._info_content.id, 'children'),
-        #                   app=app)
 
         # Set up help notifications for selection tools
         targeted_callback(self._update_selection_help_text,

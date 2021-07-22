@@ -7,6 +7,7 @@ from plotly import graph_objects as go
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_core_components as dcc
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs._colors import decomposition_color_scales, transparent_color_scales
@@ -18,7 +19,18 @@ __all__ = ['DecompositionGraph']
 
 
 class DecompositionGraphPanel(Panel):
-    def __init__(self, instance_index, component_count):
+    def __init__(self, instance_index, component_count, cluster_labels):
+        self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity',
+                                                       'index': instance_index,
+                                                       'subtype': 'decomposition'},
+                                                   min=0,
+                                                   max=1,
+                                                   step=.05,
+                                                   value=.3,
+                                                   className='centered-slider',
+                                                   disabled=True if cluster_labels is None else False,
+                                                   )
+
         radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
                             labelClassName="btn btn-secondary",
                             labelCheckedClassName="active",
@@ -56,14 +68,12 @@ class DecompositionGraphPanel(Panel):
                                       for i in range(component_count)]
 
         self._component_color_scale_selectors = html.Div(self.color_scale_selectors,
-            className='col-sm-auto',
-            style={'paddingLeft':0, 'paddingRight':0, 'marginTop':2.5},
-        )
+                                                         className='col-sm-auto',
+                                                         style={'paddingLeft': 0, 'paddingRight': 0, 'marginTop': 2.5},
+                                                         )
 
         decomposition_selector_layout = dbc.FormGroup(
             [
-                dbc.Label(id="decomposition-component-selector-p", className="card-text",
-                          children="Decomposition Component"),
                 html.Div([
                     html.Div([self._decomposition_component_selector,
                               self._component_color_scale_selectors,
@@ -82,7 +92,9 @@ class DecompositionGraphPanel(Panel):
         children = [dbc.FormGroup([self.visibility_toggle,
                                    dbc.Label('Show Decomposition Image')]),
                     dbc.FormGroup([dbc.Label('Component Color Themes'),
-                                   decomposition_selector_layout])]
+                                   decomposition_selector_layout]),
+                    dbc.FormGroup(
+                        [dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])]
 
         super(DecompositionGraphPanel, self).__init__('Decomposition Image', children)
 
@@ -98,7 +110,7 @@ class DecompositionGraphPanel(Panel):
                           app=app)
 
     def disable_sliders(self, component_indices):
-        for i, slider in self._component_opacity_sliders.children:
+        for i, slider in enumerate(self._component_opacity_sliders.children):
             slider.disabled = not (i in component_indices)
 
         return self._component_opacity_sliders.children
@@ -108,7 +120,7 @@ class DecompositionGraph(SliceGraph):
     title = 'Decomposition Maps'
 
     def __init__(self, data, instance_index, cluster_labels, cluster_label_names, bounds, *args, **kwargs):
-        self.configuration_panel = DecompositionGraphPanel(instance_index, data.shape[0])
+        self.configuration_panel = DecompositionGraphPanel(instance_index, data.shape[0], cluster_labels)
 
         self._component_traces = []
         for i in range(data.shape[0]):
@@ -176,10 +188,10 @@ class DecompositionGraph(SliceGraph):
         return self._update_figure()
 
     def _opacity_slider(self, i):
-        return self._parent._component_opacity_sliders.children[i]
+        return self.configuration_panel._component_opacity_sliders.children[i]
 
     def _color_scale_selector(self, i):
-        return self._parent._component_color_scale_selectors.children[i]
+        return self.configuration_panel._component_color_scale_selectors.children[i]
 
     def set_component_opacity(self, value):
         i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
@@ -190,7 +202,7 @@ class DecompositionGraph(SliceGraph):
     def _update_opacity(self):
         # Get a sum of all enabled slider values minus the first enabled value
         total = 0
-        for slider in self._parent._component_opacity_sliders.children:
+        for slider in self.configuration_panel._component_opacity_sliders.children:
             if not slider.disabled:
                 total += slider.value
 
@@ -212,10 +224,3 @@ class DecompositionGraph(SliceGraph):
         self._update_opacity()
 
         return self._update_figure()
-
-    @staticmethod
-    def _set_visibility(checked):
-        if checked:
-            return {'display': 'block'}
-        else:
-            return {'display': 'none'}

@@ -33,9 +33,11 @@ from ryujin.utils.strings import phonetic_from_int
 class AnnotationsPanel(Panel):
     def __init__(self, instance_index):
         # Annotations layout
-        self.spectra_graph_annotations = dbc.ListGroup(id='spectra-graph-annotations',
+        self.spectra_graph_annotations = dbc.ListGroup(id={'type': 'spectra_annotations',
+                                                           'index': instance_index},
                                                        children=[])
-        self.slice_graph_annotations = dbc.ListGroup(id='slice-graph-annotations',
+        self.slice_graph_annotations = dbc.ListGroup(id={'type': 'slice_annotations',
+                                                         'index': instance_index},
                                                      children=[])
         self.spectra_graph_add_annotation = dbc.Button("Add Annotation", id='spectra-graph-add-annotation', n_clicks=0)
         self.slice_graph_add_annotation = dbc.Button("Annotate Selection", id='slice-graph-add-annotation', n_clicks=0)
@@ -319,69 +321,69 @@ class Viewer(ComposableDisplay):
     @property
     def map(self):
         """The currently displayed map slice at the current spectral index"""
-        return self.map_graph.map
+        return self.graphs['map_graph'].map
 
     @property
     def spectrum(self):
         """The currently shown spectrum energy/wavenumber and intensity values"""
-        return self.spectra_graph.spectrum
+        return self.graphs['spectra_graph'].spectrum
 
     @property
     def spectral_value(self):
         """The current value of the crosshair position in energy/wavenumber"""
-        return self.spectra_graph.spectral_value
+        return self.graphs['spectra_graph'].spectral_value
 
     @property
     def spectral_index(self):
         """The current index of the crosshair position along the energy/wavenumber domain"""
-        return self.spectra_graph.spectral_index
+        return self.graphs['spectra_graph'].spectral_index
 
     @property
     def intensity(self):
         """The intensity value of the crosshair position"""
-        return self.spectra_graph.intensity
+        return self.graphs['spectra_graph'].intensity
 
     @property
     def position(self):
         """The spatial position of the current spectrum"""
-        return self.map_graph.position
+        return self.graphs['map_graph'].position
 
     @property
     def position_index(self):
         """The spatial position of the current spectrum as an index (y, x)"""
-        return self.map_graph.position_index
+        return self.graphs['map_graph'].position_index
 
     @property
     def selection(self):
         """A mask array representing the current spatial selection region"""
-        return self.map_graph.selection
+        return self.graphs['map_graph'].selection
 
     @property
     def selection_indices(self):
         """The indices of all currently selected points, returned as (y, x)"""
-        return self.map_graph.selection_indices
+        return self.graphs['map_graph'].selection_indices
 
     @property
     def annotations(self):
         # TODO: Add map annotations
         """User-defined annotations on the spectra graph"""
-        return self.spectra_graph.annotations
+        return self.graphs['spectra_graph'].annotations
 
     @property
     def slice_annotations(self):
         if not hasattr(self, 'map_graph'):
             return []
-        return self.map_graph.annotations
+        return self.graphs['map_graph'].annotations
 
     def _add_spectra_annotation(self, annotation):
         self.graphs['spectra_graph'].add_annotation(annotation)
-        self.annotations_panel.spectra_graph_annotations.children += str(annotation)
+        self.annotations_panel.spectra_graph_annotations.children += [str(annotation)]
 
     def _add_slice_annotation(self, annotation):
         for graph in self.graphs.values():
             if hasattr(graph, 'add_slice_annotation'):
-                graph.add_annotation(annotation)
-        self.slice_graph_annotations.children += str(annotation)
+                graph.add_slice_annotation(annotation)
+        self.annotations_panel.slice_graph_annotations.children += [str(annotation)]
 
     def _add_annotation_from_dialog(self, n_clicks):
         # Get the form input values
@@ -405,19 +407,19 @@ class Viewer(ComposableDisplay):
         annotation['type'] = 'spectrum'
         self._add_spectra_annotation(annotation)
 
-        return self.spectra_graph_annotations.children
+        return self.annotations_panel.spectra_graph_annotations.children
 
     def _add_slice_annotation_from_dialog(self, n_clicks):
         # Get the form input values
         input_states = dash.callback_context.states
         annotation = dict()
         annotation['name'] = input_states['slice-annotation-dialog-name.value']
-        annotation['mask'] = self.map_graph._selection_mask.z
+        annotation['mask'] = self.graphs['map_graph']._selection_mask.z
         annotation['type'] = 'slice'
 
         self._add_slice_annotation(annotation)
 
-        return self.slice_graph_annotations.children
+        return self.annotations_panel.slice_graph_annotations.children
 
     def _validate(self,
                   data,

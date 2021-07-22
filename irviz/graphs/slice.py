@@ -146,7 +146,7 @@ class SliceGraph(dcc.Graph):
         # When points are selected in the pair plot, show them here
         targeted_callback(self._show_selection_mask,
                           Input({'type': 'pair_plot',
-                                 'subtype': ALL,
+                                 'wildcard': ALL,
                                  'index': self._instance_index}, 'selectedData'),
                           Output(self.id, 'figure'),
                           app=app)
@@ -159,12 +159,6 @@ class SliceGraph(dcc.Graph):
                                 'selectedData'),
                           Output(self.id, 'figure'),
                           app=app)
-
-        # # Bind the labels toggle to its trace's visibility
-        # targeted_callback(self.set_clusters_visibility,
-        #                   Input(self._parent._graph_toggles.id, 'value'),    # TODO: fix this!!!!!!!!!!!!!!
-        #                   Output(self.id, 'figure'),
-        #                   app=app)
 
         # Share zoom state
         targeted_callback(self.sync_zoom,
@@ -179,17 +173,19 @@ class SliceGraph(dcc.Graph):
                                 'figure'),
                           app=app)
 
-        # # update with annotations
-        # targeted_callback(self.update_annotations,
-        #                   Input(self._parent.slice_graph_annotations.id, 'children'),  # TODO: fix this!!!!!!!!!!!!!!
-        #                   Output(self.id, 'figure'),
-        #                   app=app)
-        #
-        # # update cluster overlay opacity
-        # targeted_callback(self.update_opacity,
-        #                   Input(self._parent._cluster_overlay_opacity.id, 'value'),  # TODO: fix this!!!!!!!!!!!!!!
-        #                   Output(self.id, 'figure'),
-        #                   app=app)
+        # update with annotations
+        targeted_callback(self.update_annotations,
+                          Input({'type': 'slice_annotations',
+                                 'index': self._instance_index},
+                                'children'),
+                          Output(self.id, 'figure'),
+                          app=app)
+
+        # update cluster overlay opacity
+        targeted_callback(self.update_opacity,
+                          Input(self.configuration_panel._cluster_overlay_opacity.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=app)
 
     def update_opacity(self, value):
         self._clusters.opacity = value
@@ -280,6 +276,13 @@ class SliceGraph(dcc.Graph):
             self._selection_mask.z = np.ones(self._data[0].shape) * np.NaN
 
         return self._update_figure()
+
+    @staticmethod
+    def _set_visibility(checked):
+        if checked:
+            return {'display': 'block'}
+        else:
+            return {'display': 'none'}
 
     def update_annotations(self, *_):
         return self._update_figure()
