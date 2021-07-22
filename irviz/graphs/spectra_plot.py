@@ -279,15 +279,15 @@ class SpectraPlotGraph(dcc.Graph):
         return self._update_figure()
 
     def add_annotation(self, annotation):
-        # Annotation index will be used as a unique "name" for each annotation
-        annotation_index = annotation.get('annotation_index', name)
         span = annotation.get('range', None)
         position = annotation.get('position', None)
         color = annotation.get('color', 'gray')
         name = annotation.get('name', 'Unnamed')
+        # Annotation index will be used as a unique "name" for each annotation
+        annotation_index = annotation.get('annotation_index', name)
         opacity = annotation.get('opacity', 0.25)
         line_kwargs = dict(annotation_position='top', line_dash='dot', line={'color': color})
-        rect_kwargs = dict(name=name, fillcolor=color, line_width=0)
+        rect_kwargs = dict(fillcolor=color, line_width=0)
 
         # Handle opacities for annotations that aren't interactively defined (i.e. passed into viewer)
         #    or that don't have colors with alpha values
