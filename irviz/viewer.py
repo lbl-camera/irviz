@@ -33,12 +33,14 @@ class AnnotationsPanel(Panel):
     def __init__(self, instance_index):
         self._instance_index = instance_index
         self.spectra_graph_annotations = dbc.Nav(id={'type': 'spectra_annotations',
-                                                           'index': instance_index},
+                                                     'index': instance_index,
+                                                     'wildcard': ALL},
                                                  pills=True,
                                                  vertical='md',
                                                  children=[])
         self.slice_graph_annotations = dbc.Nav(id={'type': 'slice_annotations',
-                                                         'index': instance_index},
+                                                   'index': instance_index,
+                                                   'wildcard': ALL},
                                                pills=True,
                                                vertical='md',
                                                children=[])

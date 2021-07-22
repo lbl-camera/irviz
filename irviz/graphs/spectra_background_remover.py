@@ -76,7 +76,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         return self._update_figure()
 
-    j
+    @property
+    def configuration_panel(self):
         return 'Background Isolator', dbc.Form(dbc.FormGroup([self.selection_mode]))
 
     # def my_background(self, fixed_points, mask, data, ):

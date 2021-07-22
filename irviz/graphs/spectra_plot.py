@@ -184,7 +184,8 @@ class SpectraPlotGraph(dcc.Graph):
         # Chain annotations update to refresh figure
         targeted_callback(self._update_figure,
                           Input({'type': 'spectra_annotations',
-                                 'index': self._instance_index},
+                                 'index': self._instance_index,
+                                 'wildcard': ALL},
                                 'children'),
                           Output(self.id, 'figure'),
                           app=app)
@@ -192,7 +193,8 @@ class SpectraPlotGraph(dcc.Graph):
         # update with slice annotations
         targeted_callback(self.update_annotations,
                           Input({'type': 'slice_annotations',
-                                 'index': self._instance_index},
+                                 'index': self._instance_index,
+                                 'wildcard': ALL},
                                 'children'),
                           Output(self.id, 'figure'),
                           app=app)

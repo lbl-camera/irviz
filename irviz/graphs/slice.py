@@ -176,7 +176,8 @@ class SliceGraph(dcc.Graph):
         # update with annotations
         targeted_callback(self.update_annotations,
                           Input({'type': 'slice_annotations',
-                                 'index': self._instance_index},
+                                 'index': self._instance_index,
+                                 'wildcard': ALL},
                                 'children'),
                           Output(self.id, 'figure'),
                           app=app)
