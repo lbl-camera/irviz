@@ -42,52 +42,21 @@ class AnnotationsPanel(Panel):
                                                pills=True,
                                                vertical='md',
                                                children=[])
-        self.spectra_graph_add_annotation = dbc.Button("Add Spectra Annotation", id='spectra-graph-add-annotation', n_clicks=0)
+        self.spectra_graph_add_annotation = dbc.Button("Annotate Spectra", id='spectra-graph-add-annotation', n_clicks=0)
         self.slice_graph_add_annotation = dbc.Button("Annotate Selection", id='slice-graph-add-annotation', n_clicks=0)
 
-        a = html.Div([
-                html.Div([
-                    self.slice_graph_annotations,
-                    self.slice_graph_add_annotation
-                ]),
-                html.Div([
-                    self.spectra_graph_annotations,
-                    self.spectra_graph_add_annotation
-                ])
-        ])
-
         annotations_layout_children = html.Div(className="row", children=[
-            html.Div(className="col-sm", children=[
+            html.Div(className="col-6", children=[
                 self.slice_graph_annotations,
                 self.slice_graph_add_annotation
             ]),
-            html.Div(className="col-sm", children=[
+            html.Div(className="col-6", children=[
                 self.spectra_graph_annotations,
                 self.spectra_graph_add_annotation
             ])
         ])
       
         super(AnnotationsPanel, self).__init__('Annotations', annotations_layout_children)
-        
-    def init_callbacks(self, app):
-        # spectra annotation removal callback
-        targeted_callback(self._remove_spectra_annotation,
-                          Input({"type": "remove-spectra-annotation-btn",
-                                 "index": self._instance_index,
-                                 "annotation_index": ALL}, 
-                                "n_clicks"),
-                          Output(self.spectra_graph_annotations.id, 'children'),
-                          app=app)
-        
-        # slice annotation removal callback
-        targeted_callback(self._remove_slice_annotation,
-                          Input({"type": "remove-slice-annotation-btn",
-                                 "index": self._instance_index,
-                                 "annotation_index": ALL}, 
-                                "n_clicks"),
-                          Output(self.slice_graph_annotations.id, 'children'),
-                          app=app)
-
 
 
 class Viewer(ComposableDisplay):
@@ -351,6 +320,27 @@ class Viewer(ComposableDisplay):
         return list(self.graphs.values()) + [self._notifier, self.spectra_annotation_dialog,
                                              self.slice_annotation_dialog]
 
+    def init_callbacks(self):
+        super(Viewer, self).init_callbacks()
+
+        # spectra annotation removal callback
+        targeted_callback(self._remove_spectra_annotation,
+                          Input({"type": "remove-spectra-annotation-btn",
+                                 "index": self._instance_index,
+                                 "annotation_index": ALL},
+                                "n_clicks"),
+                          Output(self.annotations_panel.spectra_graph_annotations.id, 'children'),
+                          app=self._app)
+
+        # slice annotation removal callback
+        targeted_callback(self._remove_slice_annotation,
+                          Input({"type": "remove-slice-annotation-btn",
+                                 "index": self._instance_index,
+                                 "annotation_index": ALL},
+                                "n_clicks"),
+                          Output(self.annotations_panel.slice_graph_annotations.id, 'children'),
+                          app=self._app)
+
     def make_layout(self):
         return html.Div(html.Div(self.components, className='row'),
                         className='container-fluid')  # , style={'flexGrow': 1})
@@ -434,19 +424,20 @@ class Viewer(ComposableDisplay):
 
         # TODO add color
 
-        btn = dbc.Button(
-                html.I(className="fas fa-times"),
-                color='danger',
-                className='btn-sm',
-                n_clicks=0,
-                id={"type": "remove-spectra-annotation-btn",
-                    "index": self._instance_index,
-                    "annotation_index": annotation_index}
-        )
+        btn = dbc.Button(html.I(className="fas fa-times"),
+                         color='danger',
+                         className='btn-sm',
+                         n_clicks=0,
+                         id={"type": "remove-spectra-annotation-btn",
+                             "index": self._instance_index,
+                             "annotation_index": annotation_index},
+                         style={'marginLeft': 'auto'}
+                         )
 
         item = dbc.NavItem(id={"type": "spectra-annotation-entry",
                                "index": self._instance_index,
                                "annotation_index": annotation_index},
+                           className='annotation',
                            children=[dbc.NavLink(active=True, children=[
                                html.Span(children=annotation_content, className="annotation-content"),
                                btn
@@ -512,7 +503,7 @@ class Viewer(ComposableDisplay):
 
                 # Update the current spectra annotations list
                 self.annotations_panel.slice_graph_annotations.children = list(slice_annotations)
-        return self.annotations_panel.slice_graph_annotations
+        return self.annotations_panel.slice_graph_annotations.children
 
     def _add_annotation_from_dialog(self, n_clicks):
         # Get the form input values
