@@ -287,11 +287,16 @@ class SliceGraph(dcc.Graph):
     def update_annotations(self, *_):
         return self._update_figure()
 
-    def add_slice_annotation(self, annotation):
+    def add_annotation(self, annotation):
+        colorscale = None
+        if 'color' in annotation:
+            colorscale = [[0, 'rgb(0,0,0)'],
+                          [1, annotation['color']]]
+        opacity = annotation.get('opacity', 0.3)
         annotation_trace = self._get_image_trace(annotation['mask'],
                                                  bounds=self._bounds,
-                                                 colorscale='reds',
-                                                 opacity=0.3,
+                                                 colorscale=colorscale,
+                                                 opacity=opacity,
                                                  showscale=False,
                                                  hoverinfo='skip',
                                                  name=annotation['name']

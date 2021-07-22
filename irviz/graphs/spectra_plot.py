@@ -274,14 +274,15 @@ class SpectraPlotGraph(dcc.Graph):
         position = annotation.get('position', None)
         color = annotation.get('color', 'gray')
         name = annotation.get('name', 'Unnamed')
+        opacity = annotation.get('opacity', 0.25)
         line_kwargs = dict(annotation_position='top', line_dash='dot', line={'color': color})
         rect_kwargs = dict(name=name, fillcolor=color, line_width=0)
 
         # Handle opacities for annotations that aren't interactively defined (i.e. passed into viewer)
         #    or that don't have colors with alpha values
         if 'rgba' not in color:
-            rect_kwargs['opacity'] = 0.25
-            line_kwargs['opacity'] = 0.25
+            rect_kwargs['opacity'] = opacity
+            line_kwargs['opacity'] = opacity
 
         if span is not None:
             self.figure.add_vrect(x0=span[0], x1=span[1], **rect_kwargs)

@@ -82,7 +82,7 @@ def spectra_annotation_dialog(app, _id, **kwargs):
 
     color_input = daq.ColorPicker(id=f'{_id}-color-picker',
                                   label='Color Picker',
-                                  value=dict(rgb=dict(r='100', g='200', b='200', a=.25)))
+                                  value=dict(rgb=dict(r=100, g=200, b=200, a=.25)))
 
     return modal_dialog(app,
                         _id,
@@ -109,9 +109,14 @@ def slice_annotation_dialog(app, _id, **kwargs):
         ]
     )
 
+    color_input = daq.ColorPicker(id=f'{_id}-color-picker',
+                                  label='Color Picker',
+                                  value=dict(rgb=dict(r=255, g=0, b=0, a=.3)))
+
     return modal_dialog(app,
                         _id,
                         'Add Annotation',
-                        [name_form],
-                        states=[State(name_input.id, 'value')],
+                        [name_form, color_input],
+                        states=[State(name_input.id, 'value'),
+                                State(color_input.id, 'value')],
                         **kwargs)
