@@ -5,7 +5,7 @@
     background-color: #111;
     z-index: 1050;
     transition: width 0.1s ease-in-out;
-    display:inline-block;
+    display: inline-block;
 }
 
 .sidebar-active {
@@ -59,6 +59,7 @@
     margin-bottom: 0;
     transition: opacity 0.1s ease-in-out;
 }
+
 .sidebar-active .sidebar-header h2 {
     opactiy: 0;
 }
@@ -78,6 +79,7 @@
 .sidebar img {
     transition: transform .3s ease-in-out;
 }
+
 .sidebar:hover img {
     transform: rotate(360deg);
 }

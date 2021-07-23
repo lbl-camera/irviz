@@ -1,7 +1,7 @@
 .lock {
-    position:relative;
-    cursor:pointer;
-    height:32px;
+    position: relative;
+    cursor: pointer;
+    height: 32px;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     -khtml-user-select: none;
@@ -9,42 +9,48 @@
     -ms-user-select: none;
     user-select: none;
 }
+
 .lock input {
-    display:none;
+    display: none;
 }
+
 .lock span:before,
-.lock span:after{
-    content:"";
-}
-.lock span:before {
-    width:64px;
-    height:32px;
-    margin-right:8px;
-    background:#EEE;
-    border-radius:32px;
-    display:inline-block;
-    vertical-align:middle;
-    transition:all .5s cubic-bezier(.175, .885, .32, 1);
-}
 .lock span:after {
-    margin:2px;
-    width:28px;
-    height:28px;
-    background:#FFF;
-    border-radius:28px;
-    position:absolute;
-    left:0;
+    content: "";
+}
+
+.lock span:before {
+    width: 64px;
+    height: 32px;
+    margin-right: 8px;
+    background: #EEE;
+    border-radius: 32px;
+    display: inline-block;
+    vertical-align: middle;
+    transition: all .5s cubic-bezier(.175, .885, .32, 1);
+}
+
+.lock span:after {
+    margin: 2px;
+    width: 28px;
+    height: 28px;
+    background: #FFF;
+    border-radius: 28px;
+    position: absolute;
+    left: 0;
     background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAB6ElEQVRYR+3XS8gPURjH8c8bkYV7KVslC4US5RJhgWKDQsnCJZcFWcrCJVkqioVsZOG+eDdvLJAkJJKVkr1EIQu3okfnXy/9Z+bMO8O/5OxmznP5nud35pxn+vR49A0hf/gsxHJMSf4vcQP38L1OzLoA83AaswqSPMFuPMyFqAOwBWcwrCL4N2zDuRyIXIDV6EfYf8IJXMDz9G4aNmEPRiQZVmGgCiIHYAxeYBLeYRmi1N3GHNzEaLzCVHwsg8gB2IfjKchmnK9Y1VacTTZ7cbIpQOzs+XiDyQiNy0ZI8BpjcReLmgJ8SCW9jpVVmqb5kGEp3mNcU4DOd30Z6zMBrmFNsi2VuWwySrkEsfIY96v0HAQX+2Zuel6BW/jaDb4IYCLuYHrmiqvMnmFx+op+sS0COIb9VVFrzh/C4d99igCuYF3NBFXmF7ExF+Aq1lZFrDl/CRv+A7RZgUfpdoyYOzG7QpJWJYjk0ZR8SUlH4kFJnxBmrQJsH3ThdBa+KzUrRYX44wDRCZ0qkaFVgMdYgM8p4agkwYy/BRB5nqZNGIfZDpQlb30P1DyDfpq3KsG/D9Dzy+goDgylziU+B3Ek9ygej9uY2RJEtPGdHjGrIQmj4amjndAQ4m3qjrt20zn/BQ3zl7v3HOAHddxjIRWQtfEAAAAASUVORK5CYII=);
     background-size: 16px 16px;
     background-position: center;
     background-repeat: no-repeat;
-    z-index:2;
-    transition:all .5s cubic-bezier(.175, .885, .32, 1);
+    z-index: 2;
+    transition: all .5s cubic-bezier(.175, .885, .32, 1);
 }
+
 .lock input:checked + span:after {
-    left:32px;
-    background-image:none;
+    left: 32px;
+    background-image: none;
 }
+
 .lock input:checked + span:before {
-    background-color:#1CC691;
+    background-color: #1CC691;
 }
