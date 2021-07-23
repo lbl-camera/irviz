@@ -4,7 +4,7 @@ import dash_bootstrap_components as dbc
 import dash_daq as daq
 from dash.dependencies import Input, Output, State
 
-from irviz.utils.dash import targeted_callback
+from ryujin.utils.dash import targeted_callback
 
 __all__ = ['spectra_annotation_dialog', 'modal_dialog']
 
@@ -16,7 +16,7 @@ def modal_dialog(app,
                  success_callback: Callable,
                  success_output: Output,
                  open_input: Input,
-                 states: List[State],):
+                 states: List[State], ):
     header = dbc.ModalHeader(title, id=f'{_id}-header')
     body = dbc.ModalBody(children, id=f'{_id}-body')
     cancel_button = dbc.Button("Cancel", id=f'{_id}-cancel', className="ml-auto", n_clicks=0)
@@ -52,7 +52,6 @@ def modal_dialog(app,
 
 
 def spectra_annotation_dialog(app, _id, **kwargs):
-
     name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
     name_form = dbc.FormGroup(
         [
@@ -96,7 +95,6 @@ def spectra_annotation_dialog(app, _id, **kwargs):
 
 
 def slice_annotation_dialog(app, _id, **kwargs):
-
     name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
     name_form = dbc.FormGroup(
         [

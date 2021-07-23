@@ -5,7 +5,7 @@ from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 import dash
 
-from irviz.utils.dash import targeted_callback
+from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
 
 
@@ -24,15 +24,24 @@ class SliceGraph(dcc.Graph):
     title = ''
     aspect_locked = True
 
-    def __init__(self, data, bounds, cluster_labels, cluster_label_names, parent, slice_axis=0, traces=None, shapes=None, **kwargs):
+    def __init__(self, data, instance_index, cluster_labels=None, cluster_label_names=None, bounds=None, slice_axis=0,
+                 traces=None, shapes=None, graph_kwargs=None, **kwargs):
+        # Normalize bounds
+        if bounds is None or np.asarray(bounds).shape != (
+                3, 2):  # bounds should contain a min/max pair for each dimension
+            bounds = [[0, data.shape[0] - 1],
+                      [0, data.shape[1] - 1],
+                      [0, data.shape[2] - 1]]
+        bounds = np.asarray(bounds)
 
-        # Cache our data and parent for use in the callbacks
+        # Cache our data for use in the callbacks
         self._data = data
-        self._parent = parent
+        self._instance_index = instance_index
         self._bounds = bounds
         self._traces = traces or []
         self._annotation_traces = []
         self._shapes = shapes or []
+        self._cluster_labels = cluster_labels
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
 
@@ -43,13 +52,13 @@ class SliceGraph(dcc.Graph):
                                        yref='y',
                                        x0=0,
                                        x1=1,
-                                       y0=(bounds[1][1]+bounds[1][0])/2,
-                                       y1=(bounds[1][1]+bounds[1][0])/2)
+                                       y0=(bounds[1][1] + bounds[1][0]) / 2,
+                                       y1=(bounds[1][1] + bounds[1][0]) / 2)
         self._v_line = go.layout.Shape(type='line',
                                        xref='x',
                                        yref='paper',
-                                       x0=(bounds[2][1]+bounds[2][0])/2,
-                                       x1=(bounds[2][1]+bounds[2][0])/2,
+                                       x0=(bounds[2][1] + bounds[2][0]) / 2,
+                                       x1=(bounds[2][1] + bounds[2][0]) / 2,
                                        y0=0,
                                        y1=1)
 
@@ -71,7 +80,7 @@ class SliceGraph(dcc.Graph):
                                                      colorscale='reds',
                                                      opacity=0.3,
                                                      showscale=False,
-                                                     hoverinfo='skip',)
+                                                     hoverinfo='skip', )
 
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))
@@ -89,7 +98,7 @@ class SliceGraph(dcc.Graph):
                                                colorscale='Portland',
                                                opacity=0.3,
                                                showscale=False,
-                                               hoverinfo='skip',)
+                                               hoverinfo='skip', )
 
         if cluster_labels is not None:
             self._clusters.z = cluster_labels  # NaNs are transparent
@@ -99,25 +108,19 @@ class SliceGraph(dcc.Graph):
 
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
-                                         id=self._id(),
-                                         className='col-lg-3 p-0',
-                                         responsive=True,
-                                         style=dict(display='flex',
-                                                    flexDirection='row',
-                                                    height='100%',
-                                                    minHeight='450px'),
-                                         **kwargs)
+                                         id=self._id(instance_index),
+                                         **graph_kwargs or {})
 
-    def _id(self):
+    def _id(self, instance_index):
         return {'type': 'slice_graph',
                 'subtype': ...,
-                'index': self._parent._instance_index}
+                'index': instance_index}
 
     def _get_image_trace(self, data, bounds, **extra_kwargs):
         graph_bounds = dict(y0=bounds[1][0],
-                            dy=(bounds[1][1]-bounds[1][0])/(data.shape[0]-1),
+                            dy=(bounds[1][1] - bounds[1][0]) / (data.shape[0] - 1),
                             x0=bounds[2][0],
-                            dx=(bounds[2][1]-bounds[2][0])/(data.shape[1]-1))
+                            dx=(bounds[2][1] - bounds[2][0]) / (data.shape[1] - 1))
 
         if data.ndim == 3 and data.shape[-1] == 3:
             graph_object = go.Image
@@ -129,75 +132,62 @@ class SliceGraph(dcc.Graph):
         return graph_object(z=np.asarray(data),
                             **graph_bounds,
                             **extra_kwargs
-                           )
+                            )
 
-    def register_callbacks(self):
+    def init_callbacks(self, app):
         # When any SliceGraph is clicked, update its x,y slicer lines
         targeted_callback(self.show_click,
                           Input({'type': 'slice_graph',
                                  'subtype': ALL,
-                                 'index': self._parent._instance_index},
+                                 'index': self._instance_index},
                                 'clickData'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
-
-        # When the optical graph is clicked show the same position
-        targeted_callback(self.show_click,
-                          Input(self._parent.optical_graph.id, 'clickData'),
-                          Output(self.id, 'figure'),
-                          app=self._parent._app)
-
-        # When the decomposition graph is clicked show the same position
-        targeted_callback(self.show_click,
-                          Input(self._parent.decomposition_graph.id, 'clickData'),
-                          Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # When points are selected in the pair plot, show them here
         targeted_callback(self._show_selection_mask,
-                          Input(self._parent.pair_plot_graph.id, 'selectedData'),
+                          Input({'type': 'pair_plot',
+                                 'wildcard': ALL,
+                                 'index': self._instance_index}, 'selectedData'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # When any SliceGraph is lasso'd, update the selection mask
         targeted_callback(self._show_selection_mask,
                           Input({'type': 'slice_graph',
                                  'subtype': ALL,
-                                 'index': self._parent._instance_index},
+                                 'index': self._instance_index},
                                 'selectedData'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
-
-        # Bind the labels toggle to its trace's visibility
-        targeted_callback(self.set_clusters_visibility,
-                          Input(self._parent._graph_toggles.id, 'value'),
-                          Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # Share zoom state
         targeted_callback(self.sync_zoom,
                           Input({'type': 'slice_graph',
                                  'subtype': ALL,
-                                 'index': self._parent._instance_index},
+                                 'index': self._instance_index},
                                 'relayoutData'),
                           Output(self.id, 'figure'),
                           State({'type': 'slice_graph',
                                  'subtype': ALL,
-                                 'index': self._parent._instance_index},
+                                 'index': self._instance_index},
                                 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # update with annotations
         targeted_callback(self.update_annotations,
-                          Input(self._parent.slice_graph_annotations.id, 'children'),
+                          Input({'type': 'slice_annotations',
+                                 'index': self._instance_index,
+                                 'wildcard': ALL},
+                                'children'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # update cluster overlay opacity
         targeted_callback(self.update_opacity,
-                          Input(self._parent._cluster_overlay_opacity.id, 'value'),
+                          Input(self.configuration_panel._cluster_overlay_opacity.id, 'value'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
     def update_opacity(self, value):
         self._clusters.opacity = value
@@ -214,9 +204,9 @@ class SliceGraph(dcc.Graph):
 
             try:
                 figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
-                                                           relayoutData['xaxis.range[1]']]
+                                                      relayoutData['xaxis.range[1]']]
                 figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
-                                                           relayoutData['yaxis.range[1]']]
+                                                      relayoutData['yaxis.range[1]']]
                 figure['layout']['xaxis']['autorange'] = False
                 figure['layout']['yaxis']['autorange'] = False
             except KeyError:  # ignore when we haven't already zoomed
@@ -289,6 +279,13 @@ class SliceGraph(dcc.Graph):
 
         return self._update_figure()
 
+    @staticmethod
+    def _set_visibility(checked):
+        if checked:
+            return {'display': 'block'}
+        else:
+            return {'display': 'none'}
+
     def update_annotations(self, *_):
         return self._update_figure()
 
@@ -298,25 +295,30 @@ class SliceGraph(dcc.Graph):
             colorscale = [[0, 'rgb(0,0,0)'],
                           [1, annotation['color']]]
         opacity = annotation.get('opacity', 0.3)
-
         annotation_trace = self._get_image_trace(annotation['mask'],
                                                  bounds=self._bounds,
                                                  colorscale=colorscale,
                                                  opacity=opacity,
                                                  showscale=False,
                                                  hoverinfo='skip',
-                                                 name=annotation['name']
+                                                 name=annotation['name'],
+                                                 meta={'annotation_index': annotation['annotation_index']}
                                                  )
         self._annotation_traces.append(annotation_trace)
 
         return annotation_trace
+
+    def remove_annotation(self, index):
+        remaining_annotations = list(filter(lambda a: a.meta['annotation_index'] != index, self._annotation_traces))
+        self._annotation_traces = remaining_annotations
+        return self._update_figure()
 
     @property
     def annotations(self):
         annotations = []
         for trace in self._annotation_traces:
             annotation = {'name': trace.name,
-                           'mask': trace.z == 1}
+                          'mask': trace.z == 1}
             annotations.append(annotation)
         return annotations
 

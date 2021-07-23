@@ -2,12 +2,13 @@ from functools import partial
 
 import dash_core_components as dcc
 import numpy as np
-from dash.dependencies import Input, Output, ALL
+from dash.dependencies import ALL, Input, Output
 from dask import array as da
 from plotly import graph_objects as go
 
-from irviz.utils.dash import targeted_callback
+from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
+
 __all__ = ['SpectraPlotGraph']
 
 
@@ -18,7 +19,8 @@ __all__ = ['SpectraPlotGraph']
 class SpectraPlotGraph(dcc.Graph):
     title = 'Spectra Intensities'
 
-    def __init__(self, data, bounds, parent, decomposition=None, component_spectra=None, invert_spectra_axis=False, error_func=None, **kwargs):
+    def __init__(self, data, instance_index, bounds=None, decomposition=None, component_spectra=None, invert_spectra_axis=False,
+                 error_func=None, traces=None, graph_kwargs=None, **kwargs):
 
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
@@ -44,13 +46,24 @@ class SpectraPlotGraph(dcc.Graph):
         kwargs
             Additional keyword arguments to be passed into Graph
         """
+        # Normalize bounds
+        if bounds is None or np.asarray(bounds).shape != (
+                3, 2):  # bounds should contain a min/max pair for each dimension
+            bounds = [[0, data.shape[0] - 1],
+                      [0, data.shape[1] - 1],
+                      [0, data.shape[2] - 1]]
+        bounds = np.asarray(bounds)
+
+        # Cache our data for use in the callbacks
+
         self._data = data
+        self._instance_index = instance_index
         self._decomposition = decomposition
         self._invert_spectra_axis = invert_spectra_axis
         self._error_func = error_func or partial(np.std, axis=1)
-        self._parent = parent
         self._bounds = bounds
         self._component_spectra = np.asarray(component_spectra)
+        self._traces = traces or []
 
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -96,7 +109,7 @@ class SpectraPlotGraph(dcc.Graph):
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,
                                                   y=self._component_spectra[i],
-                                                  name=f'Component #{i+1}',
+                                                  name=f'Component #{i + 1}',
                                                   visible='legendonly',
                                                   legendgroup='_components')
                                      for i in range(self._component_spectra.shape[0])]
@@ -123,61 +136,69 @@ class SpectraPlotGraph(dcc.Graph):
 
         fig = self._update_figure()
 
-        super(SpectraPlotGraph, self).__init__(id=self._id(),
+        super(SpectraPlotGraph, self).__init__(id=self._id(instance_index),
                                                figure=fig,
-                                               className='col-lg-9 p-0',
-                                               responsive=True,
-                                               style=dict(display='flex',
-                                                          flexDirection='row',
-                                                          height='100%',
-                                                          minHeight='450px'),
+                                               **graph_kwargs or {},
                                                )
 
-    def register_callbacks(self):
+    def init_callbacks(self, app):
+
         # When points are selected on the MapGraph, add additional statistics and components plots
         targeted_callback(self._update_average_plot,
-                          Input(self._parent.map_graph.id, 'selectedData'),
+                          Input({'type': 'slice_graph',
+                                 'subtype': 'map',
+                                 'index': self._instance_index},
+                                'selectedData'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # On selection of pair-plot points, show their average
         targeted_callback(self._update_average_plot,
-                          Input(self._parent.pair_plot_graph.id, 'selectedData'),
+                          Input({'type': 'pair_plot',
+                                 'subtype': ALL,
+                                 'index': self._instance_index},
+                                'selectedData'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # When this SpectraGraph itself is clicked, update the energy slicer line
-        targeted_callback(self._update_energy_line,
+        targeted_callback(self.plot_click,
                           Input(self.id, 'clickData'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # When any slice graph is clicked, update plot with the clicked x,y coord
         targeted_callback(self.show_click,
                           Input({'type': 'slice_graph',
                                  'subtype': ALL,
-                                 'index': self._parent._instance_index},
+                                 'index': self._instance_index},
                                 'clickData'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
-        # Wire-up visibility toggle
-        targeted_callback(self._set_visibility,
-                          Input(self._parent._graph_toggles.id, 'value'),
-                          Output(self.id, 'style'),
-                          app=self._parent._app)
-
+        # # Wire-up visibility toggle
+        # targeted_callback(self._set_visibility,
+        #                   Input(self._parent._graph_toggles.id, 'value'),  # TODO: fix this!!!!!!!!!!!!!!
+        #                   Output(self.id, 'style'),
+        #                   app=app)
+        #
         # Chain annotations update to refresh figure
         targeted_callback(self._update_figure,
-                          Input(self._parent.spectra_graph_annotations.id, 'children'),
+                          Input({'type': 'spectra_annotations',
+                                 'index': self._instance_index,
+                                 'wildcard': ALL},
+                                'children'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
         # update with slice annotations
         targeted_callback(self.update_annotations,
-                          Input(self._parent.slice_graph_annotations.id, 'children'),
+                          Input({'type': 'slice_annotations',
+                                 'index': self._instance_index,
+                                 'wildcard': ALL},
+                                'children'),
                           Output(self.id, 'figure'),
-                          app=self._parent._app)
+                          app=app)
 
     def show_click(self, click_data):
         y = click_data["points"][0]["y"]
@@ -252,14 +273,24 @@ class SpectraPlotGraph(dcc.Graph):
         else:
             return {'display': 'none'}
 
+    def remove_annotation(self, index):
+        """Remove a spectra annotation by its unique integer index."""
+        remaining_shapes = list(filter(lambda shape: shape.name != str(index), self.figure.layout.shapes))
+        self.figure.layout.shapes = remaining_shapes
+        remaining_annotations = list(filter(lambda a: a.name != str(index), self.figure.layout.annotations))
+        self.figure.layout.annotations = remaining_annotations
+        return self._update_figure()
+
     def add_annotation(self, annotation):
         span = annotation.get('range', None)
         position = annotation.get('position', None)
         color = annotation.get('color', 'gray')
         name = annotation.get('name', 'Unnamed')
+        # Annotation index will be used as a unique "name" for each annotation
+        annotation_index = annotation.get('annotation_index', name)
         opacity = annotation.get('opacity', 0.25)
         line_kwargs = dict(annotation_position='top', line_dash='dot', line={'color': color})
-        rect_kwargs = dict(name=name, fillcolor=color, line_width=0)
+        rect_kwargs = dict(fillcolor=color, line_width=0)
 
         # Handle opacities for annotations that aren't interactively defined (i.e. passed into viewer)
         #    or that don't have colors with alpha values
@@ -268,13 +299,22 @@ class SpectraPlotGraph(dcc.Graph):
             line_kwargs['opacity'] = opacity
 
         if span is not None:
-            self.figure.add_vrect(x0=span[0], x1=span[1], **rect_kwargs)
+            self.figure.add_vrect(x0=span[0], x1=span[1], name=annotation_index, **rect_kwargs)
             # Create invisible vline so we can get the text annotation above the middle of the rect range
             center = (span[0] + span[1]) / 2
-            self.figure.add_vline(x=center, annotation_text=name, visible=False, **line_kwargs)
+            self.figure.add_vline(x=center,
+                                  name=annotation_index,
+                                  annotation_text=name,
+                                  annotation_name=annotation_index,
+                                  visible=False,
+                                  **line_kwargs)
 
         elif position is not None:
-            self.figure.add_vline(x=position, name=name, annotation_text=name, **line_kwargs)
+            self.figure.add_vline(x=position,
+                                  name=annotation_index,
+                                  annotation_text=name,
+                                  annotation_name=annotation_index,
+                                  **line_kwargs)
 
     def _traces_from_annotations(self, annotations):
         traces = []
@@ -326,19 +366,19 @@ class SpectraPlotGraph(dcc.Graph):
         shapes = []
         annotations = []
         if current_figure is not None:
-            shapes = list(filter(lambda shape: shape.visible is not False, current_figure.layout.shapes))  # visible defaults to None?
+            shapes = list(
+                filter(lambda shape: shape.visible is not False, current_figure.layout.shapes))  # visible defaults to None?
             shapes.extend(list(filter(lambda shape: shape.visible is False, current_figure.layout.shapes)))
             annotations = current_figure.layout.annotations
-        new_figure = go.Figure([self._plot,
-                         self._avg_plot,
-                         self._weighted_sum,
-                         self._upper_error_plot,
-                         self._lower_error_plot,
-                         *self._traces_from_annotations(self._parent.slice_annotations),
-                         *self._component_plots])
+        new_figure = go.Figure([*self._traces, self._plot,
+                                self._avg_plot,
+                                self._weighted_sum,
+                                self._upper_error_plot,
+                                self._lower_error_plot,
+                                *self._component_plots])
         new_figure.update_layout(title=self.title,
-                          xaxis_title=self.xaxis_title,
-                          yaxis_title=self.yaxis_title)
+                                 xaxis_title=self.xaxis_title,
+                                 yaxis_title=self.yaxis_title)
         if self._invert_spectra_axis:
             new_figure.update_xaxes(autorange="reversed")
 
@@ -359,6 +399,7 @@ class SpectraPlotGraph(dcc.Graph):
             if annotation.name != self._slicer_name:
                 new_figure.add_annotation(annotation)
 
+        self.figure = new_figure
         return new_figure
 
     def _update_average_plot(self, selected_data):
@@ -391,10 +432,13 @@ class SpectraPlotGraph(dcc.Graph):
 
         return self._update_figure()
 
+    def plot_click(self, click_data):
+        return self._update_energy_line(click_data)
+
     def _update_energy_line(self, click_data):
         self._slicer_index = click_data["points"][0]["x"]
         return self._update_figure()
 
-    def _id(self):
+    def _id(self, instance_index):
         return {'type': 'spectraplot',
-                'index': self._parent._instance_index}
+                'index': instance_index}
