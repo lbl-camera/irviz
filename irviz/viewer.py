@@ -9,18 +9,14 @@ import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
 from dash.dependencies import ALL, Input, Output
-from dash_core_components import Graph, Slider
 
 import ryujin.utils.dash
 from irviz.components import spectra_annotation_dialog
-from irviz.components.color_scale_selector import ColorScaleSelector
 from irviz.components.modal_dialogs import slice_annotation_dialog
 from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
-from irviz.graphs._colors import decomposition_color_scales
 from ryujin import ComposableDisplay
 from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
-from irviz.utils.math import nearest_bin
 from ryujin.utils.strings import phonetic_from_int
 
 
@@ -34,13 +30,13 @@ class AnnotationsPanel(Panel):
         self._instance_index = instance_index
         self.spectra_graph_annotations = dbc.Nav(id={'type': 'spectra_annotations',
                                                      'index': instance_index,
-                                                     'wildcard': ALL},
+                                                     'wildcard': True},
                                                  pills=True,
                                                  vertical='md',
                                                  children=[])
         self.slice_graph_annotations = dbc.Nav(id={'type': 'slice_annotations',
                                                    'index': instance_index,
-                                                   'wildcard': ALL},
+                                                   'wildcard': True},
                                                pills=True,
                                                vertical='md',
                                                children=[])
@@ -57,7 +53,7 @@ class AnnotationsPanel(Panel):
                 self.spectra_graph_add_annotation
             ])
         ])
-      
+
         super(AnnotationsPanel, self).__init__('Annotations', annotations_layout_children)
 
 
@@ -401,10 +397,9 @@ class Viewer(ComposableDisplay):
     def spectra_annotations(self):
         """User-defined annotations on the spectra graph"""
         if 'spectra_graph' not in self.graphs:
-          return []
-        
-        return self.graphs['spectra_graph'].annotations
+            return []
 
+        return self.graphs['spectra_graph'].annotations
 
     @property
     def slice_annotations(self):
@@ -501,7 +496,7 @@ class Viewer(ComposableDisplay):
                         graph.remove_slice_annotation(index)
 
                 slice_annotations = filter(lambda annotation: annotation.id['annotation_index'] != index,
-                                             annotation_entries)
+                                           annotation_entries)
 
                 # Update the current spectra annotations list
                 self.annotations_panel.slice_graph_annotations.children = list(slice_annotations)

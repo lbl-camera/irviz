@@ -4,9 +4,7 @@ import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 from plotly import graph_objects as go
 
-
 from irviz.components import ColorScaleSelector
-from irviz.graphs._colors import decomposition_color_scales
 from irviz.graphs.slice import SliceGraph
 from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
@@ -60,7 +58,8 @@ class OpticalGraph(SliceGraph):
     """
     title = 'Optical Image'
 
-    def __init__(self, map_data, instance_index, optical_data, bounds, cluster_labels, cluster_label_names, slice_axis=0, traces=None, shapes=None, **kwargs):
+    def __init__(self, map_data, instance_index, optical_data, bounds, cluster_labels, cluster_label_names, slice_axis=0,
+                 traces=None, shapes=None, **kwargs):
         self.configuration_panel = OpticalGraphPanel(instance_index, cluster_labels)
         self._map_data = map_data
 
@@ -116,9 +115,6 @@ class OpticalGraph(SliceGraph):
         _id['subtype'] = 'optical'
         return _id
 
-
-    # NOTE: THIS method is overridden because the mask shape must be based on the map_data rather than the optical_data
-    # TODO: Refactor everything
     def _show_selection_mask(self, selection):
         if selection is not None:
             # Get x,y from the raveled indexes

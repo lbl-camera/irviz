@@ -5,7 +5,6 @@ import numpy as np
 from dash.dependencies import Output, Input, ALL
 from plotly import graph_objects as go
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
 import dash_html_components as html
 import dash_core_components as dcc
 
@@ -34,7 +33,7 @@ class DecompositionGraphPanel(Panel):
         radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
                             labelClassName="btn btn-secondary",
                             labelCheckedClassName="active",
-                            options=[{'label': f'{i+1}', 'value': i}
+                            options=[{'label': f'{i + 1}', 'value': i}
                                      for i in range(component_count)]
 
                             )
@@ -60,10 +59,11 @@ class DecompositionGraphPanel(Panel):
             id='component-opacity-sliders'
         )
 
-        self.color_scale_selectors = [ColorScaleSelector({'type':'color-scale-selector',
+        self.color_scale_selectors = [ColorScaleSelector({'type': 'color-scale-selector',
                                                           'index': i},
                                                          values=decomposition_color_scales,
-                                                         value=decomposition_color_scales[i % len(decomposition_color_scales)],
+                                                         value=decomposition_color_scales[
+                                                             i % len(decomposition_color_scales)],
                                                          )
                                       for i in range(component_count)]
 
@@ -87,7 +87,9 @@ class DecompositionGraphPanel(Panel):
             className='radio-group'
         )
 
-        self.visibility_toggle = dbc.Checkbox(id=dict(type='decomposition-visibility', instance_index=instance_index), checked=True)
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='decomposition-visibility',
+                                                      instance_index=instance_index),
+                                              checked=True)
 
         children = [dbc.FormGroup([self.visibility_toggle,
                                    dbc.Label('Show Decomposition Image')]),
@@ -100,7 +102,7 @@ class DecompositionGraphPanel(Panel):
 
     def init_callbacks(self, app):
         super(DecompositionGraphPanel, self).init_callbacks(app)
-        for color_scale_selector in self. color_scale_selectors:
+        for color_scale_selector in self.color_scale_selectors:
             color_scale_selector.init_callbacks(app)
 
         # Disable sliders when their component is hidden
@@ -128,19 +130,24 @@ class DecompositionGraph(SliceGraph):
             color_scale = transparent_color_scales.get(color_scale, color_scale)
 
             self._component_traces.append(go.Heatmap(z=np.asarray(data[i]),
-                                 colorscale=color_scale,
-                                 y0=bounds[1][0],
-                                 dy=(bounds[1][1]-bounds[1][0])/(data.shape[1]-1),
-                                 x0=bounds[2][0],
-                                 dx=(bounds[2][1]-bounds[2][0])/(data.shape[2]-1),
-                                 visible=(i==0),
-                                 opacity=.5 if i else 1,
-                                 ))
-
+                                                     colorscale=color_scale,
+                                                     y0=bounds[1][0],
+                                                     dy=(bounds[1][1] - bounds[1][0]) / (data.shape[1] - 1),
+                                                     x0=bounds[2][0],
+                                                     dx=(bounds[2][1] - bounds[2][0]) / (data.shape[2] - 1),
+                                                     visible=(i == 0),
+                                                     opacity=.5 if i else 1,
+                                                     ))
 
         kwargs['traces'] = self._component_traces
 
-        super(DecompositionGraph, self).__init__(data, instance_index, cluster_labels, cluster_label_names, bounds, *args, **kwargs)
+        super(DecompositionGraph, self).__init__(data,
+                                                 instance_index,
+                                                 cluster_labels,
+                                                 cluster_label_names,
+                                                 bounds,
+                                                 *args,
+                                                 **kwargs)
 
         # Hide the free image trace
         self._image.visible = False

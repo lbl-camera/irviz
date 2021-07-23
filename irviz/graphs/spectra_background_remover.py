@@ -1,6 +1,5 @@
-import dash_html_components as html
 import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 from plotly import graph_objects as go
 import numpy as np
 
@@ -31,8 +30,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                                       {'label': 'Point Selection Mode', 'value': 2}],
                                              value=1
                                              )
-
-
 
     def init_callbacks(self, app):
         super(SpectraBackgroundRemover, self).init_callbacks(app)

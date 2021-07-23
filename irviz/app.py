@@ -1,5 +1,4 @@
 import warnings
-from functools import partial
 
 import dash
 import dash_bootstrap_components as dbc

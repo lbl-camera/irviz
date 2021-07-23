@@ -43,7 +43,7 @@ class ColorScaleSelector(dbc.DropdownMenu):
                 _id_copy = _id.copy()
                 _id_copy['value'] = name
             else:
-                _id_copy = _id+'-'+name
+                _id_copy = _id + '-' + name
             self.children.append(dbc.DropdownMenuItem(name, id=_id_copy))
 
         kwargs = dict(label=value,

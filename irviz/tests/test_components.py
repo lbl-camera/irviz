@@ -1,10 +1,8 @@
-from dash.dependencies import Input, Output
 import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 
 from irviz.components.color_scale_selector import ColorScaleSelector
-from ryujin.utils.dash import targeted_callback
 
 
 def test_color_scale_selector(dash_duo):

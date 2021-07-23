@@ -14,5 +14,4 @@ transparent_color_scales = {'TransparentRed': [[0, "rgba(255, 0, 0, 0)"],
                                                 [1, "rgba(0, 255, 255, 255)"]]
                             }
 
-
-decomposition_color_scales = ['gray']+list(transparent_color_scales.keys())
+decomposition_color_scales = ['gray'] + list(transparent_color_scales.keys())

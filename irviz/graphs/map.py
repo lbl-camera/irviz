@@ -19,13 +19,13 @@ class MapGraphPanel(Panel):
         self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity',
                                                        'index': instance_index,
                                                        'subtype': 'map'},
-                                               min=0,
-                                               max=1,
-                                               step=.05,
-                                               value=.3,
-                                               className='centered-slider',
-                                               disabled=True if cluster_labels is None else False,
-                                               )
+                                                   min=0,
+                                                   max=1,
+                                                   step=.05,
+                                                   value=.3,
+                                                   className='centered-slider',
+                                                   disabled=True if cluster_labels is None else False,
+                                                   )
 
         map_settings_form = dbc.Form([dbc.FormGroup([dbc.Label("Map Color Scale"), self._map_color_scale_selector]),
                                       dbc.FormGroup(

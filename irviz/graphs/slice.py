@@ -24,7 +24,8 @@ class SliceGraph(dcc.Graph):
     title = ''
     aspect_locked = True
 
-    def __init__(self, data, instance_index, cluster_labels=None, cluster_label_names=None, bounds=None, slice_axis=0, traces=None, shapes=None, graph_kwargs=None, **kwargs):
+    def __init__(self, data, instance_index, cluster_labels=None, cluster_label_names=None, bounds=None, slice_axis=0,
+                 traces=None, shapes=None, graph_kwargs=None, **kwargs):
         # Normalize bounds
         if bounds is None or np.asarray(bounds).shape != (
                 3, 2):  # bounds should contain a min/max pair for each dimension
@@ -51,13 +52,13 @@ class SliceGraph(dcc.Graph):
                                        yref='y',
                                        x0=0,
                                        x1=1,
-                                       y0=(bounds[1][1]+bounds[1][0])/2,
-                                       y1=(bounds[1][1]+bounds[1][0])/2)
+                                       y0=(bounds[1][1] + bounds[1][0]) / 2,
+                                       y1=(bounds[1][1] + bounds[1][0]) / 2)
         self._v_line = go.layout.Shape(type='line',
                                        xref='x',
                                        yref='paper',
-                                       x0=(bounds[2][1]+bounds[2][0])/2,
-                                       x1=(bounds[2][1]+bounds[2][0])/2,
+                                       x0=(bounds[2][1] + bounds[2][0]) / 2,
+                                       x1=(bounds[2][1] + bounds[2][0]) / 2,
                                        y0=0,
                                        y1=1)
 
@@ -79,7 +80,7 @@ class SliceGraph(dcc.Graph):
                                                      colorscale='reds',
                                                      opacity=0.3,
                                                      showscale=False,
-                                                     hoverinfo='skip',)
+                                                     hoverinfo='skip', )
 
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))
@@ -97,7 +98,7 @@ class SliceGraph(dcc.Graph):
                                                colorscale='Portland',
                                                opacity=0.3,
                                                showscale=False,
-                                               hoverinfo='skip',)
+                                               hoverinfo='skip', )
 
         if cluster_labels is not None:
             self._clusters.z = cluster_labels  # NaNs are transparent
@@ -117,9 +118,9 @@ class SliceGraph(dcc.Graph):
 
     def _get_image_trace(self, data, bounds, **extra_kwargs):
         graph_bounds = dict(y0=bounds[1][0],
-                            dy=(bounds[1][1]-bounds[1][0])/(data.shape[0]-1),
+                            dy=(bounds[1][1] - bounds[1][0]) / (data.shape[0] - 1),
                             x0=bounds[2][0],
-                            dx=(bounds[2][1]-bounds[2][0])/(data.shape[1]-1))
+                            dx=(bounds[2][1] - bounds[2][0]) / (data.shape[1] - 1))
 
         if data.ndim == 3 and data.shape[-1] == 3:
             graph_object = go.Image
@@ -131,7 +132,7 @@ class SliceGraph(dcc.Graph):
         return graph_object(z=np.asarray(data),
                             **graph_bounds,
                             **extra_kwargs
-                           )
+                            )
 
     def init_callbacks(self, app):
         # When any SliceGraph is clicked, update its x,y slicer lines
@@ -203,9 +204,9 @@ class SliceGraph(dcc.Graph):
 
             try:
                 figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
-                                                           relayoutData['xaxis.range[1]']]
+                                                      relayoutData['xaxis.range[1]']]
                 figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
-                                                           relayoutData['yaxis.range[1]']]
+                                                      relayoutData['yaxis.range[1]']]
                 figure['layout']['xaxis']['autorange'] = False
                 figure['layout']['yaxis']['autorange'] = False
             except KeyError:  # ignore when we haven't already zoomed
@@ -317,7 +318,7 @@ class SliceGraph(dcc.Graph):
         annotations = []
         for trace in self._annotation_traces:
             annotation = {'name': trace.name,
-                           'mask': trace.z == 1}
+                          'mask': trace.z == 1}
             annotations.append(annotation)
         return annotations
 

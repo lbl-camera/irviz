@@ -10,6 +10,7 @@ import dash_html_components as html
 from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
+
 __all__ = ['PairPlotGraph']
 
 
@@ -18,7 +19,7 @@ class PairPlotGraphPanel(Panel):
         radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
                             labelClassName="btn btn-secondary",
                             labelCheckedClassName="active",
-                            options=[{'label': f'{i+1}', 'value': i}
+                            options=[{'label': f'{i + 1}', 'value': i}
                                      for i in range(component_count)]
 
                             )
@@ -90,7 +91,7 @@ class PairPlotGraph(dcc.Graph):
     def _id(self):
         return {'type': 'pair_plot',
                 'index': self._instance_index,
-                'wildcard': True} # The wildcard field is only here to enable 0-match patterns
+                'wildcard': True}  # The wildcard field is only here to enable 0-match patterns
 
     def init_callbacks(self, app):
         # Set up callbacks
@@ -158,15 +159,16 @@ class PairPlotGraph(dcc.Graph):
         multi_mode = component2 == 'ALL'
         cluster_label_mode = not multi_mode and self._cluster_labels is not None
 
-        match_components = list(range(component1)) + list(range(component1+1, self._data.shape[0])) if multi_mode else [component2]
+        match_components = list(range(component1)) + list(range(component1 + 1, self._data.shape[0])) if multi_mode else [
+            component2]
 
         for component2 in match_components:
             # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
             selected_points = None
             triggered = dash.callback_context.triggered
             if '"type":"slice_graph"' in triggered[0]['prop_id'] and \
-                'selectedData' in triggered[0]['prop_id'] and \
-                triggered[0]['value'] is not None:
+                    'selectedData' in triggered[0]['prop_id'] and \
+                    triggered[0]['value'] is not None:
                 # selected data being None indicates that the user has selected data
                 # selected data 'points' being empty indicates the user has selected data outside of the region
                 selected_points = self._indexes_from_selection(triggered[0]['value'])
@@ -181,7 +183,7 @@ class PairPlotGraph(dcc.Graph):
                                             hoverinfo='skip' if cluster_label_mode else None,
                                             showlegend=True if multi_mode else False,
                                             selectedpoints=selected_points,
-                                            name=f'Component #{component2+1}' if multi_mode else None))
+                                            name=f'Component #{component2 + 1}' if multi_mode else None))
 
             if cluster_label_mode:
                 min_index = 0
@@ -190,8 +192,9 @@ class PairPlotGraph(dcc.Graph):
                     masked_selected_points = None
                     if selected_points is not None:
                         masked_selected_points = np.asarray(selected_points) - min_index
-                        masked_selected_points = masked_selected_points[np.logical_and(0<=masked_selected_points,
-                                                                                       masked_selected_points<np.count_nonzero(label_mask))]
+                        masked_selected_points = masked_selected_points[
+                            np.logical_and(0 <= masked_selected_points, masked_selected_points < np.count_nonzero(label_mask))
+                        ]
                     trace = go.Scattergl(x=np.asarray(x.ravel())[label_mask],
                                          y=np.asarray(y.ravel())[label_mask],
                                          name=name,
@@ -214,8 +217,8 @@ class PairPlotGraph(dcc.Graph):
 
         self.traces.append(self.crosshair_trace)
 
-        self._xaxis_title = f'Component #{component1+1}'
-        self._yaxis_title = f'Other components' if multi_mode else f'Component #{component2+1}'
+        self._xaxis_title = f'Component #{component1 + 1}'
+        self._yaxis_title = f'Other components' if multi_mode else f'Component #{component2 + 1}'
 
         return self._update_figure()
 

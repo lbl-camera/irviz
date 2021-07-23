@@ -19,7 +19,8 @@ __all__ = ['SpectraPlotGraph']
 class SpectraPlotGraph(dcc.Graph):
     title = 'Spectra Intensities'
 
-    def __init__(self, data, instance_index, bounds=None, decomposition=None, component_spectra=None, invert_spectra_axis=False, error_func=None, traces=None, graph_kwargs=None, **kwargs):
+    def __init__(self, data, instance_index, bounds=None, decomposition=None, component_spectra=None, invert_spectra_axis=False,
+                 error_func=None, traces=None, graph_kwargs=None, **kwargs):
 
         """Interactive Graph that shows spectral intensities at a selectable energy / wave-number index.
 
@@ -108,7 +109,7 @@ class SpectraPlotGraph(dcc.Graph):
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,
                                                   y=self._component_spectra[i],
-                                                  name=f'Component #{i+1}',
+                                                  name=f'Component #{i + 1}',
                                                   visible='legendonly',
                                                   legendgroup='_components')
                                      for i in range(self._component_spectra.shape[0])]
@@ -365,19 +366,19 @@ class SpectraPlotGraph(dcc.Graph):
         shapes = []
         annotations = []
         if current_figure is not None:
-            shapes = list(filter(lambda shape: shape.visible is not False, current_figure.layout.shapes))  # visible defaults to None?
+            shapes = list(
+                filter(lambda shape: shape.visible is not False, current_figure.layout.shapes))  # visible defaults to None?
             shapes.extend(list(filter(lambda shape: shape.visible is False, current_figure.layout.shapes)))
             annotations = current_figure.layout.annotations
         new_figure = go.Figure([*self._traces, self._plot,
-                         self._avg_plot,
-                         self._weighted_sum,
-                         self._upper_error_plot,
-                         self._lower_error_plot,
-                         # *self._traces_from_annotations(self._parent.slice_annotations),  TODO: FIX THIS!!!!!!!!!!!!!!!!!!!!!!
-                         *self._component_plots])
+                                self._avg_plot,
+                                self._weighted_sum,
+                                self._upper_error_plot,
+                                self._lower_error_plot,
+                                *self._component_plots])
         new_figure.update_layout(title=self.title,
-                          xaxis_title=self.xaxis_title,
-                          yaxis_title=self.yaxis_title)
+                                 xaxis_title=self.xaxis_title,
+                                 yaxis_title=self.yaxis_title)
         if self._invert_spectra_axis:
             new_figure.update_xaxes(autorange="reversed")
 
