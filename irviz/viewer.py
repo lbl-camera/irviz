@@ -1,7 +1,7 @@
 import json
 import numbers
 import warnings
-from functools import lru_cache
+from functools import cached_property
 from itertools import count
 
 import dash
@@ -343,8 +343,7 @@ class Viewer(ComposableDisplay):
         return html.Div(html.Div(self.components, className='row'),
                         className='container-fluid')  # , style={'flexGrow': 1})
 
-    @property
-    @lru_cache(maxsize=1)
+    @cached_property
     def panels(self):
         return super(Viewer, self).panels + [self.annotations_panel]
 
