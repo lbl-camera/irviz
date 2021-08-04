@@ -1,0 +1,19 @@
+.data-list tr {
+    color: white;
+    padding-right: .6em;
+    padding-left: .6em;
+    margin-top: 1px;
+    border-radius: 10rem;
+    display: block;
+    background-color: gray !important;
+    border: 0;
+}
+.data-list td.dash-cell, .data-list div.dash-cell-value .data-list, td.dash-delete-cell{
+    background-color: transparent !important;
+    border: 0 !important;
+    padding-top: 4px !important;
+}
+
+.data-list tbody tr:first-child {
+    display: none;
+}
