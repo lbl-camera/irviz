@@ -1,24 +1,29 @@
 import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
+from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 import numpy as np
+import dash
 
 from irviz.graphs import SpectraPlotGraph
+from ryujin.components.datalist import DataList
 from ryujin.utils.dash import targeted_callback
 
 
 class SpectraBackgroundRemover(SpectraPlotGraph):
 
     def __init__(self, *args, **kwargs):
-        self._fixed_points_trace = go.Scattergl(x=[],
-                                                y=[],
-                                                name=f'_fixed_points',
-                                                showlegend=False,
-                                                # hoverinfo='skip',
-                                                mode='markers+lines',
-                                                line=dict(dash='dash', color='gray'),
-                                                marker=dict(size=16))
-        super(SpectraBackgroundRemover, self).__init__(*args, traces=[self._fixed_points_trace], **kwargs)
+        self._anchor_points_trace = go.Scattergl(x=[],
+                                                 y=[],
+                                                 name=f'_anchor_points',
+                                                 showlegend=False,
+                                                 # hoverinfo='skip',
+                                                 mode='markers+lines',
+                                                 line=dict(dash='dash', color='gray'),
+                                                 marker=dict(size=16))
+        # kwargs.get('graph_kwargs', {})['config'] = {'edits': {'shapePosition': True},
+        #                                             }
+        super(SpectraBackgroundRemover, self).__init__(*args, traces=[self._anchor_points_trace], **kwargs)
 
         self.mode = 1  # standard mode
 
@@ -27,9 +32,19 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                              labelClassName='btn btn-secondary',
                                              labelCheckedClassName='active',
                                              options=[{'label': 'Standard Mode', 'value': 1},
-                                                      {'label': 'Point Selection Mode', 'value': 2}],
+                                                      {'label': 'Selection Mode', 'value': 2},
+                                                      {'label': 'Region Selection Mode', 'value': 3}],
                                              value=1
                                              )
+
+        self.region_list = DataList(table_kwargs=dict(id='list',
+                                                      columns=[{'name': 'name', 'id': 'name'},
+                                                             {'name': 'row', 'id': 'row'}],
+                                                      data=[{'name':'Test', 'row':1},
+                                                          {'name':'Test', 'row':2}],
+                                                      row_deletable=True
+                                                      ),
+                                    )
 
     def init_callbacks(self, app):
         super(SpectraBackgroundRemover, self).init_callbacks(app)
@@ -38,6 +53,13 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         targeted_callback(self.set_mode,
                           Input(self.selection_mode.id, 'value'),
                           Output(self.id, 'figure'),  # not sure what to output to here; self is convenient?
+                          State(self.id, 'figure'),
+                          app=app)
+
+        # when plot is clicked, also update region list
+        targeted_callback(self._update_region_list,
+                          Input(self.id, 'clickData'),
+                          Output(self.region_list.data_table.id, 'data'),
                           app=app)
 
     def set_mode(self, value):
@@ -49,32 +71,60 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         if self.mode == 1:
             return self._update_energy_line(click_data)
         elif self.mode == 2:
-            return self._add_fixed_point(click_data)
+            return self._add_anchor_points(click_data)
+        elif self.mode == 3:
+            return self._add_anchor_region(click_data)
+        raise PreventUpdate
 
-    def _add_fixed_point(self, click_data):
-        fixed_trace_index = self.figure.data.index(self._fixed_points_trace)
+    def _add_anchor_points(self, click_data):
+        anchor_trace_index = self.figure.data.index(self._anchor_points_trace)
         index = click_data['points'][0]['pointNumber']
 
-        if click_data['points'][0]['curveNumber'] == fixed_trace_index:
+        if click_data['points'][0]['curveNumber'] == anchor_trace_index:
             # Remove point
-            self._fixed_points_trace.x = np.delete(self._fixed_points_trace.x, index)
-            self._fixed_points_trace.y = np.delete(self._fixed_points_trace.y, index)
+            self._anchor_points_trace.x = np.delete(self._anchor_points_trace.x, index)
+            self._anchor_points_trace.y = np.delete(self._anchor_points_trace.y, index)
         else:
             # Add point
             x = click_data['points'][0]['x']
             y = self._plot.y[index]
 
-            index = np.searchsorted(self._fixed_points_trace.x, [x])[0]
-            self._fixed_points_trace.x = np.insert(np.asarray(self._fixed_points_trace.x), index, x)
-            if len(self._fixed_points_trace.y):
-                self._fixed_points_trace.y = np.insert(np.asarray(self._fixed_points_trace.y), index, y)
+            index = np.searchsorted(self._anchor_points_trace.x, [x])[0]
+            self._anchor_points_trace.x = np.insert(np.asarray(self._anchor_points_trace.x), index, x)
+            if len(self._anchor_points_trace.y):
+                self._anchor_points_trace.y = np.insert(np.asarray(self._anchor_points_trace.y), index, y)
             else:
-                self._fixed_points_trace.y = [y]
+                self._anchor_points_trace.y = [y]
 
         return self._update_figure()
 
+    def _add_anchor_region(self, click_data):
+        x = click_data['points'][0]['x']
+
+        # look for a '_region_start' shape already in the figure indicated the previously clicked position
+        region_started = next(filter(lambda shape: shape.name=='_region_start', self.figure.layout.shapes), None)
+
+        if region_started:
+            region = sorted([region_started.x0, x])
+            self.figure.add_vrect(*region, line_width=0, opacity=.3, fillcolor='gray')
+            shapes = list(self.figure.layout.shapes)
+            shapes.remove(region_started)
+            self.figure.layout.shapes = shapes
+            raise PreventUpdate
+        else:
+            self.figure.add_vline(x, name='_region_start')
+            self.region_list.data_table.data += [{'name': 'New Region #'}]
+            # return self.region_list.data_table.data
+
+        # self.figure.add_vrect(*region_range, line_width=0, opacity=.3, fillcolor='grey')
+
+        return self._update_figure()
+
+    def _update_region_list(self, clickData):
+        return self.region_list.data_table.data
+
     @property
     def configuration_panel(self):
-        return 'Background Isolator', dbc.Form(dbc.FormGroup([self.selection_mode]))
+        return 'Background Isolator', [dbc.Form(dbc.FormGroup([self.selection_mode])), self.region_list]
 
     # def my_background(self, fixed_points, mask, data, ):
