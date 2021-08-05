@@ -1,13 +1,25 @@
+from dataclasses import dataclass
+from typing import List
+
 import dash_bootstrap_components as dbc
+import dash_html_components as html
+import numpy as np
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
-import numpy as np
-import dash
 
+from irviz.components.datalists import ParameterSetList
 from irviz.graphs import SpectraPlotGraph
 from ryujin.components.datalist import DataList
 from ryujin.utils.dash import targeted_callback
+
+
+@dataclass
+class ParameterSet:
+    map_mask: np.ndarray
+    anchor_points: list
+    regions: list
+    name: str
 
 
 class SpectraBackgroundRemover(SpectraPlotGraph):
@@ -42,9 +54,36 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                                              {'name': 'row', 'id': 'row'}],
                                                       data=[{'name':'Test', 'row':1},
                                                           {'name':'Test', 'row':2}],
-                                                      row_deletable=True
+                                                      row_deletable=True,
                                                       ),
                                     )
+
+        self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=f'parameter-set-selector-'
+                                                                        f'{self._instance_index}',
+                                                                     columns=[{'name': 'name', 'id': 'name'}],
+                                                                     data=kwargs.get('parameter_sets', []),
+                                                                     row_deletable=True,
+                                                                     row_selectable='single',))
+
+        tabs = [
+            dbc.Tab(label="Values",
+                    tab_id=f'parameter-set-values-tab',
+                    label_style={'padding': '0.5rem 1rem'}),
+            dbc.Tab(label="Points",
+                    tab_id=f'parameter-set-points-tab',
+                    label_style={'padding': '0.5rem 1rem'}),
+            dbc.Tab(label="Regions",
+                    tab_id=f'parameter-set-regions-tab',
+                    label_style={'padding': '0.5rem 1rem'})
+        ]
+        self._parameter_set_explorer_content = html.Div(id=f'parameter-set-tabs-content-{self._instance_index}')
+        self._parameter_set_explorer_tabs = dbc.Tabs(id=f'parameter-set-tabs-{self._instance_index}',
+                                                     active_tab=tabs[0].tab_id,
+                                                     children=tabs)
+        self.parameter_set_explorer = html.Div([
+            self._parameter_set_explorer_tabs,
+            self._parameter_set_explorer_content,
+        ])
 
     def init_callbacks(self, app):
         super(SpectraBackgroundRemover, self).init_callbacks(app)
@@ -60,6 +99,22 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         targeted_callback(self._update_region_list,
                           Input(self.id, 'clickData'),
                           Output(self.region_list.data_table.id, 'data'),
+                          app=app)
+
+        # When the parameter set tabs are changed, update what parameter set data is shown
+        targeted_callback(self._update_parameter_set_explorer_content,
+                          Input(self._parameter_set_explorer_tabs.id, 'active_tab'),
+                          Output(self._parameter_set_explorer_content.id, 'children'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          State(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          app=app)
+
+        # When the active parameter set changes, update figures and update the config panel content
+        targeted_callback(self._active_parameter_set_changed,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          Output(self._parameter_set_explorer_content.id, 'children'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          State(self._parameter_set_explorer_tabs.id, 'active_tab'),
                           app=app)
 
     def set_mode(self, value):
@@ -123,8 +178,35 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
     def _update_region_list(self, clickData):
         return self.region_list.data_table.data
 
+    # TODO: set up callbacks (more outputs) where changing the set updates view figures
+    def _active_parameter_set_changed(self, selected_rows: List[int], parameter_set_data, active_tab):
+        # Update what is shown in views (points, regions, mask) and in the config panel
+        ...
+        self._update_parameter_set_explorer_content(active_tab, parameter_set_data, selected_rows)
+
+    def _update_parameter_set_explorer_content(self, active_tab, parameter_set_data, selected_rows):
+        # Needs to display data in the parameter set corresponding to the tab being switched to
+        if not parameter_set_data:
+            return
+
+        row = selected_rows[0]  # parameter set list should only have 'single' selection
+        parameter_set = list(filter(lambda ps: ps['id'] == row, parameter_set_data))[0]  # type: ParameterSet
+        if 'values' in active_tab:
+            return parameter_set.name  # TODO: return the values
+        elif 'points' in active_tab:
+            return parameter_set.anchor_points
+        elif 'regions' in active_tab:
+            return parameter_set.regions
+
     @property
     def configuration_panel(self):
-        return 'Background Isolator', [dbc.Form(dbc.FormGroup([self.selection_mode])), self.region_list]
+        children = [
+            # dbc.Form(dbc.FormGroup([self.selection_mode])),
+            # self.region_list,
+            dbc.Label("Parameter Sets"),
+            dbc.Form(dbc.FormGroup([self.parameter_set_explorer])),
+            self.parameter_set_list
+        ]
+        return 'Background Isolator', children
 
     # def my_background(self, fixed_points, mask, data, ):
