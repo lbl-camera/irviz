@@ -1,3 +1,4 @@
+import warnings
 from functools import cached_property
 
 import dash_bootstrap_components as dbc
@@ -53,12 +54,14 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         super(SpectraBackgroundRemover, self).init_callbacks(app)
 
-        # Re-declare click callback, adding state
-        targeted_callback(self.plot_click,
-                          Input(self.id, 'clickData'),
-                          Output(self.id, 'figure'),
-                          State(self.region_list.data_table.id, 'data'),
-                          app=app)
+        # Re-declare click callback, adding state; ignore warning
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore')
+            targeted_callback(self.plot_click,
+                              Input(self.id, 'clickData'),
+                              Output(self.id, 'figure'),
+                              State(self.region_list.data_table.id, 'data'),
+                              app=app)
 
         # Change selection mode
         targeted_callback(self.set_mode,
