@@ -1,3 +1,5 @@
+from functools import cached_property
+
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
@@ -5,8 +7,8 @@ from plotly import graph_objects as go
 import numpy as np
 import dash
 
+from irviz.components.datalists import RegionList
 from irviz.graphs import SpectraPlotGraph
-from ryujin.components.datalist import DataList
 from ryujin.utils.dash import targeted_callback
 
 
@@ -24,56 +26,60 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         # kwargs.get('graph_kwargs', {})['config'] = {'edits': {'shapePosition': True},
         #                                             }
         super(SpectraBackgroundRemover, self).__init__(*args, traces=[self._anchor_points_trace], **kwargs)
-
-        self.mode = 1  # standard mode
-
         self.selection_mode = dbc.RadioItems(id=f'background-selection-mode-{self._instance_index}',
                                              className='btn-group radio-group',
                                              labelClassName='btn btn-secondary',
                                              labelCheckedClassName='active',
                                              options=[{'label': 'Standard Mode', 'value': 1},
-                                                      {'label': 'Selection Mode', 'value': 2},
-                                                      {'label': 'Region Selection Mode', 'value': 3}],
+                                                      {'label': 'Fixed Point Mode', 'value': 2},
+                                                      {'label': 'Fixed Region Mode', 'value': 3}],
                                              value=1
                                              )
 
-        self.region_list = DataList(table_kwargs=dict(id='list',
-                                                      columns=[{'name': 'name', 'id': 'name'},
-                                                             {'name': 'row', 'id': 'row'}],
-                                                      data=[{'name':'Test', 'row':1},
-                                                          {'name':'Test', 'row':2}],
-                                                      row_deletable=True
-                                                      ),
-                                    )
+        self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
 
     def init_callbacks(self, app):
+        targeted_callback(self._add_anchor_region,
+                          Input(self.id, 'clickData'),
+                          Output(self.region_list.data_table.id, 'data'),
+                          State(self.region_list.data_table.id, 'data'),
+                          app=app)
+
+        # # when regionlist is changed, update figure
+        targeted_callback(self._update_regions,
+                          Input(self.region_list.data_table.id, 'data'),
+                          Output(self.id, 'figure'),
+                          app=app)
+
         super(SpectraBackgroundRemover, self).init_callbacks(app)
+
+        # Re-declare click callback, adding state
+        targeted_callback(self.plot_click,
+                          Input(self.id, 'clickData'),
+                          Output(self.id, 'figure'),
+                          State(self.region_list.data_table.id, 'data'),
+                          app=app)
 
         # Change selection mode
         targeted_callback(self.set_mode,
                           Input(self.selection_mode.id, 'value'),
                           Output(self.id, 'figure'),  # not sure what to output to here; self is convenient?
-                          State(self.id, 'figure'),
-                          app=app)
-
-        # when plot is clicked, also update region list
-        targeted_callback(self._update_region_list,
-                          Input(self.id, 'clickData'),
-                          Output(self.region_list.data_table.id, 'data'),
                           app=app)
 
     def set_mode(self, value):
-        self.mode = value
+        self.selection_mode.value = value
 
         return self._update_figure()
 
     def plot_click(self, click_data):
-        if self.mode == 1:
+        data = dash.callback_context.states[f'{self.region_list.data_table.id}.data'] or []
+
+        if self.selection_mode.value == 1:
             return self._update_energy_line(click_data)
-        elif self.mode == 2:
+        elif self.selection_mode.value == 2:
             return self._add_anchor_points(click_data)
-        elif self.mode == 3:
-            return self._add_anchor_region(click_data)
+        elif self.selection_mode.value == 3:
+            return self._update_regions(data)
         raise PreventUpdate
 
     def _add_anchor_points(self, click_data):
@@ -98,33 +104,68 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         return self._update_figure()
 
-    def _add_anchor_region(self, click_data):
+    def _add_anchor_region_shape(self, click_data):
+        if not self.selection_mode.value == 2:
+            raise PreventUpdate
+
         x = click_data['points'][0]['x']
 
         # look for a '_region_start' shape already in the figure indicated the previously clicked position
-        region_started = next(filter(lambda shape: shape.name=='_region_start', self.figure.layout.shapes), None)
+        region_started = next(filter(lambda shape: shape.name == '_region_start', self.figure.layout.shapes), None)
 
         if region_started:
             region = sorted([region_started.x0, x])
-            self.figure.add_vrect(*region, line_width=0, opacity=.3, fillcolor='gray')
             shapes = list(self.figure.layout.shapes)
             shapes.remove(region_started)
             self.figure.layout.shapes = shapes
-            raise PreventUpdate
+            self.region_list.data_table.data += [{'name': 'New Region #', 'region': region}]
         else:
             self.figure.add_vline(x, name='_region_start')
-            self.region_list.data_table.data += [{'name': 'New Region #'}]
-            # return self.region_list.data_table.data
 
-        # self.figure.add_vrect(*region_range, line_width=0, opacity=.3, fillcolor='grey')
+        return self._update_regions()
 
-        return self._update_figure()
+    def _add_anchor_region(self, click_data):
+        if not self.selection_mode.value == 3:
+            raise PreventUpdate
+
+        x = click_data['points'][0]['x']
+
+        data = dash.callback_context.states[f'{self.region_list.data_table.id}.data'] or []
+
+        # look for a '_region_start' shape already in the figure indicated the previously clicked position
+        region_started = next(filter(lambda shape: shape.name == '_region_start', self.figure.layout.shapes), None)
+
+        if region_started:
+            region = sorted([region_started.x0, x])
+            shapes = list(self.figure.layout.shapes)
+            shapes.remove(region_started)
+            self.figure.layout.shapes = shapes
+
+            data[-1]['region_min'] = region[0]
+            data[-1]['region_max'] = region[1]
+        else:
+            self.figure.add_vline(x, name='_region_start', line_color="gray")
+            data += [{'name': f'Region #{next(self.region_list.region_counter)}', 'region_min': x, 'region_max': None}]
+        return data
 
     def _update_region_list(self, clickData):
         return self.region_list.data_table.data
 
-    @property
+    @cached_property
     def configuration_panel(self):
         return 'Background Isolator', [dbc.Form(dbc.FormGroup([self.selection_mode])), self.region_list]
 
-    # def my_background(self, fixed_points, mask, data, ):
+    def _update_regions(self, data):
+        # do nothing special if initing
+        if hasattr(self, 'figure'):
+
+            # clear shapes except _region_start
+            self.figure.layout.shapes = list(filter(lambda shape: shape.name == '_region_start', self.figure.layout.shapes))
+
+            # repopulate from regionlist
+            for region_record in data:
+                region_min, region_max = region_record.get('region_min'), region_record.get('region_max')
+                if region_min is not None and region_max is not None:
+                    self.figure.add_vrect(region_min, region_max, line_width=0, opacity=.3, fillcolor='gray')
+
+        return self._update_figure()
