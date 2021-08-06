@@ -1,6 +1,5 @@
 import warnings
 from functools import cached_property
-from dataclasses import dataclass
 from typing import List
 
 import dash
@@ -11,7 +10,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
-from irviz.components.datalists import RegionList
+from irviz.components.datalists import RegionList, ParameterSet
 from irviz.components.datalists import ParameterSetList
 from irviz.graphs import SpectraPlotGraph
 from ryujin.utils.dash import targeted_callback
