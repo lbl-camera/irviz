@@ -47,6 +47,7 @@ class ParameterSetList(DataList):
         table_kwargs['columns'] = [{'name': 'name', 'id': 'name'}]
         table_kwargs['row_deletable'] = True
         table_kwargs['row_selectable'] = 'single'
+        table_kwargs['selected_rows'] = [0]
 
         super(ParameterSetList, self).__init__(*args, table_kwargs=table_kwargs, **kwargs)
 
