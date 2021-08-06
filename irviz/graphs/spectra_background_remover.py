@@ -3,6 +3,7 @@ from functools import cached_property
 from dataclasses import dataclass
 from typing import List
 
+import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
@@ -14,14 +15,6 @@ from irviz.components.datalists import RegionList
 from irviz.components.datalists import ParameterSetList
 from irviz.graphs import SpectraPlotGraph
 from ryujin.utils.dash import targeted_callback
-
-
-@dataclass
-class ParameterSet:
-    map_mask: np.ndarray
-    anchor_points: list
-    regions: list
-    name: str
 
 
 class SpectraBackgroundRemover(SpectraPlotGraph):
@@ -66,7 +59,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                     label_style={'padding': '0.5rem 1rem'}),
             dbc.Tab(label="Regions",
                     tab_id=f'parameter-set-regions-tab',
-                    label_style={'padding': '0.5rem 1rem'})
+                    label_style={'padding': '0.5rem 1rem',},
+                    children=[self.region_list])
         ]
         self._parameter_set_explorer_content = html.Div(id=f'parameter-set-tabs-content-{self._instance_index}')
         self._parameter_set_explorer_tabs = dbc.Tabs(id=f'parameter-set-tabs-{self._instance_index}',
@@ -211,11 +205,10 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
     @cached_property
     def configuration_panel(self):
         children = [
-            # dbc.Form(dbc.FormGroup([self.selection_mode])),
-            # self.region_list,
+            dbc.Form(dbc.FormGroup([self.selection_mode])),
             dbc.Label("Parameter Sets"),
+            self.parameter_set_list,
             dbc.Form(dbc.FormGroup([self.parameter_set_explorer])),
-            self.parameter_set_list
         ]
         return 'Background Isolator', children
 

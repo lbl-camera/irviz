@@ -1,6 +1,17 @@
+from dataclasses import dataclass
 from itertools import count
 
+import numpy as np
+
 from ryujin.components.datalist import DataList
+
+
+@dataclass
+class ParameterSet:
+    map_mask: np.ndarray
+    anchor_points: list
+    regions: list
+    name: str
 
 
 class RegionList(DataList):
@@ -21,7 +32,15 @@ class RegionList(DataList):
 
 
 class ParameterSetList(DataList):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, table_kwargs=None, **kwargs):
         self.parameter_set_counter = count(0)
         # TODO: once API established, update the kwargs being searched
+
+        # Always start with on record
+        table_kwargs = table_kwargs or {}
+        table_kwargs['data'] = table_kwargs.get('data', [])
+        if not table_kwargs['data']:
+            table_kwargs['data'] += [{'name': f'Parameter Set #{next(self.parameter_set_counter)}',
+                                      'parameter_set': ParameterSet()}]
+
         super(ParameterSetList, self).__init__(*args, **kwargs)
