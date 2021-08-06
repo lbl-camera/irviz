@@ -44,4 +44,4 @@ class ParameterSetList(DataList):
             table_kwargs['data'] += [{'name': f'Parameter Set #{next(self.parameter_set_counter)}',
                                       'parameter_set': ParameterSet()}]
 
-        super(ParameterSetList, self).__init__(*args, **kwargs)
+        super(ParameterSetList, self).__init__(*args, table_kwargs=table_kwargs, **kwargs)
