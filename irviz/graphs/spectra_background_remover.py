@@ -42,17 +42,9 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
 
-        default_param_set = ParameterSet("Test", values={'a': 1})
         self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=f'parameter-set-selector-'
                                                                         f'{self._instance_index}',
-                                                                     columns=[{'name': 'name', 'id': 'name'},
-                                                                              {'name': 'values', 'id': 'values'},
-                                                                              {'name': 'map_mask', 'id': 'map_mask'},
-                                                                              {'name': 'anchor_points', 'id': 'anchor_points'},
-                                                                              {'name': 'regions', 'id': 'regions'}],
-                                                                     data=kwargs.get('parameter_sets', [{'name': default_param_set.name}]),
-                                                                     row_deletable=True,
-                                                                     row_selectable='single',))
+                                                                     data=kwargs.get('parameter_sets', [])))
 
         tabs = [
             dbc.Tab(label="Values",
