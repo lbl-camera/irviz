@@ -2,6 +2,7 @@ from functools import partial
 
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output
+from methodtools import lru_cache
 
 from ryujin.utils.dash import targeted_callback
 
@@ -54,6 +55,7 @@ class ColorScaleSelector(dbc.DropdownMenu):
         if app:
             self.init_callbacks(app)
 
+    @lru_cache(maxsize=1)
     def init_callbacks(self, app):
         for name, item in zip(self.values, self.children):
             targeted_callback(partial(_noop, name=name),
