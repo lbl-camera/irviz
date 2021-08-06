@@ -8,10 +8,11 @@ from ryujin.components.datalist import DataList
 
 @dataclass
 class ParameterSet:
-    map_mask: np.ndarray
-    anchor_points: list
-    regions: list
     name: str
+    values: dict = dict(),
+    map_mask: np.ndarray = None,
+    anchor_points: list = None
+    regions: list = None
 
 
 class RegionList(DataList):
