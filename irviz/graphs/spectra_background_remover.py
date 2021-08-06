@@ -43,10 +43,15 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
 
+        default_param_set = ParameterSet("Test", values={'a': 1})
         self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=f'parameter-set-selector-'
                                                                         f'{self._instance_index}',
-                                                                     columns=[{'name': 'name', 'id': 'name'}],
-                                                                     data=kwargs.get('parameter_sets', []),
+                                                                     columns=[{'name': 'name', 'id': 'name'},
+                                                                              {'name': 'values', 'id': 'values'},
+                                                                              {'name': 'map_mask', 'id': 'map_mask'},
+                                                                              {'name': 'anchor_points', 'id': 'anchor_points'},
+                                                                              {'name': 'regions', 'id': 'regions'}],
+                                                                     data=kwargs.get('parameter_sets', [{'name': default_param_set.name}]),
                                                                      row_deletable=True,
                                                                      row_selectable='single',))
 
@@ -235,13 +240,17 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
     def _update_parameter_set_explorer_content(self, active_tab, parameter_set_data, selected_rows):
         # Needs to display data in the parameter set corresponding to the tab being switched to
+        print('update content')
         if not parameter_set_data:
+            print('\tno parameter set data???')
             return
 
         row = selected_rows[0]  # parameter set list should only have 'single' selection
+        print(f'\trow: {row}')
         parameter_set = list(filter(lambda ps: ps['id'] == row, parameter_set_data))[0]  # type: ParameterSet
+        print(f'\tset: {parameter_set}')
         if 'values' in active_tab:
-            return parameter_set.name  # TODO: return the values
+            return parameter_set.values
         elif 'points' in active_tab:
             return parameter_set.anchor_points
         elif 'regions' in active_tab:
