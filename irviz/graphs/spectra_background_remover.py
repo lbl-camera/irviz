@@ -11,6 +11,7 @@ from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
 from irviz.components.datalists import AnchorPointList, ParameterSetList, RegionList, ParameterSetValueList
+
 from irviz.graphs import SpectraPlotGraph
 from ryujin.utils.dash import targeted_callback
 
@@ -123,6 +124,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           Input(self.parameter_set_list.data_table.id, 'data'),
                           Output(self.anchor_points_list.data_table.id, 'data'),
                           app=app)
+
+        self.parameter_set_list.init_callbacks(app)
 
     def set_mode(self, value):
         self.selection_mode.value = value

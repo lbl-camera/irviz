@@ -1,9 +1,10 @@
-from dataclasses import dataclass
 from itertools import count
 
-import numpy as np
+import dash
+from dash.dependencies import Output, Input, State
 
 from ryujin.components.datalist import DataList
+from ryujin.utils import targeted_callback
 
 
 class RegionList(DataList):
@@ -71,5 +72,22 @@ class ParameterSetList(DataList):
         table_kwargs['columns'] = [{'name': 'name', 'id': 'name'}]
         table_kwargs['row_deletable'] = True
         table_kwargs['row_selectable'] = 'single'
+        table_kwargs['selected_rows'] = [0]
 
         super(ParameterSetList, self).__init__(*args, table_kwargs=table_kwargs, **kwargs)
+
+    def init_callbacks(self, app):
+        targeted_callback(self.check_data,
+                          Input(self.data_table.id, 'data'),
+                          Output(self.data_table.id, 'data'),
+                          State(self.data_table.id, 'data_previous'),
+                          app=app)
+
+    def check_data(self, data):
+        data_previous = dash.callback_context.states[f'{self.data_table.id}.data_previous'] or []
+
+        if not data:
+            return data_previous
+        else:
+            return data
+
