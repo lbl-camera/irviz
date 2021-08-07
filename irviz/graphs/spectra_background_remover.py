@@ -10,8 +10,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
-from irviz.components.datalists import RegionList, ParameterSet
-from irviz.components.datalists import ParameterSetList
+from irviz.components.datalists import AnchorPointList, ParameterSetList, RegionList, ParameterSetValueList
 from irviz.graphs import SpectraPlotGraph
 from ryujin.utils.dash import targeted_callback
 
@@ -41,30 +40,34 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                              )
 
         self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
-
+        self.anchor_points_list = AnchorPointList(table_kwargs=dict(id='anchor-point-list'))
+        self.values_list = ParameterSetValueList(table_kwargs=dict(id='values-list'))
         self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=f'parameter-set-selector-'
                                                                         f'{self._instance_index}',
                                                                      data=kwargs.get('parameter_sets', [])))
+        
+        self._previous_parameter_set_row_index = 0
 
-        tabs = [
-            dbc.Tab(label="Values",
-                    tab_id=f'parameter-set-values-tab',
-                    label_style={'padding': '0.5rem 1rem'}),
-            dbc.Tab(label="Points",
-                    tab_id=f'parameter-set-points-tab',
-                    label_style={'padding': '0.5rem 1rem'}),
-            dbc.Tab(label="Regions",
-                    tab_id=f'parameter-set-regions-tab',
-                    label_style={'padding': '0.5rem 1rem',},
-                    children=[self.region_list])
-        ]
+        self._values_tab = dbc.Tab(label="Values",
+                                   tab_id=f'parameter-set-values-tab',
+                                   label_style={'padding': '0.5rem 1rem'},
+                                   children=[self.values_list])
+        self._points_tab = dbc.Tab(label="Points",
+                                   tab_id=f'parameter-set-points-tab',
+                                   label_style={'padding': '0.5rem 1rem'},
+                                   children=[self.anchor_points_list])
+        self._regions_tab = dbc.Tab(label="Regions",
+                                    tab_id=f'parameter-set-regions-tab',
+                                    label_style={'padding': '0.5rem 1rem', },
+                                    children=[self.region_list])
+        tabs = [self._values_tab, self._points_tab, self._regions_tab]
         self._parameter_set_explorer_content = html.Div(id=f'parameter-set-tabs-content-{self._instance_index}')
         self._parameter_set_explorer_tabs = dbc.Tabs(id=f'parameter-set-tabs-{self._instance_index}',
                                                      active_tab=tabs[0].tab_id,
                                                      children=tabs)
         self.parameter_set_explorer = html.Div([
             self._parameter_set_explorer_tabs,
-            self._parameter_set_explorer_content,
+            self._parameter_set_explorer_content
         ])
 
     def init_callbacks(self, app):
@@ -97,20 +100,28 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           Output(self.id, 'figure'),  # not sure what to output to here; self is convenient?
                           app=app)
 
-        # When the parameter set tabs are changed, update what parameter set data is shown
-        targeted_callback(self._update_parameter_set_explorer_content,
-                          Input(self._parameter_set_explorer_tabs.id, 'active_tab'),
-                          Output(self._parameter_set_explorer_content.id, 'children'),
+        # Update the parameter set list when a different parameter set is selected
+        targeted_callback(self._update_current_parameter_set_data,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
-                          State(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          State(self.region_list.data_table.id, 'data'),
+                          State(self.values_list.data_table.id, 'data'),
+                          State(self.anchor_points_list.data_table.id, 'data'),
                           app=app)
 
-        # When the active parameter set changes, update figures and update the config panel content
-        targeted_callback(self._active_parameter_set_changed,
-                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
-                          Output(self._parameter_set_explorer_content.id, 'children'),
-                          State(self.parameter_set_list.data_table.id, 'data'),
-                          State(self._parameter_set_explorer_tabs.id, 'active_tab'),
+        # Chained from above; update data lists when the parameter set list is updated
+        targeted_callback(self._update_values_list,
+                          Input(self.parameter_set_list.data_table.id, 'data'),
+                          Output(self.values_list.data_table.id, 'data'),
+                          app=app)
+        targeted_callback(self._update_regions_list,
+                          Input(self.parameter_set_list.data_table.id, 'data'),
+                          Output(self.region_list.data_table.id, 'data'),
+                          app=app)
+        targeted_callback(self._update_anchor_points_list,
+                          Input(self.parameter_set_list.data_table.id, 'data'),
+                          Output(self.anchor_points_list.data_table.id, 'data'),
                           app=app)
 
     def set_mode(self, value):
@@ -223,26 +234,39 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         return self._update_figure()
 
-    # TODO: set up callbacks (more outputs) where changing the set updates view figures
-    def _active_parameter_set_changed(self, selected_rows: List[int], parameter_set_data, active_tab):
-        # Update what is shown in views (points, regions, mask) and in the config panel
-        ...
-        self._update_parameter_set_explorer_content(active_tab, parameter_set_data, selected_rows)
+    def _update_current_parameter_set_data(self, selected_rows):
+        # Stash the previous data lists into index at previous location (where record 'selected' is True)
+        parameter_set_list = dash.callback_context.states[f'{self.parameter_set_list.data_table.id}.data'] or []
+        for prev_index, parameter_set in enumerate(parameter_set_list):
+            if parameter_set['selected'] == True:
+                break
 
-    def _update_parameter_set_explorer_content(self, active_tab, parameter_set_data, selected_rows):
-        # Needs to display data in the parameter set corresponding to the tab being switched to
-        print('update content')
-        if not parameter_set_data:
-            print('\tno parameter set data???')
-            return
+        regions = dash.callback_context.states[f'{self.region_list.data_table.id}.data'] or []
+        values = dash.callback_context.states[f'{self.values_list.data_table.id}.data'] or []
+        anchor_points = dash.callback_context.states[f'{self.anchor_points_list.data_table.id}.data'] or []
 
-        row = selected_rows[0]  # parameter set list should only have 'single' selection
-        print(f'\trow: {row}')
-        parameter_set = list(filter(lambda ps: ps['id'] == row, parameter_set_data))[0]  # type: ParameterSet
-        print(f'\tset: {parameter_set}')
-        if 'values' in active_tab:
-            return parameter_set.values
-        elif 'points' in active_tab:
-            return parameter_set.anchor_points
-        elif 'regions' in active_tab:
-            return parameter_set.regions
+        parameter_set_list[prev_index]['anchor_points'] = anchor_points
+        parameter_set_list[prev_index]['anchor_regions'] = regions
+        parameter_set_list[prev_index]['values'] = values
+        parameter_set_list[prev_index]['selected'] = False
+
+        # Update 'selected' property for record at the newly selected row
+        row = selected_rows[0]
+        parameter_set_list[row]['selected'] = True
+
+        return parameter_set_list
+
+    def _find_selected_parameter_set(self, parameter_set_list_data) -> (int, dict):
+        for row, parameter_set in enumerate(parameter_set_list_data):
+            if parameter_set['selected'] == True:
+                return row, parameter_set
+        return None
+
+    def _update_regions_list(self, parameter_set_list_data):
+        return self._find_selected_parameter_set(parameter_set_list_data)[-1]['anchor_regions']
+
+    def _update_anchor_points_list(self, parameter_set_list_data):
+        return self._find_selected_parameter_set(parameter_set_list_data)[-1]['anchor_points']
+
+    def _update_values_list(self, parameter_set_list_data):
+        return self._find_selected_parameter_set(parameter_set_list_data)[-1]['values']

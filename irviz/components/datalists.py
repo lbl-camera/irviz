@@ -23,12 +23,36 @@ class RegionList(DataList):
         super(RegionList, self).__init__(*args, **kwargs)
 
 
+class AnchorPointList(DataList):
+    def __init__(self, *args, **kwargs):
+        table_kwargs = kwargs.get('table_kwargs', {})
+        table_kwargs['row_deletable'] = True
+        table_kwargs['columns'] = [{'name': 'name', 'id': 'name'},
+                                   {'name': 'x', 'id': 'x'},
+                                   {'name': 'y', 'id': 'y'}]
+        kwargs['table_kwargs'] = table_kwargs
+
+        super(AnchorPointList, self).__init__(*args, **kwargs)
+
+
+class ParameterSetValueList(DataList):
+    def __init__(self, *args, **kwargs):
+        table_kwargs = kwargs.get('table_kwargs', {})
+        table_kwargs['row_deletable'] = True
+        table_kwargs['columns'] = [{'name': 'name', 'id': 'name'},
+                                   {'name': 'values', 'id': 'values'}]  # FIXME: what are values here?
+        kwargs['table_kwargs'] = table_kwargs
+
+        super(ParameterSetValueList, self).__init__(*args, **kwargs)
+
+
 class ParameterSetList(DataList):
     record_template = {'name': None,
                        'values': dict(),
                        'map_mask': None,
                        'anchor_points': [],
-                       'anchor_regions': []}
+                       'anchor_regions': [],
+                       'selected': False}
 
     def __init__(self, *args, table_kwargs=None, **kwargs):
         self.parameter_set_counter = count(1)
@@ -43,6 +67,7 @@ class ParameterSetList(DataList):
             record['name'] = name
             table_kwargs['data'].append(record)
 
+        table_kwargs['data'][0]['selected'] = True
         table_kwargs['columns'] = [{'name': 'name', 'id': 'name'}]
         table_kwargs['row_deletable'] = True
         table_kwargs['row_selectable'] = 'single'
