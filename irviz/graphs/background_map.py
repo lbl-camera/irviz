@@ -1,5 +1,7 @@
+import dash
 import numpy as np
-from dash.dependencies import Input, Output
+from dash._utils import create_callback_id
+from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
@@ -30,13 +32,20 @@ class BackgroundMapGraph(MapGraph):
         targeted_callback(self.update_selection,
                           Input(dict(type='parameter-set-selector',
                                      index=self._instance_index),
-                                'data'),
+                                'selected_rows'),
                           Output(self.id, 'figure'),
+                          State(dict(type='parameter-set-selector',
+                                     index=self._instance_index),
+                                'data'),
                           app=app)
 
         super(BackgroundMapGraph, self).init_callbacks(app)
 
-    def update_selection(self, data):
-        self._selection_mask.z = next(iter(filter(lambda record: record.get('selected'), data)))['map_mask'] or np.ones_like(self._image.z) * np.NaN
+    def update_selection(self, selected_rows):
+        _id = create_callback_id(State(dict(type='parameter-set-selector',
+                                            index=self._instance_index), 'data'))
+        parameter_set_list = dash.callback_context.states[_id] or []
+
+        self._selection_mask.z = parameter_set_list[selected_rows[0]]['map_mask'] or np.ones_like(self._image.z) * np.NaN
 
         return self._update_figure()

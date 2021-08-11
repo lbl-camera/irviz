@@ -26,6 +26,8 @@ class RegionList(DataList):
 
 class AnchorPointList(DataList):
     def __init__(self, *args, **kwargs):
+        self.point_counter = count(1)
+
         table_kwargs = kwargs.get('table_kwargs', {})
         table_kwargs['row_deletable'] = True
         table_kwargs['columns'] = [{'name': 'name', 'id': 'name'},

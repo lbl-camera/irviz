@@ -6,9 +6,13 @@ from irviz.graphs.spectra_background_remover import SpectraBackgroundRemover
 from ryujin.display import ComposableDisplay
 
 
+def empty_callable():
+    pass
+
+
 class BackgroundIsolator(ComposableDisplay):
 
-    def init_components(self, *args, **kwargs):
+    def init_components(self, *args, background_function=empty_callable, **kwargs):
         components = super(BackgroundIsolator, self).init_components(*args, **kwargs)
 
         style = dict(display='flex',
@@ -18,8 +22,13 @@ class BackgroundIsolator(ComposableDisplay):
         className = 'col-lg-6 p-0'
         graph_kwargs = dict(style=style, className=className, responsive=True)
 
-        components.append(SpectraBackgroundRemover(instance_index=self._instance_index, graph_kwargs=graph_kwargs, **kwargs))
-        components.append(BackgroundMapGraph(instance_index=self._instance_index, graph_kwargs=graph_kwargs, **kwargs))
+        components.append(SpectraBackgroundRemover(instance_index=self._instance_index,
+                                                   background_function=background_function,
+                                                   graph_kwargs=graph_kwargs,
+                                                   **kwargs))
+        components.append(BackgroundMapGraph(instance_index=self._instance_index,
+                                             graph_kwargs=graph_kwargs,
+                                             **kwargs))
 
         return components
 

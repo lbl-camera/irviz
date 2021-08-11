@@ -108,9 +108,12 @@ class ParameterEditor(dbc.Form):
             return type(parameter_dict['value'])
         raise TypeError(f'No item type could be determined for this parameter: {parameter_dict}')
 
-    def build_children(self):
+    def build_children(self, values=None):
         children = []
         for parameter_dict in self._parameters:
+            parameter_dict = parameter_dict.copy()
+            if values and parameter_dict['name'] in values:
+                parameter_dict['value'] = values[parameter_dict['name']]
             type = self._determine_type(parameter_dict)
             parameter_dict.pop('type', None)
             item = self.type_map[type](**parameter_dict, base_id=self.id)
