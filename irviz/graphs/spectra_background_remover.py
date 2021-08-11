@@ -6,19 +6,25 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
+from dash._utils import create_callback_id
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
 from irviz.components.datalists import AnchorPointList, ParameterSetList, RegionList, ParameterSetValueList
+from irviz.components.kwarg_editor import KwargsEditor
 
 from irviz.graphs import SpectraPlotGraph
 from ryujin.utils.dash import targeted_callback
 
 
+def empty_callable():
+    pass
+
+
 class SpectraBackgroundRemover(SpectraPlotGraph):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, background_function=None, **kwargs):
         self._anchor_points_trace = go.Scattergl(x=[],
                                                  y=[],
                                                  name=f'_anchor_points',
@@ -42,17 +48,18 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
         self.anchor_points_list = AnchorPointList(table_kwargs=dict(id='anchor-point-list'))
-        self.values_list = ParameterSetValueList(table_kwargs=dict(id='values-list'))
-        self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=f'parameter-set-selector-'
-                                                                        f'{self._instance_index}',
+        self.values_editor = KwargsEditor('background_parameters', background_function or empty_callable)
+        self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=dict(type='parameter-set-selector',
+                                                                             index=self._instance_index),
                                                                      data=kwargs.get('parameter_sets', [])))
+        self.parameter_set_add = dbc.Button('Add Parameter Set', id='parameter-set-add')
         
         self._previous_parameter_set_row_index = 0
 
         self._values_tab = dbc.Tab(label="Values",
                                    tab_id=f'parameter-set-values-tab',
                                    label_style={'padding': '0.5rem 1rem'},
-                                   children=[self.values_list])
+                                   children=[self.values_editor])
         self._points_tab = dbc.Tab(label="Points",
                                    tab_id=f'parameter-set-points-tab',
                                    label_style={'padding': '0.5rem 1rem'},
@@ -78,7 +85,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           State(self.region_list.data_table.id, 'data'),
                           app=app)
 
-        # # when regionlist is changed, update figure
+        # when regionlist is changed, update figure
         targeted_callback(self._update_regions,
                           Input(self.region_list.data_table.id, 'data'),
                           Output(self.id, 'figure'),
@@ -107,14 +114,17 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           State(self.region_list.data_table.id, 'data'),
-                          State(self.values_list.data_table.id, 'data'),
                           State(self.anchor_points_list.data_table.id, 'data'),
+                          State(dict(type='slice_graph',
+                                     subtype='map',
+                                     index=self._instance_index),
+                                'figure'),
                           app=app)
 
         # Chained from above; update data lists when the parameter set list is updated
-        targeted_callback(self._update_values_list,
+        targeted_callback(self._update_values_editor,
                           Input(self.parameter_set_list.data_table.id, 'data'),
-                          Output(self.values_list.data_table.id, 'data'),
+                          Output(self.values_editor.id, 'children'),
                           app=app)
         targeted_callback(self._update_regions_list,
                           Input(self.parameter_set_list.data_table.id, 'data'),
@@ -125,7 +135,15 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           Output(self.anchor_points_list.data_table.id, 'data'),
                           app=app)
 
+        # Adds a new parameter set
+        targeted_callback(self.add_parameter_set,
+                          Input(self.parameter_set_add.id, 'n_clicks'),
+                          Output(self.parameter_set_list.data_table.id, 'data'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          app=app)
+
         self.parameter_set_list.init_callbacks(app)
+        self.values_editor.init_callbacks(app)
 
     def set_mode(self, value):
         self.selection_mode.value = value
@@ -218,6 +236,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             dbc.Form(dbc.FormGroup([self.selection_mode])),
             dbc.Label("Parameter Sets"),
             self.parameter_set_list,
+            self.parameter_set_add,
+            html.P(''),
             dbc.Form(dbc.FormGroup([self.parameter_set_explorer])),
         ]
         return 'Background Isolator', children
@@ -239,19 +259,24 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
     def _update_current_parameter_set_data(self, selected_rows):
         # Stash the previous data lists into index at previous location (where record 'selected' is True)
-        parameter_set_list = dash.callback_context.states[f'{self.parameter_set_list.data_table.id}.data'] or []
+        _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'data'))
+        parameter_set_list = dash.callback_context.states[_id] or []
         for prev_index, parameter_set in enumerate(parameter_set_list):
             if parameter_set['selected'] == True:
                 break
 
         regions = dash.callback_context.states[f'{self.region_list.data_table.id}.data'] or []
-        values = dash.callback_context.states[f'{self.values_list.data_table.id}.data'] or []
+        values = self.values_editor.values
         anchor_points = dash.callback_context.states[f'{self.anchor_points_list.data_table.id}.data'] or []
+        figure_state = dash.callback_context.states[next(iter(filter(lambda state_key: 'figure' in state_key,
+                                                                     dash.callback_context.states)), None)]
+        selection_mask = next(iter(filter(lambda trace: trace.get('name') == 'selection', figure_state['data'])))['z']
 
         parameter_set_list[prev_index]['anchor_points'] = anchor_points
         parameter_set_list[prev_index]['anchor_regions'] = regions
         parameter_set_list[prev_index]['values'] = values
         parameter_set_list[prev_index]['selected'] = False
+        parameter_set_list[prev_index]['map_mask'] = selection_mask
 
         # Update 'selected' property for record at the newly selected row
         row = selected_rows[0]
@@ -271,5 +296,22 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
     def _update_anchor_points_list(self, parameter_set_list_data):
         return self._find_selected_parameter_set(parameter_set_list_data)[-1]['anchor_points']
 
-    def _update_values_list(self, parameter_set_list_data):
-        return self._find_selected_parameter_set(parameter_set_list_data)[-1]['values']
+    def _update_values_editor(self, parameter_set_list_data):
+        values = self._find_selected_parameter_set(parameter_set_list_data)[-1]['values']
+        # update default values in the editor
+        for key, value in values.items():
+            self.values_editor.parameters[key]['value'] = value
+
+        # rebuild the child items
+        return self.values_editor.build_children()
+
+    def add_parameter_set(self, n_clicks):
+        _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'data'))
+        parameter_set_list = dash.callback_context.states[_id] or []
+
+        current_parameter_set = next(filter(lambda p_set: p_set['selected'], parameter_set_list))
+
+        new_record = self.parameter_set_list.new_record()
+        new_record['values'] = current_parameter_set['values'].copy()
+
+        return parameter_set_list + [new_record]

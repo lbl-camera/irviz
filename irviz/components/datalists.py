@@ -63,9 +63,7 @@ class ParameterSetList(DataList):
         table_kwargs = table_kwargs or {}
         table_kwargs['data'] = table_kwargs.get('data', [])
         if not table_kwargs['data']:
-            name = f'Parameter Set #{next(self.parameter_set_counter)}'
-            record = self.record_template.copy()
-            record['name'] = name
+            record = self.new_record()
             table_kwargs['data'].append(record)
 
         table_kwargs['data'][0]['selected'] = True
@@ -91,3 +89,8 @@ class ParameterSetList(DataList):
         else:
             return data
 
+    def new_record(self):
+        name = f'Parameter Set #{next(self.parameter_set_counter)}'
+        record = self.record_template.copy()
+        record['name'] = name
+        return record

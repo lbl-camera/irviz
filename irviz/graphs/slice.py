@@ -80,7 +80,8 @@ class SliceGraph(dcc.Graph):
                                                      colorscale='reds',
                                                      opacity=0.3,
                                                      showscale=False,
-                                                     hoverinfo='skip', )
+                                                     hoverinfo='skip',
+                                                     name='selection')
 
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))

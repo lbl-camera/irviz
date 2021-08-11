@@ -1,6 +1,7 @@
 import dash_html_components as html
 
 from irviz.graphs import MapGraph
+from irviz.graphs.background_map import BackgroundMapGraph
 from irviz.graphs.spectra_background_remover import SpectraBackgroundRemover
 from ryujin.display import ComposableDisplay
 
@@ -18,7 +19,7 @@ class BackgroundIsolator(ComposableDisplay):
         graph_kwargs = dict(style=style, className=className, responsive=True)
 
         components.append(SpectraBackgroundRemover(instance_index=self._instance_index, graph_kwargs=graph_kwargs, **kwargs))
-        components.append(MapGraph(instance_index=self._instance_index, graph_kwargs=graph_kwargs, **kwargs))
+        components.append(BackgroundMapGraph(instance_index=self._instance_index, graph_kwargs=graph_kwargs, **kwargs))
 
         return components
 
