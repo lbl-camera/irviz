@@ -1,4 +1,5 @@
 import dash_html_components as html
+import dash_core_components as dcc
 
 from irviz.graphs import MapGraph
 from irviz.graphs.background_map import BackgroundMapGraph
@@ -23,12 +24,13 @@ class BackgroundIsolator(ComposableDisplay):
         graph_kwargs = dict(style=style, className=className, responsive=True)
 
         components.append(SpectraBackgroundRemover(instance_index=self._instance_index,
-                                                   background_function=background_function,
+                                                   background_func=background_function,
                                                    graph_kwargs=graph_kwargs,
                                                    **kwargs))
         components.append(BackgroundMapGraph(instance_index=self._instance_index,
                                              graph_kwargs=graph_kwargs,
                                              **kwargs))
+        components.append(dcc.Interval('background-update', interval=1*1000))
 
         return components
 

@@ -1,9 +1,10 @@
 import warnings
 from functools import cached_property, partial
-from typing import List
+from typing import List, Callable
 
 import dash
 import dash_bootstrap_components as dbc
+import dash_core_components as dcc
 import dash_html_components as html
 import numpy as np
 from dash._utils import create_callback_id
@@ -24,7 +25,9 @@ def empty_callable():
 
 class SpectraBackgroundRemover(SpectraPlotGraph):
 
-    def __init__(self, *args, background_function=empty_callable, **kwargs):
+    def __init__(self, *args, background_func: Callable=empty_callable, **kwargs):
+        self.background_func = background_func
+        self.last_update_parameters = None
         parameter_sets = kwargs.get('parameter_sets', [])
 
         self._anchor_points_trace = go.Scattergl(x=[],
@@ -42,7 +45,10 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                                  mode='lines',
                                                  line=dict(dash='dot', color='red'))
 
-        super(SpectraBackgroundRemover, self).__init__(*args, traces=[self._anchor_points_trace], **kwargs)
+        super(SpectraBackgroundRemover, self).__init__(*args,
+                                                       traces=[self._anchor_points_trace,
+                                                               self._background_corrected_trace],
+                                                       **kwargs)
         self.selection_mode = dbc.RadioItems(id=f'background-selection-mode-{self._instance_index}',
                                              className='btn-group radio-group',
                                              labelClassName='btn btn-secondary',
@@ -55,7 +61,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
         self.anchor_points_list = AnchorPointList(table_kwargs=dict(id='anchor-point-list'))
-        self.values_editor = KwargsEditor('background_parameters', background_function)
+        self.values_editor = KwargsEditor('background_parameters', background_func)
         self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=dict(type='parameter-set-selector',
                                                                              index=self._instance_index),
                                                                      data=parameter_sets))
@@ -196,6 +202,14 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                      subtype='map',
                                      index=self._instance_index),
                                 'figure'),
+                          app=app)
+
+        # update the background if needed
+        targeted_callback(self._update_background_on_interval,
+                          Input('background-update', 'n_intervals'),
+                          Output(self.id, 'figure'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           app=app)
 
         self.parameter_set_list.init_callbacks(app)
@@ -367,3 +381,39 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         selection_mask = next(iter(filter(lambda trace: trace.get('name') == 'selection', figure_state['data'])))['z']
 
         return self._stash_parameter_set_data(selection_mask, 'map_mask')
+
+    def _update_background(self, parameter_set):
+        try:
+            background = self.compute_background(parameter_set)
+        except Exception as ex:
+            print(str(ex))
+            # if there was data from earlier, clear it
+            if len(self._background_corrected_trace.x):
+                self._background_corrected_trace.x = []
+                self._background_corrected_trace.y = []
+                return self._update_figure()
+            else:
+                # otherwise prevent update
+                raise PreventUpdate
+        else:
+            self._background_corrected_trace.x = self._plot.x
+            self._background_corrected_trace.y = self._plot.y - background
+
+        return self._update_figure()
+
+    def _update_background_on_interval(self, n_intervals):
+        parameter_set = self._find_selected_parameter_set()[-1]
+
+        if parameter_set == self.last_update_parameters:
+            raise PreventUpdate
+
+        self.last_update_parameters = parameter_set
+        return self._update_background(parameter_set)
+
+    def compute_background(self, parameter_set):
+        return self.background_func(self._plot.x,
+                                self._plot.y,
+                                [anchor['x'] for anchor in parameter_set['anchor_points']],
+                                parameter_set['anchor_regions'],  # TODO: What should get passed in here?
+                                parameter_set['map_mask'],
+                                **parameter_set['values'])
