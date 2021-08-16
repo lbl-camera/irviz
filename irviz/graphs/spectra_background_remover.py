@@ -1,6 +1,8 @@
+import copy
 import warnings
 from functools import cached_property, partial
 from typing import List, Callable
+import threading
 
 import dash
 import dash_bootstrap_components as dbc
@@ -19,6 +21,9 @@ from irviz.graphs import SpectraPlotGraph
 from ryujin.utils.dash import targeted_callback
 
 
+# NOTE: DataTable caches its data on the client, so if multiple clients are open, the app might end up serving clients with different state
+
+
 def empty_callable():
     pass
 
@@ -27,6 +32,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
     def __init__(self, *args, background_func: Callable=empty_callable, **kwargs):
         self.background_func = background_func
+        self._last_update_parameters_sem = threading.Semaphore()
         self.last_update_parameters = None
         parameter_sets = kwargs.get('parameter_sets', [])
 
@@ -386,6 +392,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         try:
             background = self.compute_background(parameter_set)
         except Exception as ex:
+            if ex is PreventUpdate:
+                raise ex
             print(str(ex))
             # if there was data from earlier, clear it
             if len(self._background_corrected_trace.x):
@@ -404,11 +412,17 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
     def _update_background_on_interval(self, n_intervals):
         parameter_set = self._find_selected_parameter_set()[-1]
 
-        if parameter_set == self.last_update_parameters:
-            raise PreventUpdate
+        with self._last_update_parameters_sem:
+            if parameter_set == self.last_update_parameters:
+                raise PreventUpdate
 
-        self.last_update_parameters = parameter_set
-        return self._update_background(parameter_set)
+            # stash a copy in case background_func tries to mutate things
+            parameter_set_stash = copy.deepcopy(parameter_set)
+
+            figure = self._update_background(parameter_set)
+            self.last_update_parameters = parameter_set_stash
+
+        return figure
 
     def compute_background(self, parameter_set):
         return self.background_func(self._plot.x,

@@ -34,8 +34,5 @@ class BackgroundIsolator(ComposableDisplay):
 
         return components
 
-    def init_callbacks(self):
-        super(BackgroundIsolator, self).init_callbacks()
-
     def make_layout(self):
         return html.Div(html.Div(self.components, className='row'), className='container-fluid') #, style={'flexGrow': 1})
