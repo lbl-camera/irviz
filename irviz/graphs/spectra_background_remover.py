@@ -18,7 +18,7 @@ from irviz.components.datalists import AnchorPointList, ParameterSetList, Region
 from irviz.components.kwarg_editor import KwargsEditor
 
 from irviz.graphs import SpectraPlotGraph
-from ryujin.utils.dash import targeted_callback
+from ryujin.utils.dash import targeted_callback, remove_callback
 
 
 # NOTE: DataTable caches its data on the client, so if multiple clients are open, the app might end up serving clients with different state
@@ -116,29 +116,13 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           State(self.region_list.data_table.id, 'data'),
                           app=app)
 
-        # when regionlist is changed, update figure
-        targeted_callback(self._update_regions,
-                          Input(self.region_list.data_table.id, 'data'),
-                          Output(self.id, 'figure'),
-                          app=app)
-
-        # when pointlist is changed, update figure
-        targeted_callback(self._update_points,
-                          Input(self.anchor_points_list.data_table.id, 'data'),
-                          Output(self.id, 'figure'),
-                          app=app)
-
         super(SpectraBackgroundRemover, self).init_callbacks(app)
 
-        # Re-declare click callback, adding state; ignore warning
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            targeted_callback(self.plot_click,
-                              Input(self.id, 'clickData'),
-                              Output(self.id, 'figure'),
-                              State(self.region_list.data_table.id, 'data'),
-                              State(self.anchor_points_list.data_table.id, 'data'),
-                              app=app)
+        # Remove click callback; that functionality is reproduced here
+        remove_callback(super(SpectraBackgroundRemover, self).plot_click,
+                        Input(self.id, 'clickData'),
+                        Output(self.id, 'figure'),
+                        app=app)
 
         # Change selection mode
         targeted_callback(self.set_mode,
@@ -211,11 +195,15 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           app=app)
 
         # update the background if needed
-        targeted_callback(self._update_background_on_interval,
-                          Input('background-update', 'n_intervals'),
+        targeted_callback(self.update_figure_on_data_change,
+                          Input(self.parameter_set_list.data_table.id, 'data'),
+                          Output(self.id, 'figure'),
+                          State(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          app=app)
+        targeted_callback(self.update_figure_on_selection_change,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
                           Output(self.id, 'figure'),
                           State(self.parameter_set_list.data_table.id, 'data'),
-                          State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           app=app)
 
         self.parameter_set_list.init_callbacks(app)
@@ -226,26 +214,15 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         return self._update_figure()
 
-    def plot_click(self, click_data):
-        region_data = dash.callback_context.states[f'{self.region_list.data_table.id}.data'] or []
-        points_data = dash.callback_context.states[f'{self.anchor_points_list.data_table.id}.data'] or []
-
-        if self.selection_mode.value == 1:
-            return self._update_energy_line(click_data)
-        elif self.selection_mode.value == 2:
-            return self._update_points(points_data)
-        elif self.selection_mode.value == 3:
-            return self._update_regions(region_data)
-        raise PreventUpdate
-
     def _add_anchor_points(self, click_data):
+        self._update_energy_line(click_data)  # NOTE: the returned figure is ignored here; it gets re-gen'd along the chain
+
         if not self.selection_mode.value == 2:
             raise PreventUpdate
 
         anchor_trace_index = self.figure.data.index(self._anchor_points_trace)
         index = click_data['points'][0]['pointNumber']
         data = dash.callback_context.states[f'{self.anchor_points_list.data_table.id}.data'] or []
-
 
         if click_data['points'][0]['curveNumber'] == anchor_trace_index:
             # Remove point
@@ -267,7 +244,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             #     self._anchor_points_trace.y = np.insert(np.asarray(self._anchor_points_trace.y), index, y)
             # else:
             #     self._anchor_points_trace.y = [y]
-
         return data
 
     def _add_anchor_region(self, click_data):
@@ -388,6 +364,14 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         return self._stash_parameter_set_data(selection_mask, 'map_mask')
 
+    def update_figure_on_data_change(self, data):
+        parameter_set = self._find_selected_parameter_set(parameter_set_list_data=data)[-1]
+        return self._update_background(parameter_set)
+
+    def update_figure_on_selection_change(self, selected_rows):
+        parameter_set = self._find_selected_parameter_set(row=selected_rows[0])[-1]
+        return self._update_background(parameter_set)
+
     def _update_background(self, parameter_set):
         try:
             background = self.compute_background(parameter_set)
@@ -399,15 +383,12 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             if len(self._background_corrected_trace.x):
                 self._background_corrected_trace.x = []
                 self._background_corrected_trace.y = []
-                return self._update_figure()
-            else:
-                # otherwise prevent update
-                raise PreventUpdate
         else:
             self._background_corrected_trace.x = self._plot.x
             self._background_corrected_trace.y = self._plot.y - background
 
-        return self._update_figure()
+        self._update_points(parameter_set['anchor_points'])  # one extra _update_figure happens here; it is ignored
+        return self._update_regions(parameter_set['anchor_regions'])
 
     def _update_background_on_interval(self, n_intervals):
         parameter_set = self._find_selected_parameter_set()[-1]
