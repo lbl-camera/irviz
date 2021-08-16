@@ -61,7 +61,7 @@
 }
 
 .sidebar-active .sidebar-header h2 {
-    opactiy: 0;
+    opacity: 0;
 }
 
 /* reveal the header when the sidebar is toggled */

@@ -21,6 +21,54 @@ TEST_FILE = 'E:\\BP-area3a.h5'
 OPTICAL_TEST_FILE = 'E:\\BP-area3a_clean.JPG'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 
+from sklearn import gaussian_process
+from sklearn.gaussian_process.kernels import DotProduct, WhiteKernel, RBF, ConstantKernel as C
+
+
+def find_nearest(array, value):
+    idx = (np.abs(array - value)).argmin()
+    return idx
+
+
+def GPR_based_background_single_spectrum(wavenumbers,
+                                         spectrum,
+                                         control_points,
+                                         control_regions,
+                                         mask, # ????????
+                                         rbf_start=1000,
+                                         rbf_low=500,
+                                         rbf_high=1e8,
+                                         C_start=1.0,
+                                         C_low=1e-6,
+                                         C_high=1e4
+                                         ):
+    """
+    Build a background model using GPR
+
+    :param wavenumbers: Input wavenumbers
+    :param spectrum: input spectrum
+    :param control_points: input control points, poicked manually
+    :param rbf_kernel_params: kernel parameters, defaults ok
+    :param constant_kernel_params: kernel parameters, defaults ok
+    :return: a fitted background.
+    """
+    # gather the x values
+    these_idxs = []
+    for cp in control_points:
+        these_idxs.append( find_nearest(wavenumbers, cp) )
+    these_idxs = np.array(these_idxs)
+    these_x = wavenumbers[these_idxs]
+    these_y = spectrum[these_idxs]
+    kernel = C(C_start,
+               (C_low,
+                C_high)) * \
+             RBF(rbf_start, (rbf_low, rbf_high))
+
+    gpr = gaussian_process.GaussianProcessRegressor(kernel=kernel).fit(these_x.reshape(-1,1),
+                                                                       these_y.reshape(-1,1))
+    tmp_bg = gpr.predict(wavenumbers.reshape(-1,1))
+    return tmp_bg.flatten()
+
 
 def open_optical_file(jpg_file):
     return np.asarray(Image.open(jpg_file))
@@ -46,22 +94,8 @@ def open_ir_file(h5_file):
     return da.from_array(data), bounds
 
 
-if __name__ == "__main__":
-    load_figure_template("darkly")
-
-    app_kwargs = {'external_stylesheets': [dbc.themes.DARKLY]}
-    _jupyter_app_kwargs = dict()
-    try:
-        from jupyter_dash import JupyterDash
-
-        ryujin.utils.dash.app = dash.Dash(__name__, **app_kwargs)
-
-    except ImportError:
-        ryujin.utils.dash.app = dash.Dash(__name__, update_title=None, **app_kwargs)
-
-    # data, bounds = open_ir_file(TEST_FILE)
+if __name__ == "__main__":    # data, bounds = open_ir_file(TEST_FILE)
     data, bounds = open_map_file(TEST_FILE)
-    # optical = np.flipud(np.average(open_optical_file(OPTICAL_TEST_FILE), axis=2))
     optical = np.flipud(open_optical_file(OPTICAL_TEST_FILE))
     model = sklearn.decomposition.PCA(n_components=3)
 
@@ -74,48 +108,7 @@ if __name__ == "__main__":
     cluster_labels = np.argmax(decomposition, axis=0)
     cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
-    viewer = BackgroundIsolator(ryujin.utils.dash.app,
-                                data=data,
-                                # optical=optical,
-                                # decomposition=decomposition,
-                                # bounds=bounds,
-                                # component_spectra=model.components_,
-                                # spectra_axis_title='Wavenumber (cm⁻¹)',
-                                # intensity_axis_title='Intensity',
-                                # x_axis_title='X (μm)',
-                                # y_axis_title='Y (μm)',
-                                # invert_spectra_axis=True,
-                                # cluster_labels=cluster_labels,
-                                # # cluster_label_names=cluster_label_names,
-                                # annotations=[
-                                #     {
-                                #         'name': 'x',
-                                #         'range': (1000, 1500),
-                                #         'color': 'green'
-                                #     },
-                                #     {
-                                #         'name': 'y',
-                                #         'position': 300,
-                                #         'range': [200, 500]
-                                #     },
-                                #     {'name': 'z',
-                                #      'position': 900,
-                                #      'color': '#34afdd'
-                                #      }
-                                # ],
-                                # error_func=partial(np.percentile, q=90, axis=1)
-                                )
+    viewer = BackgroundIsolator(data=data,
+                                background_function=GPR_based_background_single_spectrum)
 
-    # Testing None decomposition
-    # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)
-
-    div = html.Div(children=[viewer], className='darkmode')
-    # viewer2 = Viewer(data.compute(), app=_app)
-    # div = html.Div(children=[viewer, viewer2])  # TEST for jupyter
-    ryujin.utils.dash.app.layout = div
-
-    ryujin.utils.dash.app.config.suppress_callback_exceptions = True
-
-    ryujin.utils.dash.app.run_server(debug=True,
-                                     # dev_tools_props_check=False,
-                                     **_jupyter_app_kwargs)
+    viewer.run_server(run_kwargs=dict(debug=True))
