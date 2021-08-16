@@ -20,7 +20,7 @@ class BackgroundIsolator(ComposableDisplay):
                      flexDirection='row',
                      height='100%',
                      minHeight='450px')
-        className = 'col-lg-6 p-0'
+        className = 'col-lg-12 p-0'
         graph_kwargs = dict(style=style, className=className, responsive=True)
 
         components.append(SpectraBackgroundRemover(instance_index=self._instance_index,
