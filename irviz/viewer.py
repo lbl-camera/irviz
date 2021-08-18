@@ -11,8 +11,7 @@ import numpy as np
 from dash.dependencies import ALL, Input, Output
 
 import ryujin.utils.dash
-from irviz.components import spectra_annotation_dialog
-from irviz.components.modal_dialogs import slice_annotation_dialog
+from irviz.components import SpectraAnnotationDialog, SliceAnnotationDialog
 from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
 from ryujin import ComposableDisplay
 from ryujin.components import Panel
@@ -66,7 +65,6 @@ class Viewer(ComposableDisplay):
     _annotation_counter = count(0)
 
     def __init__(self,
-                 app,
                  data,
                  optical=None,
                  decomposition=None,
@@ -87,8 +85,6 @@ class Viewer(ComposableDisplay):
 
         Parameters
         ----------
-        app : dash.Dash or jupyter_dash.JupyterDash
-            Reference to the Dash application to add components to
         data : dask.array
             3D array data (with axes E/wave-number, Y, and X)
         optical : np.ndarray
@@ -169,7 +165,6 @@ class Viewer(ComposableDisplay):
                        annotations,
                        error_func)
 
-        self._app = app
         self._data = data
         self._bounds = bounds
         self._cluster_labels = cluster_labels
@@ -185,7 +180,7 @@ class Viewer(ComposableDisplay):
         self._annotations = annotations
         self._error_func = error_func
 
-        super(Viewer, self).__init__(app)
+        super(Viewer, self).__init__()
 
     def init_components(self, *args, **kwargs):
         self.graphs = {}
@@ -274,28 +269,9 @@ class Viewer(ComposableDisplay):
                                                                                         height='100%',
                                                                                         minHeight='450px')))
 
-        # Create the Toast (notification thingy)
-        self._notifier = dbc.Toast("placeholder",
-                                   id="notifier",
-                                   header="Tip",
-                                   is_open=False,
-                                   dismissable=True,
-                                   icon="info",
-                                   duration=4000,
-                                   # top: 66 positions the toast below the navbar
-                                   style={"position": "fixed", "top": 66, "right": 10, "width": 350}
-                                   )
-
-        # Wireup toast chained callback
-        targeted_callback(lambda _: True,
-                          Input(self._notifier.id, 'children'),
-                          Output(self._notifier.id, 'is_open'),
-                          app=self._app)
-
         self.annotations_panel = AnnotationsPanel(self._instance_index)
 
-        self.spectra_annotation_dialog = spectra_annotation_dialog(self._app,
-                                                                   'spectra-annotation-dialog',
+        self.spectra_annotation_dialog = SpectraAnnotationDialog('spectra-annotation-dialog',
                                                                    success_callback=self._add_annotation_from_dialog,
                                                                    success_output=Output(
                                                                        self.annotations_panel.spectra_graph_annotations.id,
@@ -304,8 +280,7 @@ class Viewer(ComposableDisplay):
                                                                        self.annotations_panel.spectra_graph_add_annotation.id,
                                                                        'n_clicks'))
 
-        self.slice_annotation_dialog = slice_annotation_dialog(self._app,
-                                                               'slice-annotation-dialog',
+        self.slice_annotation_dialog = SliceAnnotationDialog('slice-annotation-dialog',
                                                                success_callback=self._add_slice_annotation_from_dialog,
                                                                success_output=Output(
                                                                    self.annotations_panel.slice_graph_annotations.id,
@@ -317,11 +292,11 @@ class Viewer(ComposableDisplay):
         for annotation in self._annotations or []:
             self._add_spectra_annotation(annotation)
 
-        return list(self.graphs.values()) + [self._notifier, self.spectra_annotation_dialog,
+        return list(self.graphs.values()) + [self.spectra_annotation_dialog,
                                              self.slice_annotation_dialog]
 
-    def init_callbacks(self):
-        super(Viewer, self).init_callbacks()
+    def init_callbacks(self, app):
+        super(Viewer, self).init_callbacks(app)
 
         # spectra annotation removal callback
         targeted_callback(self._remove_spectra_annotation,
@@ -330,7 +305,7 @@ class Viewer(ComposableDisplay):
                                  "annotation_index": ALL},
                                 "n_clicks"),
                           Output(self.annotations_panel.spectra_graph_annotations.id, 'children'),
-                          app=self._app)
+                          app=app)
 
         # slice annotation removal callback
         targeted_callback(self._remove_slice_annotation,
@@ -339,7 +314,7 @@ class Viewer(ComposableDisplay):
                                  "annotation_index": ALL},
                                 "n_clicks"),
                           Output(self.annotations_panel.slice_graph_annotations.id, 'children'),
-                          app=self._app)
+                          app=app)
 
     def make_layout(self):
         return html.Div(html.Div(self.components, className='row'),
@@ -606,147 +581,3 @@ class Viewer(ComposableDisplay):
                 warnings.warn(f"The provided 'component_spectra' does not have a valid shape: "
                               f"{component_spectra_array.shape}; "
                               f"shape should be number of components, number of energies (wave-numbers).")
-
-
-def notebook_viewer(data,
-                    optical=None,
-                    decomposition=None,
-                    bounds=None,
-                    component_spectra=None,
-                    spectra_axis_title='',
-                    intensity_axis_title='',
-                    x_axis_title='',
-                    y_axis_title='',
-                    invert_spectra_axis=False,
-                    cluster_labels=None,
-                    cluster_label_names=None,
-                    error_func=None,
-                    mode='inline',
-                    width='100%',
-                    height=650,
-                    annotations=None):
-    """Create a Viewer inside of a Jupyter Notebook or Lab environment.
-
-    Parameters
-    ----------
-    data : dask.array
-        3D data to visualize in the Viewer
-    optical : np.ndarray
-        (optional) An optical image registered with the spectral data
-    decomposition : np.ndarray
-        Component values for the decomposed data
-    bounds : list
-        List of min, max pairs that define each axis's lower and upper bounds
-    cluster_labels : np.ndarray
-            Array that contains cluster integer labels over the Energy (wavenumber) axis
-    cluster_label_names : list
-        List of names for each label in the cluster label array
-    component_spectra : list or np.ndarray
-        List of component spectra of the decomposition
-    x_axis_title : str
-        Title of the x-axis for the rendered data and decomposition figures
-    y_axis_title : str
-        Title of the y-axis for the rendered data and decomposition figures
-    spectra_axis_title : str
-        Title for the spectra axis in the rendered spectra plot
-    intensity_axis_title : str
-        Title for the intensity axis in the rendered spectra plot
-    invert_spectra_axis : bool
-        Whether or not to invert the spectra axis on the spectra plot
-    mode : str
-        Defines where the Viewer app is displayed (default is 'inline')
-    width : int or str
-        CSS-style width value that defines the width of the rendered Viewer app
-    height : int or str
-        CSS-style height value that defines the height of the rendered Viewer app
-    annotations : List[dict]
-            Dictionary that contains annotation names that map to annotations.
-            The annotation dictionaries support the following keys:
-                'name' : the name of the annotation
-                'range' : list or tuple of length 2
-                'position' : number
-                'color' : color (hex str, rgb str, hsl str, hsv str, named CSS color)
-            Example:
-                annotations=[
-                    {
-                        'name': 'x',
-                        'range': (1000, 1500),
-                        'color': 'green'
-                    },
-                    {
-                        'name': 'y',
-                        'position': 300,
-                        'range': [200, 500]
-                    },
-                    {   'name': 'z',
-                        'position': 900,
-                        'color': '#34afdd'
-                    }
-                ]
-    error_func : Callable[[NDArray[(Any, Any)]], np.ndarray[Any]]
-            A callable function that takes an array of shape (E, N), where E is the length of the spectral dimension and
-            N is the number of curves over which to calculate error. The return value is expected to be a 1-D array of
-            length E. The default is to apply a std dev over the N axis.
-
-    Returns
-    -------
-    viewer
-        Returns a reference to the created Viewer, which acts as a handle to the Dash app.
-        This is useful for accessing data inside of the Viewer (via its properties).
-
-    """
-    was_running = True
-    app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
-    try:
-        from jupyter_dash import JupyterDash
-    except ImportError:
-        print("Please install jupyter-dash first.")
-    else:
-        if not ryujin.utils.dash.app:
-            # Creating a new app means we never ran the server
-            ryujin.utils.dash.app = JupyterDash(__name__, **app_kwargs)
-            was_running = False
-
-    viewer = Viewer(ryujin.utils.dash.app,
-                    data,
-                    optical=optical,
-                    decomposition=decomposition,
-                    component_spectra=component_spectra,
-                    bounds=bounds,
-                    x_axis_title=x_axis_title,
-                    y_axis_title=y_axis_title,
-                    cluster_labels=cluster_labels,
-                    cluster_label_names=cluster_label_names,
-                    spectra_axis_title=spectra_axis_title,
-                    intensity_axis_title=intensity_axis_title,
-                    invert_spectra_axis=invert_spectra_axis,
-                    annotations=annotations,
-                    error_func=error_func)
-    # viewer2 = Viewer(data.compute(), app=app)
-
-    div = html.Div(children=[viewer])  # , viewer2])
-    ryujin.utils.dash.app.layout = div
-
-    # Prevent server from being run multiple times; only one instance allowed
-    if not was_running:
-        ryujin.utils.dash.app.run_server(mode=mode,
-                                         width=width,
-                                         height=height)
-    else:
-        # Values passed here are from
-        # jupyter_app.jupyter_dash.JupyterDash.run_server
-
-        if ryujin.utils.dash.app._in_colab:
-            ryujin.utils.dash.app._display_in_colab(dashboard_url='http://127.0.0.1:8050/',
-                                                    mode=mode,
-                                                    port=8050,
-                                                    width=width,
-                                                    height=height)
-        else:
-            ryujin.utils.dash.app._display_in_jupyter(dashboard_url='http://127.0.0.1:8050/',
-                                                      mode=mode,
-                                                      port=8050,
-                                                      width=width,
-                                                      height=height)
-
-    return viewer

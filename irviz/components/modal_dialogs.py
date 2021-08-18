@@ -6,10 +6,12 @@ from dash.dependencies import Input, Output, State
 
 from ryujin.utils.dash import targeted_callback
 
-__all__ = ['spectra_annotation_dialog', 'modal_dialog']
+__all__ = ['SliceAnnotationDialog', 'SpectraAnnotationDialog', 'ModalDialog']
 
 
-def modal_dialog(app,
+class ModalDialog(dbc.Modal):
+
+    def __init__(self,
                  _id,
                  title: str,
                  children: List,
@@ -17,104 +19,108 @@ def modal_dialog(app,
                  success_output: Output,
                  open_input: Input,
                  states: List[State], ):
-    header = dbc.ModalHeader(title, id=f'{_id}-header')
-    body = dbc.ModalBody(children, id=f'{_id}-body')
-    cancel_button = dbc.Button("Cancel", id=f'{_id}-cancel', className="ml-auto", n_clicks=0)
-    add_button = dbc.Button("Add", id=f'{_id}-add', className="ml-auto", n_clicks=0)
-    footer = dbc.ModalFooter([add_button, cancel_button])
+        self.success_callback = success_callback
+        self.success_output = success_output
+        self.open_input = open_input
+        self.states = states
+        header = dbc.ModalHeader(title, id=f'{_id}-header')
+        body = dbc.ModalBody(children, id=f'{_id}-body')
+        self.cancel_button = dbc.Button("Cancel", id=f'{_id}-cancel', className="ml-auto", n_clicks=0)
+        self.add_button = dbc.Button("Add", id=f'{_id}-add', className="ml-auto", n_clicks=0)
+        footer = dbc.ModalFooter([self.add_button, self.cancel_button])
 
-    dialog = dbc.Modal([header, body, footer], id=_id)
+        super(ModalDialog, self).__init__([header, body, footer], id=_id)
 
-    # Close dialog if Add/Cancel is clicked within it
-    targeted_callback(lambda _: False,
-                      Input(cancel_button.id, 'n_clicks'),
-                      Output(dialog.id, 'is_open'),
-                      app=app)
-    targeted_callback(lambda _: False,
-                      Input(add_button.id, 'n_clicks'),
-                      Output(dialog.id, 'is_open'),
-                      app=app)
+    def init_callbacks(self, app):
+        # Close dialog if Add/Cancel is clicked within it
+        targeted_callback(lambda _: False,
+                          Input(self.cancel_button.id, 'n_clicks'),
+                          Output(self.id, 'is_open'),
+                          app=app)
+        targeted_callback(lambda _: False,
+                          Input(self.add_button.id, 'n_clicks'),
+                          Output(self.id, 'is_open'),
+                          app=app)
 
-    # When the Add button is clicked, trigger the success callback
-    targeted_callback(success_callback,
-                      Input(add_button.id, 'n_clicks'),
-                      success_output,
-                      *states,
-                      app=app)
+        # When the Add button is clicked, trigger the success callback
+        targeted_callback(self.success_callback,
+                          Input(self.add_button.id, 'n_clicks'),
+                          self.success_output,
+                          *self.states,
+                          app=app)
 
-    # Open dialog when the open_input is triggered
-    targeted_callback(lambda _: True,
-                      open_input,
-                      Output(dialog.id, 'is_open'),
-                      app=app)
-
-    return dialog
-
-
-def spectra_annotation_dialog(app, _id, **kwargs):
-    name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
-    name_form = dbc.FormGroup(
-        [
-            dbc.Label("Name"),
-            name_input
-            # dbc.FormText(
-            #     "little text below the input component",
-            #     color="secondary",
-            # ),
-        ]
-    )
-    lower_bound_input = dbc.Input(type="number", id=f'{_id}-lower-bound', step=1, required=True)
-    lower_bound_form = dbc.FormGroup(
-        [
-            dbc.Label("Lower bound"),
-            lower_bound_input
-        ],
-        id="styled-numeric-input",
-    )
-    upper_bound_input = dbc.Input(type="number", id=f'{_id}-upper-bound', step=1, required=False)
-    upper_bound_form = dbc.FormGroup(
-        [
-            dbc.Label("Upper bound (optional)"),
-            upper_bound_input
-        ]
-    )
-
-    color_input = daq.ColorPicker(id=f'{_id}-color-picker',
-                                  label='Color Picker',
-                                  value=dict(rgb=dict(r=100, g=200, b=200, a=.25)))
-
-    return modal_dialog(app,
-                        _id,
-                        'Add Annotation',
-                        [name_form, lower_bound_form, upper_bound_form, color_input],
-                        states=[State(name_input.id, 'value'),
-                                State(lower_bound_input.id, 'value'),
-                                State(upper_bound_input.id, 'value'),
-                                State(color_input.id, 'value')],
-                        **kwargs)
+        # Open dialog when the open_input is triggered
+        targeted_callback(lambda _: True,
+                          self.open_input,
+                          Output(self.id, 'is_open'),
+                          app=app)
 
 
-def slice_annotation_dialog(app, _id, **kwargs):
-    name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
-    name_form = dbc.FormGroup(
-        [
-            dbc.Label("Name"),
-            name_input
-            # dbc.FormText(
-            #     "little text below the input component",
-            #     color="secondary",
-            # ),
-        ]
-    )
+class SpectraAnnotationDialog(ModalDialog):
+    def __init__(self, _id, **kwargs):
+        name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
+        name_form = dbc.FormGroup(
+            [
+                dbc.Label("Name"),
+                name_input
+                # dbc.FormText(
+                #     "little text below the input component",
+                #     color="secondary",
+                # ),
+            ]
+        )
+        lower_bound_input = dbc.Input(type="number", id=f'{_id}-lower-bound', step=1, required=True)
+        lower_bound_form = dbc.FormGroup(
+            [
+                dbc.Label("Lower bound"),
+                lower_bound_input
+            ],
+            id="styled-numeric-input",
+        )
+        upper_bound_input = dbc.Input(type="number", id=f'{_id}-upper-bound', step=1, required=False)
+        upper_bound_form = dbc.FormGroup(
+            [
+                dbc.Label("Upper bound (optional)"),
+                upper_bound_input
+            ]
+        )
 
-    color_input = daq.ColorPicker(id=f'{_id}-color-picker',
-                                  label='Color Picker',
-                                  value=dict(rgb=dict(r=255, g=0, b=0, a=.3)))
+        color_input = daq.ColorPicker(id=f'{_id}-color-picker',
+                                      label='Color Picker',
+                                      value=dict(rgb=dict(r=100, g=200, b=200, a=.25)))
 
-    return modal_dialog(app,
-                        _id,
-                        'Add Annotation',
-                        [name_form, color_input],
-                        states=[State(name_input.id, 'value'),
-                                State(color_input.id, 'value')],
-                        **kwargs)
+        super(SpectraAnnotationDialog, self).__init__(_id,
+                                                      'Add Annotation',
+                                                      [name_form, lower_bound_form, upper_bound_form, color_input],
+                                                      states=[State(name_input.id, 'value'),
+                                                              State(lower_bound_input.id, 'value'),
+                                                              State(upper_bound_input.id, 'value'),
+                                                              State(color_input.id, 'value')],
+                                                      **kwargs)
+
+
+class SliceAnnotationDialog(ModalDialog):
+    def __init__(self, _id, **kwargs):
+
+        name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
+        name_form = dbc.FormGroup(
+            [
+                dbc.Label("Name"),
+                name_input
+                # dbc.FormText(
+                #     "little text below the input component",
+                #     color="secondary",
+                # ),
+            ]
+        )
+
+        color_input = daq.ColorPicker(id=f'{_id}-color-picker',
+                                      label='Color Picker',
+                                      value=dict(rgb=dict(r=255, g=0, b=0, a=.3)))
+
+        super(SliceAnnotationDialog, self).__init__(_id,
+                                                    'Add Annotation',
+                                                    [name_form, color_input],
+                                                    states=[State(name_input.id, 'value'),
+                                                            State(color_input.id, 'value')],
+                                                    **kwargs)
