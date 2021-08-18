@@ -256,18 +256,14 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         data = dash.callback_context.states[f'{self.region_list.data_table.id}.data'] or []
 
         # look for a '_region_start' shape already in the figure indicated the previously clicked position
-        region_started = next(filter(lambda shape: shape.name == '_region_start', self.figure.layout.shapes), None)
+        last_region = data[-1] if len(data) else {}
 
-        if region_started:
-            region = sorted([region_started.x0, x])
-            shapes = list(self.figure.layout.shapes)
-            shapes.remove(region_started)
-            self.figure.layout.shapes = shapes
+        if 'region_max' in last_region and last_region['region_max'] is None:
+            region = sorted([last_region['region_min'], x])
 
             data[-1]['region_min'] = region[0]
             data[-1]['region_max'] = region[1]
         else:
-            self.figure.add_vline(x, name='_region_start', line_color="gray")
             data += [{'name': f'Region #{next(self.region_list.region_counter)}', 'region_min': x, 'region_max': None}]
         return data
 
@@ -291,13 +287,15 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         if hasattr(self, 'figure'):
 
             # clear shapes except _region_start
-            self.figure.layout.shapes = list(filter(lambda shape: shape.name == '_region_start', self.figure.layout.shapes))
+            self.figure.layout.shapes = []
 
             # repopulate from regionlist
             for region_record in data:
                 region_min, region_max = region_record.get('region_min'), region_record.get('region_max')
                 if region_min is not None and region_max is not None:
                     self.figure.add_vrect(region_min, region_max, line_width=0, opacity=.3, fillcolor='gray')
+                elif region_max is None:
+                    self.figure.add_vline(region_min, name='_region_start', line_color="gray")
 
         return self._update_figure()
 
