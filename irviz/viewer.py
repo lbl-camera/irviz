@@ -697,7 +697,6 @@ def notebook_viewer(data,
     """
     was_running = True
     app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
-    from irviz.utils import dash as irdash
     try:
         from jupyter_dash import JupyterDash
     except ImportError:
