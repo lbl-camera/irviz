@@ -185,8 +185,6 @@ class DecompositionGraph(SliceGraph):
                           Output(self.id, 'figure'),
                           app=app)
 
-        self.configuration_panel.init_callbacks(app)
-
     def set_color_scale(self, color_scale):
         i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
         color_scale = transparent_color_scales.get(color_scale, color_scale)
