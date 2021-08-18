@@ -6,6 +6,8 @@ from irviz.graphs.background_map import BackgroundMapGraph
 from irviz.graphs.spectra_background_remover import SpectraBackgroundRemover
 from ryujin.display import ComposableDisplay
 
+__all__ = ['BackgroundIsolator']
+
 
 def empty_callable():
     pass
@@ -36,3 +38,7 @@ class BackgroundIsolator(ComposableDisplay):
 
     def make_layout(self):
         return html.Div(html.Div(self.components, className='row'), className='container-fluid') #, style={'flexGrow': 1})
+
+    @property
+    def parameter_sets(self):
+        return self.components[0]._parameter_sets

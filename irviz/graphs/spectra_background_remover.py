@@ -35,6 +35,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         self._last_update_parameters_sem = threading.Semaphore()
         self.last_update_parameters = None
         parameter_sets = kwargs.get('parameter_sets', [])
+        self._parameter_sets = []
 
         self._anchor_points_trace = go.Scattergl(x=[],
                                                  y=[],
@@ -365,6 +366,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         return self._stash_parameter_set_data(selection_mask, 'map_mask')
 
     def update_figure_on_data_change(self, data):
+        # Also, stash the new data for property access
+        self._parameter_sets = data
         parameter_set = self._find_selected_parameter_set(parameter_set_list_data=data)[-1]
         return self._update_background(parameter_set)
 

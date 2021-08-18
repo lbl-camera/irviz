@@ -19,6 +19,8 @@ from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
 from ryujin.utils.strings import phonetic_from_int
 
+__all__ = ['Viewer']
+
 
 # TODO: organize Viewer.__init__ (e.g. make a validation method)
 # TODO: update docstrings for annotation; validate annotation
