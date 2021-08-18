@@ -49,15 +49,7 @@ if __name__ == "__main__":
     load_figure_template("darkly")
 
     FONT_AWESOME = "https://use.fontawesome.com/releases/v5.11.1/css/all.css"
-    app_kwargs = {'external_stylesheets': [dbc.themes.DARKLY, FONT_AWESOME]}
-    _jupyter_app_kwargs = dict()
-    try:
-        from jupyter_dash import JupyterDash
-
-        ryujin.utils.dash.app = JupyterDash(__name__, **app_kwargs)
-        _jupyter_app_kwargs['mode'] = 'inline'
-    except ImportError:
-        ryujin.utils.dash.app = dash.Dash(__name__, update_title=None, **app_kwargs)
+    app_kwargs = {'external_stylesheets': [FONT_AWESOME]}
 
     # data, bounds = open_ir_file(TEST_FILE)
     data, bounds = open_map_file(TEST_FILE)
@@ -74,8 +66,7 @@ if __name__ == "__main__":
     cluster_labels = np.argmax(decomposition, axis=0)
     cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
-    viewer = Viewer(ryujin.utils.dash.app,
-                    data,
+    viewer = Viewer(data=data,
                     optical=optical,
                     decomposition=decomposition,
                     bounds=bounds,
@@ -109,11 +100,4 @@ if __name__ == "__main__":
     # Testing None decomposition
     # viewer = Viewer(_app, data.compute(), decomposition=None, bounds=bounds)
 
-    div = html.Div(children=[viewer], className='darkmode')
-    # viewer2 = Viewer(data.compute(), app=_app)
-    # div = html.Div(children=[viewer, viewer2])  # TEST for jupyter
-    ryujin.utils.dash.app.layout = div
-
-    ryujin.utils.dash.app.run_server(debug=True,
-                                     # dev_tools_props_check=False,
-                                     **_jupyter_app_kwargs)
+    viewer.run_server(app_kwargs=app_kwargs, run_kwargs=dict(debug=True))
