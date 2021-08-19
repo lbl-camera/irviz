@@ -1,4 +1,5 @@
 import copy
+import traceback
 import warnings
 from functools import cached_property, partial
 from typing import List, Callable
@@ -379,7 +380,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         except Exception as ex:
             if ex is PreventUpdate:
                 raise ex
-            print(str(ex))
+            tb = ex.__traceback__
+            print(*traceback.format_exception(ex, ex, tb))
             # if there was data from earlier, clear it
             if len(self._background_corrected_trace.x):
                 self._background_corrected_trace.x = []
