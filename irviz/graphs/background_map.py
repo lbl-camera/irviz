@@ -46,6 +46,9 @@ class BackgroundMapGraph(MapGraph):
                                             index=self._instance_index), 'data'))
         parameter_set_list = dash.callback_context.states[_id] or []
 
-        self._selection_mask.z = parameter_set_list[selected_rows[0]]['map_mask'] or np.ones_like(self._image.z) * np.NaN
+        if selected_rows and selected_rows[0] < len(parameter_set_list) - 1:
+            self._selection_mask.z = parameter_set_list[selected_rows[0]]['map_mask'] or np.ones_like(self._image.z) * np.NaN
+        else:
+            self._selection_mask.z = np.ones_like(self._image.z) * np.NaN
 
         return self._update_figure()
