@@ -124,11 +124,15 @@ class ParameterEditor(dbc.Form):
 
 class KwargsEditor(ParameterEditor):
     def __init__(self, _id, func: Callable, **kwargs):
+        self.func = func
 
         parameters = [{'name': name, 'value': param.default} for name, param in signature(func).parameters.items()
                       if param.default is not _empty]
 
         super(KwargsEditor, self).__init__(_id, parameters=parameters, **kwargs)
+
+    def new_record(self):
+        return {name: p.default for name, p in signature(self.func).parameters.items() if p.default is not _empty}
 
 
 if __name__ == '__main__':

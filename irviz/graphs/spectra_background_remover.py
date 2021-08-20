@@ -201,11 +201,19 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           Input(self.parameter_set_list.data_table.id, 'data'),
                           Output(self.id, 'figure'),
                           State(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          State(dict(type='slice_graph',
+                                     subtype='map',
+                                     index=self._instance_index),
+                                'figure'),
                           app=app)
         targeted_callback(self.update_figure_on_selection_change,
                           Input(self.parameter_set_list.data_table.id, 'selected_rows'),
                           Output(self.id, 'figure'),
                           State(self.parameter_set_list.data_table.id, 'data'),
+                          State(dict(type='slice_graph',
+                                     subtype='map',
+                                     index=self._instance_index),
+                                'figure'),
                           app=app)
 
         self.parameter_set_list.init_callbacks(app)
@@ -322,19 +330,20 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         if parameter_set_list_data is None:
             _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'data'))
             parameter_set_list_data = dash.callback_context.states[_id] or []
-        if row is None:
-            _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'selected_rows'))
-            row = dash.callback_context.states[_id][0]
+        _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'selected_rows'))
+        if row is None and _id in dash.callback_context.states:
+            row = next(iter(dash.callback_context.states[_id]), None)
+        if row is None or row > len(parameter_set_list_data)-1: raise PreventUpdate
         return row, parameter_set_list_data[row]
 
     def _update_regions_list(self, selected_rows):
-        return self._find_selected_parameter_set(row=selected_rows[0])[-1]['anchor_regions']
+        return self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['anchor_regions']
 
     def _update_anchor_points_list(self, selected_rows):
-        return self._find_selected_parameter_set(row=selected_rows[0])[-1]['anchor_points']
+        return self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['anchor_points']
 
     def _update_values_editor(self, selected_rows):
-        values = self._find_selected_parameter_set(row=selected_rows[0])[-1]['values']
+        values = self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['values']
         # rebuild the child items
         return self.values_editor.build_children(values)
 
@@ -342,10 +351,16 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'data'))
         parameter_set_list = dash.callback_context.states[_id] or []
 
-        current_parameter_set = self._find_selected_parameter_set()[-1]
+        try:
+            current_parameter_set = self._find_selected_parameter_set()[-1]
+        except PreventUpdate:
+            current_parameter_set = None
 
         new_record = self.parameter_set_list.new_record()
-        new_record['values'] = current_parameter_set['values'].copy()
+        if current_parameter_set is not None:
+            new_record['values'] = current_parameter_set['values'].copy()
+        else:
+            new_record['values'] = self.values_editor.new_record()
 
         return parameter_set_list + [new_record]
 
@@ -390,7 +405,16 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             self._background_corrected_trace.x = self._plot.x
             self._background_corrected_trace.y = self._plot.y - background
 
-        self._update_points(parameter_set['anchor_points'])  # one extra _update_figure happens here; it is ignored
+        _id = create_callback_id(State(dict(type='slice_graph',
+                                            subtype='map',
+                                            index=self._instance_index),
+                                 'figure'))
+        figure = dash.callback_context.states[_id]
+        selection = next(iter(filter(lambda trace: trace.get('name') == 'selection', figure['data'])))['z']
+        y_indexes, x_indexes = np.argwhere(np.asarray(selection) == 1).T
+
+        self._update_average_plot_with_indexes(y_indexes, x_indexes)  # two extra _update_figure happens here; it is ignored
+        self._update_points(parameter_set['anchor_points'])
         return self._update_regions(parameter_set['anchor_regions'])
 
     def _update_background_on_interval(self, n_intervals):
@@ -409,9 +433,14 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         return figure
 
     def compute_background(self, parameter_set):
+        # sanitize anchor_regions
+        anchor_regions = parameter_set['anchor_regions'].copy()
+        if anchor_regions and anchor_regions[-1][1] is None:
+            del anchor_regions[-1]
+
         return self.background_func(self._plot.x,
-                                self._plot.y,
-                                [anchor['x'] for anchor in parameter_set['anchor_points']],
-                                parameter_set['anchor_regions'],  # TODO: What should get passed in here?
-                                parameter_set['map_mask'],
-                                **parameter_set['values'])
+                                    self._plot.y,
+                                    [anchor['x'] for anchor in parameter_set['anchor_points']],
+                                    parameter_set['anchor_regions'],  # TODO: What should get passed in here?
+                                    parameter_set['map_mask'],
+                                    **parameter_set['values'])

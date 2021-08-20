@@ -144,7 +144,7 @@ class SpectraPlotGraph(dcc.Graph):
     def init_callbacks(self, app):
 
         # When points are selected on the MapGraph, add additional statistics and components plots
-        targeted_callback(self._update_average_plot,
+        targeted_callback(self.update_average_plot,
                           Input({'type': 'slice_graph',
                                  'subtype': 'map',
                                  'index': self._instance_index},
@@ -153,7 +153,7 @@ class SpectraPlotGraph(dcc.Graph):
                           app=app)
 
         # On selection of pair-plot points, show their average
-        targeted_callback(self._update_average_plot,
+        targeted_callback(self.update_average_plot,
                           Input({'type': 'pair_plot',
                                  'subtype': ALL,
                                  'index': self._instance_index},
@@ -402,11 +402,16 @@ class SpectraPlotGraph(dcc.Graph):
         self.figure = new_figure
         return new_figure
 
-    def _update_average_plot(self, selected_data):
+    def update_average_plot(self, selected_data):
+        y_indexes = x_indexes = []
         if selected_data is not None and len(selected_data['points']) > 0:
             raveled_indexes = list(map(lambda point: point['pointIndex'], selected_data['points']))
             y_indexes, x_indexes = np.unravel_index(raveled_indexes, self._data.shape[1:])
 
+        return self._update_average_plot_with_indexes(y_indexes, x_indexes)
+
+    def _update_average_plot_with_indexes(self, y_indexes, x_indexes):
+        if y_indexes is not None and x_indexes is not None:
             # Dask arrays do fancy indexing differently, and the results have different orientations
             if isinstance(self._data, da.Array):
                 self._avg_plot.y = np.mean(self._data.vindex[:, y_indexes, x_indexes], axis=0)
