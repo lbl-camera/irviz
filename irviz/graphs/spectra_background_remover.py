@@ -438,9 +438,11 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         if anchor_regions and anchor_regions[-1][1] is None:
             del anchor_regions[-1]
 
+        mask = parameter_set['map_mask'].astype(np.bool_)
+
         return self.background_func(self._plot.x,
                                     self._plot.y,
                                     [anchor['x'] for anchor in parameter_set['anchor_points']],
                                     parameter_set['anchor_regions'],  # TODO: What should get passed in here?
-                                    parameter_set['map_mask'],
+                                    mask,
                                     **parameter_set['values'])
