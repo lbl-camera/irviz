@@ -1,6 +1,7 @@
 from itertools import count
 
 import dash
+from dash._utils import create_callback_id
 from dash.dependencies import Output, Input, State
 
 from ryujin.components.datalist import DataList
@@ -77,19 +78,23 @@ class ParameterSetList(DataList):
         super(ParameterSetList, self).__init__(*args, table_kwargs=table_kwargs, **kwargs)
 
     def init_callbacks(self, app):
-        targeted_callback(self.check_data,
-                          Input(self.data_table.id, 'data'),
-                          Output(self.data_table.id, 'data'),
-                          State(self.data_table.id, 'data_previous'),
+        targeted_callback(self.assert_selected_row,
+                          Input(self.data_table.id, 'data_previous'),
+                          Output(self.data_table.id, 'selected_rows'),
+                          State(self.data_table.id, 'selected_rows'),
+                          State(self.data_table.id, 'data'),
                           app=app)
 
-    def check_data(self, data):
-        data_previous = dash.callback_context.states[f'{self.data_table.id}.data_previous'] or []
+    def assert_selected_row(self, data):
+        _id = create_callback_id(State(self.data_table.id, 'selected_rows'))
+        selected_rows = dash.callback_context.states[_id]
+        _id = create_callback_id(State(self.data_table.id, 'data'))
+        data = dash.callback_context.states[_id]
 
-        if not data:
-            return data_previous
-        else:
-            return data
+        if not selected_rows and len(data):
+            selected_rows = [0]
+
+        return selected_rows
 
     def new_record(self):
         name = f'Parameter Set #{next(self.parameter_set_counter)}'
