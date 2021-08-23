@@ -110,6 +110,8 @@ if __name__ == "__main__":    # data, bounds = open_ir_file(TEST_FILE)
 
     viewer = BackgroundIsolator(data=data,
                                 bounds=bounds,
+                                parameter_sets=[{'name': name,
+                                                 'map_mask': cluster_labels == i} for i, name in enumerate(cluster_label_names)],
                                 background_function=GPR_based_background_single_spectrum)
 
     viewer.run_server(run_kwargs=dict(debug=True))

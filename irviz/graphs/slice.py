@@ -25,7 +25,7 @@ class SliceGraph(dcc.Graph):
     aspect_locked = True
 
     def __init__(self, data, instance_index, cluster_labels=None, cluster_label_names=None, bounds=None, slice_axis=0,
-                 traces=None, shapes=None, graph_kwargs=None, **kwargs):
+                 traces=None, shapes=None, graph_kwargs=None, mask=None, **kwargs):
         # Normalize bounds
         if bounds is None or np.asarray(bounds).shape != (
                 3, 2):  # bounds should contain a min/max pair for each dimension
@@ -74,14 +74,18 @@ class SliceGraph(dcc.Graph):
                                             bounds,
                                             hovertemplate=hovertemplate,
                                             **extra_kwargs)
-
-        self._selection_mask = self._get_image_trace(np.ones_like(data[0]) * np.NaN,
+        if mask is None:
+            mask = np.ones_like(data[0]) * np.NaN
+        mask = mask.astype('O')
+        mask[np.logical_not(mask.astype(np.bool_))] = np.NaN
+        mask[mask == 1] = 1  # casts True -> 1
+        self._selection_mask = self._get_image_trace(mask,
                                                      bounds,
                                                      colorscale='reds',
                                                      opacity=0.3,
                                                      showscale=False,
                                                      hoverinfo='skip',
-                                                     name='selection')
+                                                     name='selection',)
 
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))

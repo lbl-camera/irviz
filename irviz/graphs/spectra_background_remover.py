@@ -2,7 +2,7 @@ import copy
 import traceback
 import warnings
 from functools import cached_property, partial
-from typing import List, Callable
+from typing import List, Callable, Dict
 import threading
 
 import dash
@@ -31,12 +31,10 @@ def empty_callable():
 
 class SpectraBackgroundRemover(SpectraPlotGraph):
 
-    def __init__(self, *args, background_func: Callable=empty_callable, **kwargs):
+    def __init__(self, *args, parameter_sets:List[Dict]=None, background_func: Callable=empty_callable, **kwargs):
         self.background_func = background_func
         self._last_update_parameters_sem = threading.Semaphore()
         self.last_update_parameters = None
-        parameter_sets = kwargs.get('parameter_sets', [])
-        self._parameter_sets = []
 
         self._anchor_points_trace = go.Scattergl(x=[],
                                                  y=[],
@@ -71,8 +69,15 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         self.anchor_points_list = AnchorPointList(table_kwargs=dict(id='anchor-point-list'))
         self.values_editor = KwargsEditor('background_parameters', background_func)
         self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=dict(type='parameter-set-selector',
-                                                                             index=self._instance_index),
-                                                                     data=parameter_sets))
+                                                                             index=self._instance_index)))
+        # Initialize parameter set values to the default values of the background_func
+        for parameter_set in parameter_sets or []:
+            record = self.parameter_set_list.new_record()
+            record.update(parameter_set)
+            if 'values' not in record or not record['values']:
+                record['values'] = self.values_editor.values
+            parameter_set.update(record)
+        self.parameter_set_list.data_table.data = parameter_sets or self.parameter_set_list.data_table.data
         self._previous_parameter_set_row_index = 0
 
         self._values_tab = dbc.Tab(label="Values",
@@ -96,11 +101,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             self._parameter_set_explorer_tabs,
             self._parameter_set_explorer_content
         ])
-
-        # Initialize parameter set values to the default values of the background_func
-        for parameter_set in parameter_sets:
-            if not parameter_set['values']:
-                parameter_set['values'] = self.values_editor.values
         self.parameter_set_add = dbc.Button('Add Parameter Set', id='parameter-set-add')
 
     def init_callbacks(self, app):
@@ -438,7 +438,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         if anchor_regions and anchor_regions[-1][1] is None:
             del anchor_regions[-1]
 
-        mask = parameter_set['map_mask'].astype(np.bool_)
+        mask = np.asarray(parameter_set['map_mask']).astype(np.bool_)
 
         return self.background_func(self._plot.x,
                                     self._plot.y,

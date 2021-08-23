@@ -25,12 +25,16 @@ class BackgroundIsolator(ComposableDisplay):
         className = 'col-lg-12 p-0'
         graph_kwargs = dict(style=style, className=className, responsive=True)
 
+        parameter_set = kwargs.get('parameter_sets',[{}])[0]
+        mask = parameter_set.get('map_mask')
+
         components.append(SpectraBackgroundRemover(instance_index=self._instance_index,
                                                    background_func=background_function,
                                                    graph_kwargs=graph_kwargs,
                                                    **kwargs))
         components.append(BackgroundMapGraph(instance_index=self._instance_index,
                                              graph_kwargs=graph_kwargs,
+                                             mask=mask,
                                              **kwargs))
         components.append(dcc.Interval('background-update', interval=1*1000))
 
