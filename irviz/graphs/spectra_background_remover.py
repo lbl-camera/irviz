@@ -435,7 +435,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
     def compute_background(self, parameter_set):
         # sanitize anchor_regions
         anchor_regions = parameter_set['anchor_regions'].copy()
-        if anchor_regions and anchor_regions[-1][1] is None:
+        if anchor_regions and anchor_regions[-1]['region_max'] is None:
             del anchor_regions[-1]
 
         mask = np.asarray(parameter_set['map_mask']).astype(np.bool_)
