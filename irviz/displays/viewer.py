@@ -10,7 +10,6 @@ import dash_html_components as html
 import numpy as np
 from dash.dependencies import ALL, Input, Output
 
-import ryujin.utils.dash
 from irviz.components import SpectraAnnotationDialog, SliceAnnotationDialog
 from irviz.graphs import DecompositionGraph, MapGraph, OpticalGraph, PairPlotGraph, SpectraPlotGraph
 from ryujin import ComposableDisplay

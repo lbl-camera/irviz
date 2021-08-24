@@ -1,7 +1,6 @@
 import dash_html_components as html
 import dash_core_components as dcc
 
-from irviz.graphs import MapGraph
 from irviz.graphs.background_map import BackgroundMapGraph
 from irviz.graphs.spectra_background_remover import SpectraBackgroundRemover
 from ryujin.display import ComposableDisplay

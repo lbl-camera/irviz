@@ -9,7 +9,7 @@ import einops
 
 from irviz.background_filters.emsc import emsc_background_single_spectrum
 from irviz.background_filters.gpr import gpr_based_background_single_spectrum
-from irviz.background_isolator import BackgroundIsolator
+from irviz.displays.background_isolator import BackgroundIsolator
 
 TEST_FILE = 'E:\\BP-area3a.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
