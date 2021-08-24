@@ -47,8 +47,7 @@ class SpectraPlotGraph(dcc.Graph):
             Additional keyword arguments to be passed into Graph
         """
         # Normalize bounds
-        if bounds is None or np.asarray(bounds).shape != (
-                3, 2):  # bounds should contain a min/max pair for each dimension
+        if bounds is None:  # bounds should contain a min/max pair for each dimension
             bounds = [[0, data.shape[0] - 1],
                       [0, data.shape[1] - 1],
                       [0, data.shape[2] - 1]]
@@ -73,7 +72,15 @@ class SpectraPlotGraph(dcc.Graph):
         _x_index = (self._data.shape[2] - 1) // 2
 
         y = np.asarray(self._data[:, _y_index, _x_index])
-        x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
+        if len(bounds[0]) == 2:
+            x = np.linspace(bounds[0][0], bounds[0][1], self._data.shape[0])
+            # Define starting point for energy index (for the slicer line trace)
+            default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
+            # Find the closest wavenumber / energy value to use
+            default_slice_index = x[np.abs(np.array(x) - default_slice_index).argmin()]
+        else:
+            x = bounds[0]
+            default_slice_index = x[len(x)//2]
 
         init_x_name = (self._bounds[2][0] + self._bounds[2][1]) / 2
         init_y_name = (self._bounds[1][0] + self._bounds[1][1]) / 2
@@ -113,11 +120,6 @@ class SpectraPlotGraph(dcc.Graph):
                                                   visible='legendonly',
                                                   legendgroup='_components')
                                      for i in range(self._component_spectra.shape[0])]
-
-        # Define starting point for energy index (for the slicer line trace)
-        default_slice_index = (bounds[0][1] + bounds[0][0]) / 2  # estimate
-        # Find the closest wavenumber / energy value to use
-        default_slice_index = x[np.abs(np.array(x) - default_slice_index).argmin()]
 
         self._slicer_index = default_slice_index
         self._slicer_name = 'slicer'

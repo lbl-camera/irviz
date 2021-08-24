@@ -27,8 +27,7 @@ class SliceGraph(dcc.Graph):
     def __init__(self, data, instance_index, cluster_labels=None, cluster_label_names=None, bounds=None, slice_axis=0,
                  traces=None, shapes=None, graph_kwargs=None, mask=None, **kwargs):
         # Normalize bounds
-        if bounds is None or np.asarray(bounds).shape != (
-                3, 2):  # bounds should contain a min/max pair for each dimension
+        if bounds is None:  # bounds should contain a min/max pair for each dimension
             bounds = [[0, data.shape[0] - 1],
                       [0, data.shape[1] - 1],
                       [0, data.shape[2] - 1]]

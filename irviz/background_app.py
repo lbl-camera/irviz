@@ -99,7 +99,7 @@ def open_map_file(h5_file):
     data = f[next(iter(f.keys()))]['data']['image']['image_cube']
     wavenumbers = f[next(iter(f.keys()))]['data']['wavenumbers'][:]
     xy = f[next(iter(f.keys()))]['data']['xy'][:]
-    bounds = [(wavenumbers.min(), wavenumbers.max()),
+    bounds = [wavenumbers,
               (xy.T[1].min(), xy.T[1].max()),
               (xy.T[0].min(), xy.T[0].max())]
     return da.from_array(data).transpose(2, 0, 1), bounds
