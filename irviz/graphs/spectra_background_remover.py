@@ -15,7 +15,7 @@ from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
-from irviz.components.datalists import AnchorPointList, ParameterSetList, RegionList, ParameterSetValueList
+from irviz.components.datalists import AnchorPointList, ParameterSetList, RegionList
 from irviz.components.kwarg_editor import KwargsEditor
 
 from irviz.graphs import SpectraPlotGraph
@@ -30,6 +30,7 @@ def empty_callable():
 
 
 class SpectraBackgroundRemover(SpectraPlotGraph):
+    _precision = 2
 
     def __init__(self, *args, parameter_sets:List[Dict]=None, background_func: Callable=empty_callable, **kwargs):
         self.background_func = background_func
@@ -247,7 +248,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             xs = [record['x'] for record in data]
             index = np.searchsorted(xs, [x])[0]
             data.insert(index, {'name': f'Anchor #{next(self.anchor_points_list.point_counter)}',
-                                'x': x,
+                                'x': round(x, self._precision),
                                 'y': y})
             # self._anchor_points_trace.x = np.insert(np.asarray(self._anchor_points_trace.x), index, x)
             # if len(self._anchor_points_trace.y):
@@ -270,10 +271,10 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         if 'region_max' in last_region and last_region['region_max'] is None:
             region = sorted([last_region['region_min'], x])
 
-            data[-1]['region_min'] = region[0]
-            data[-1]['region_max'] = region[1]
+            data[-1]['region_min'] = round(region[0], self._precision)
+            data[-1]['region_max'] = round(region[1], self._precision)
         else:
-            data += [{'name': f'Region #{next(self.region_list.region_counter)}', 'region_min': x, 'region_max': None}]
+            data += [{'name': f'Region #{next(self.region_list.region_counter)}', 'region_min': round(x, self._precision), 'region_max': None}]
         return data
 
     def _update_region_list(self, clickData):
