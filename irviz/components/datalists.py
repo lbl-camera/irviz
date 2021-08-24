@@ -20,6 +20,7 @@ class RegionList(DataList):
         table_kwargs['columns'] = [{'name': 'name', 'id': 'name'},
                                    {'name': 'region_min', 'id': 'region_min'},
                                    {'name': 'region_max', 'id': 'region_max'}]
+        table_kwargs['editable'] = True
         kwargs['table_kwargs'] = table_kwargs
 
         super(RegionList, self).__init__(*args, **kwargs)
@@ -33,21 +34,12 @@ class AnchorPointList(DataList):
         table_kwargs['row_deletable'] = True
         table_kwargs['columns'] = [{'name': 'name', 'id': 'name'},
                                    {'name': 'x', 'id': 'x'},
-                                   {'name': 'y', 'id': 'y'}]
+                                   # {'name': 'y', 'id': 'y'}
+                                   ]
+        table_kwargs['editable'] = True
         kwargs['table_kwargs'] = table_kwargs
 
         super(AnchorPointList, self).__init__(*args, **kwargs)
-
-
-class ParameterSetValueList(DataList):
-    def __init__(self, *args, **kwargs):
-        table_kwargs = kwargs.get('table_kwargs', {})
-        table_kwargs['row_deletable'] = True
-        table_kwargs['columns'] = [{'name': 'name', 'id': 'name'},
-                                   {'name': 'values', 'id': 'values'}]  # FIXME: what are values here?
-        kwargs['table_kwargs'] = table_kwargs
-
-        super(ParameterSetValueList, self).__init__(*args, **kwargs)
 
 
 class ParameterSetList(DataList):
