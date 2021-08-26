@@ -1,4 +1,5 @@
 import numpy as np
+from dash.exceptions import PreventUpdate
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import ConstantKernel as C, RBF
 
@@ -33,6 +34,8 @@ def gpr_based_background_single_spectrum(wavenumbers,
     :return: a fitted background.
     """
     # gather the x values
+    if not control_points:
+        return np.zeros_like(wavenumbers)
     these_idxs = []
     for cp in control_points:
         these_idxs.append( find_nearest(wavenumbers, cp) )
