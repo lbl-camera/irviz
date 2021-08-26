@@ -28,8 +28,7 @@ class SimpleItem(dbc.FormGroup):
         self.label = dbc.Label(title or name)
         self.input = dbc.Input(type=type,
                                debounce=debounce,
-                               id={'type': 'kwarg_editor_item',
-                                   'base_id': base_id,
+                               id={**base_id,
                                    'name': name},
                                **kwargs)
 
@@ -67,8 +66,7 @@ class ParameterEditor(dbc.Form):
 
     def init_callbacks(self, app):
         targeted_callback(self.stash_value,
-                          Input({'type': 'kwarg_editor_item',
-                                 'base_id': self.id,
+                          Input({**self.id,
                                  'name': ALL},
                                 'value'),
                           Output(self.id, 'n_submit'),
@@ -123,13 +121,14 @@ class ParameterEditor(dbc.Form):
 
 
 class KwargsEditor(ParameterEditor):
-    def __init__(self, _id, func: Callable, **kwargs):
+    def __init__(self, instance_index, func: Callable, **kwargs):
         self.func = func
+        self._instance_index = instance_index
 
         parameters = [{'name': name, 'value': param.default} for name, param in signature(func).parameters.items()
                       if param.default is not _empty]
 
-        super(KwargsEditor, self).__init__(_id, parameters=parameters, **kwargs)
+        super(KwargsEditor, self).__init__(dict(index=instance_index, type='kwargs-editor'), parameters=parameters, **kwargs)
 
     def new_record(self):
         return {name: p.default for name, p in signature(self.func).parameters.items() if p.default is not _empty}
