@@ -19,19 +19,22 @@ from ryujin.utils import targeted_callback
 
 
 class SimpleItem(dbc.FormGroup):
-    def __init__(self, name, base_id, title=None, value=None, min=None, max=None, step=None, type='number', debounce=True):
+    def __init__(self,
+                 name,
+                 base_id,
+                 title=None,
+                 type='number',
+                 debounce=True,
+                 **kwargs):
         self.name = name
 
         self.label = dbc.Label(title or name)
-        self.input = dbc.Input(value=value,
-                               min=min,
-                               max=max,
-                               step=step,
-                               type=type,
+        self.input = dbc.Input(type=type,
                                debounce=debounce,
                                id={'type': 'kwarg_editor_item',
                                    'base_id': base_id,
-                                   'name': name})
+                                   'name': name},
+                               **kwargs)
 
         super(SimpleItem, self).__init__(children=[self.label, self.input])
 
@@ -43,7 +46,7 @@ class FloatItem(SimpleItem):
 class IntItem(SimpleItem):
     def __init__(self, *args, **kwargs):
         if 'min' not in kwargs:
-            kwargs['min'] = -sys.maxsize - 1  # min must be set for int validation to be enabled
+            kwargs['min'] = -9007199254740991  # min must be set for int validation to be enabled
         super(IntItem, self).__init__(*args, step=1, **kwargs)
 
 

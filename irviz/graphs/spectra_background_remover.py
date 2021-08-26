@@ -444,6 +444,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         return self.background_func(self._plot.x,
                                     self._plot.y,
                                     [anchor['x'] for anchor in parameter_set['anchor_points']],
-                                    parameter_set['anchor_regions'],  # TODO: What should get passed in here?
+                                    parameter_set['anchor_regions'],
                                     mask,
                                     **parameter_set['values'])
