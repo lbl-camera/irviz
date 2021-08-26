@@ -10,8 +10,7 @@ from dask import array as da
 from PIL import Image
 from dash_bootstrap_templates import load_figure_template
 
-import ryujin.utils.dash
-from irviz.viewer import Viewer
+from irviz.displays.viewer import Viewer
 
 TEST_FILE = 'E:\\BP-area3a.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
