@@ -3,6 +3,7 @@ from typing import Callable
 # noinspection PyUnresolvedReferences
 from inspect import signature, _empty
 
+import dash
 import dash_html_components as html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, ALL, Output, State
@@ -135,9 +136,6 @@ class KwargsEditor(ParameterEditor):
 
 
 if __name__ == '__main__':
-
-    import dash
-    import dash_bootstrap_components as dbc
 
     app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
     app = dash.Dash(__name__, **app_kwargs)
