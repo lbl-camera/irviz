@@ -57,13 +57,12 @@ def masked_to_map(mask, data):
     """
     Ny, Nx = mask.shape[0], mask.shape[1]
     if data.ndim == 1:
-        Nw = 1
+        data_cube = np.ones((Ny, Nx)) * np.NaN
     else:
         Nw = data.shape[1]
-    indices = np.arange(Ny * Nx * Nw).reshape(Ny, Nx, Nw)[mask].ravel()
-    data_cube = np.ones((Ny, Nx, Nw)) * np.NaN
-    data_cube.ravel()[indices] = data.ravel()
-    return np.squeeze(data_cube)
+        data_cube = np.ones((Ny, Nx, Nw)) * np.NaN
+    data_cube[mask] = data
+    return data_cube
 
 
 def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5):
