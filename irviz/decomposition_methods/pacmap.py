@@ -7,6 +7,22 @@ def pacmap_decompose(wavenumbers,
               pixel_usage_mask,
               spectral_mask,
               n_dims=2):
+    """
+    Use PACMAP to reduce the dimension of the data, building an embedding.
+
+    Parameters
+    ----------
+    wavenumbers: wavenumbers
+    spectral_map: a spectral map (Nwav, Ny, Nx)
+    pixel_usage_mask: a boolean mask that indicates which pixels to use (Ny,Nx)
+    spectral_mask: boolean array that indicates which wavenumbers to use (Nwav)
+    n_dims: The number of dimensions we want to map to
+
+    Returns
+    -------
+    Dimension reduced data, None, None. The last two None value are there to be consistent with other methods.
+
+    """
 
     # engineer in default behavior
     assert n_dims > 0
