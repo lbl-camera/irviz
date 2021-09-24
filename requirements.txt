@@ -12,4 +12,5 @@ dask
 pillow
 phonetic_alphabet
 ipywidgets
+methodtools
 ryujin

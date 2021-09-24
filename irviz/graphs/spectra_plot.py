@@ -1,6 +1,6 @@
 from functools import partial
 
-import dash_core_components as dcc
+from dash import dcc
 import numpy as np
 from dash.dependencies import ALL, Input, Output
 from dask import array as da

@@ -4,7 +4,7 @@ from typing import Callable
 from inspect import signature, _empty
 
 import dash
-import dash_html_components as html
+from dash import html
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, ALL, Output, State
 
