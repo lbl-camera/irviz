@@ -53,7 +53,7 @@ def masked_to_map(mask, data):
 
     Returns
     -------
-    data_cube: 3D array of shape [Ny, Nx, n_features]
+    data_cube: 3D array of shape [Ny, Nx, n_features], may contain np.NANs
     """
     Ny, Nx = mask.shape[0], mask.shape[1]
     if data.ndim == 1:
@@ -65,7 +65,7 @@ def masked_to_map(mask, data):
     return data_cube
 
 
-def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5):
+def simplePCA(wavenumbers, data_map, mask, control_regions, n_components=5):
     """
     perform PCA decomposition of data_map
 
@@ -79,7 +79,7 @@ def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5):
 
     Returns
     -------
-    data_transform: PCA transformed spectral map of shape[Nw, Ny, Nx], dask array
+    data_transform: PCA transformed spectral map of shape[Nw, Ny, Nx], may contain np.NANs, dask array
     pca.components_: PCA eigenvectors
     """
     data_map = np.array(data_map)
@@ -107,7 +107,7 @@ def qscore_rms(wavenumbers, data_map, mask, control_regions, data_transform, com
 
     Returns
     -------
-    rms_map: quality score map, numpy array
+    rms_map: quality score map, may contain np.NANs, numpy array
     """
     data_map, data_transform = np.array(data_map), np.array(data_transform)
     data_map, data_transform = data_map.transpose((1, 2, 0)), data_transform.transpose((1, 2, 0))
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     mask = np.random.random(data.shape[1:3]) > 0.5
     control_regions = [{'region_min': 1200, 'region_max': 1400}, {'region_min': 2700, 'region_max': 3000}]
 
-    data_transform, vec = simple_PCA(wavenumbers, data, mask, control_regions)
+    data_transform, vec = simplePCA(wavenumbers, data, mask, control_regions)
     assert data_transform.shape == (5, 29, 42), "shape of PCA transformed data is wrong."
     assert vec.shape.shape == (5, 260), "shape of PCA components are wrong."
 
