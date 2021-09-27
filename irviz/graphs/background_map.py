@@ -3,8 +3,8 @@ import numpy as np
 from dash._utils import create_callback_id
 from dash.dependencies import Input, Output, State
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs.map import MapGraphPanel, MapGraph

@@ -1,5 +1,5 @@
 import numpy as np
-import dash_core_components as dcc
+from dash import dcc
 from dash.dependencies import Input, Output, ALL, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go

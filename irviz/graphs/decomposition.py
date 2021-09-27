@@ -5,8 +5,8 @@ import numpy as np
 from dash.dependencies import Output, Input, ALL
 from plotly import graph_objects as go
 import dash_bootstrap_components as dbc
-import dash_html_components as html
-import dash_core_components as dcc
+from dash import html
+from dash import dcc
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs._colors import decomposition_color_scales, transparent_color_scales

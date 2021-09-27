@@ -4,8 +4,8 @@ from dash.dependencies import Output, Input, ALL
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 
 from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
@@ -56,7 +56,7 @@ class PairPlotGraphPanel(Panel):
 class PairPlotGraph(dcc.Graph):
     title = 'Pair Plot'
 
-    def __init__(self, instance_index, data, bounds, cluster_labels, cluster_label_names, graph_kwargs=None):
+    def __init__(self, instance_index, data, bounds, cluster_labels, cluster_label_names, graph_kwargs=None, **kwargs):
         self.configuration_panel = PairPlotGraphPanel(instance_index, data.shape[0])
 
         # Track if the selection help has been displayed yet, don't want to annoy users
