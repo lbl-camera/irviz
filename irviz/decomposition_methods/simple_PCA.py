@@ -65,7 +65,7 @@ def masked_to_map(mask, data):
     return data_cube
 
 
-def simplePCA(wavenumbers, data_map, mask, control_regions, n_components=5):
+def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5):
     """
     perform PCA decomposition of data_map
 
