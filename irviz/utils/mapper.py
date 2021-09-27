@@ -106,6 +106,7 @@ class einops_data_mapper(object):
         fill_mask = fill_mask.astype(bool)
 
         output_data[ fill_mask ] = einops.rearrange(data, "A C -> (A C)")
+        output_data[~fill_mask] = None
         output_data = einops.rearrange(output_data,
                                        "(X Y C) -> C X Y",
                                        C=self.tensor_shape[0],
