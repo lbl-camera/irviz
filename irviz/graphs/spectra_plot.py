@@ -148,7 +148,7 @@ class SpectraPlotGraph(dcc.Graph):
         # When points are selected on the MapGraph, add additional statistics and components plots
         targeted_callback(self.update_average_plot,
                           Input({'type': 'slice_graph',
-                                 'subtype': 'map',
+                                 'subtype': ALL,
                                  'index': self._instance_index},
                                 'selectedData'),
                           Output(self.id, 'figure'),
