@@ -2,15 +2,15 @@ from sklearn.decomposition import KernelPCA as skKernelPCA
 import numpy as np
 from irviz.utils.mapper import einops_data_mapper
 
-def KernelPCA(wavenumbers,
-              spectral_map,
-              pixel_usage_mask,
-              spectral_mask,
-              n_components=0,
-              kernel="rbf",
-              gamma=0,
-              alpha=1e-4,
-              ):
+def kernel_PCA(wavenumbers,
+               spectral_map,
+               pixel_usage_mask,
+               spectral_mask,
+               n_components=0,
+               kernel="rbf",
+               gamma=0,
+               alpha=1e-4,
+               ):
     """
 
     Parameters
