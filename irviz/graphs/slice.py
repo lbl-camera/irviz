@@ -68,8 +68,8 @@ class SliceGraph(dcc.Graph):
         else:
             hovertemplate = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<extra></extra>'
 
-        default_slice_index = (data.shape[0] - 1) // 2
-        self._image = self._get_image_trace(data[default_slice_index],
+        self._slice_index = (data.shape[0] - 1) // 2
+        self._image = self._get_image_trace(data[self._slice_index],
                                             bounds,
                                             hovertemplate=hovertemplate,
                                             **extra_kwargs)
@@ -234,9 +234,11 @@ class SliceGraph(dcc.Graph):
 
     def update_slice(self, spectra_graph_click_data):
         slice = spectra_graph_click_data["points"][0]["x"]
-        slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
-        self._image.z = np.asarray(self._data[slice_index])
+        self._slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
+        return self.update_slice_by_index(self._slice_index)
 
+    def update_slice_by_index(self, index):
+        self._image.z = np.asarray(self._data[index])
         return self._update_figure()
 
     def _update_figure(self):
@@ -266,6 +268,10 @@ class SliceGraph(dcc.Graph):
     def _show_selection_mask(self, selection):
         self._selection_mask.z = array_from_selection(selection, self._data[0].shape)
         return self._update_figure()
+
+    def set_data(self, data):
+        self._data = data
+        return self.update_slice_by_index(self._slice_index)
 
     @staticmethod
     def _set_visibility(checked):
