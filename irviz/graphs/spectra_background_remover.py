@@ -10,12 +10,12 @@ import dash_bootstrap_components as dbc
 from dash import dcc
 from dash import html
 import numpy as np
-from dash._utils import create_callback_id
+from dash._utils import create_callback_id, stringify_id
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
 
-from irviz.components.datalists import AnchorPointList, ParameterSetList, RegionList
+from irviz.components.datalists import AnchorPointList, BackgroundIsolatorParameterSetList, RegionList
 from irviz.components.kwarg_editor import KwargsEditor
 
 from irviz.graphs import SpectraPlotGraph
@@ -69,8 +69,8 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
         self.anchor_points_list = AnchorPointList(table_kwargs=dict(id='anchor-point-list'))
         self.values_editor = KwargsEditor(self._instance_index, background_func)
-        self.parameter_set_list = ParameterSetList(table_kwargs=dict(id=dict(type='parameter-set-selector',
-                                                                             index=self._instance_index)))
+        self.parameter_set_list = BackgroundIsolatorParameterSetList(table_kwargs=dict(id=dict(type='parameter-set-selector',
+                                                                                               index=self._instance_index)))
         # Initialize parameter set values to the default values of the background_func
         for parameter_set in parameter_sets or []:
             record = self.parameter_set_list.new_record()

@@ -43,13 +43,6 @@ class AnchorPointList(DataList):
 
 
 class ParameterSetList(DataList):
-    record_template = {'name': None,
-                       'values': dict(),
-                       'map_mask': None,
-                       'anchor_points': [],
-                       'anchor_regions': [],
-                       'selected': False}
-
     def __init__(self, *args, table_kwargs=None, **kwargs):
         self.parameter_set_counter = count(1)
         # TODO: once API established, update the kwargs being searched
@@ -93,3 +86,14 @@ class ParameterSetList(DataList):
         record = self.record_template.copy()
         record['name'] = name
         return record
+
+
+class BackgroundIsolatorParameterSetList(ParameterSetList):
+    record_template = {'name': None,
+                       'values': dict(),
+                       'map_mask': None,
+                       'anchor_points': [],
+                       'anchor_regions': [],
+                       'selected': False}
+
+
