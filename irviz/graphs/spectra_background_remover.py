@@ -185,14 +185,14 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           app=app)
         targeted_callback(self._stash_mask,
                           Input(dict(type='slice_graph',
-                                     subtype='map',
+                                     subtype='background-map',
                                      index=self._instance_index),
                                 'figure'),
                           Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           State(dict(type='slice_graph',
-                                     subtype='map',
+                                     subtype='background-map',
                                      index=self._instance_index),
                                 'figure'),
                           app=app)
@@ -203,7 +203,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           Output(self.id, 'figure'),
                           State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           State(dict(type='slice_graph',
-                                     subtype='map',
+                                     subtype='background-map',
                                      index=self._instance_index),
                                 'figure'),
                           app=app)
@@ -212,7 +212,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           Output(self.id, 'figure'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           State(dict(type='slice_graph',
-                                     subtype='map',
+                                     subtype='background-map',
                                      index=self._instance_index),
                                 'figure'),
                           app=app)
@@ -407,7 +407,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             self._background_corrected_trace.y = self._plot.y - background
 
         _id = create_callback_id(State(dict(type='slice_graph',
-                                            subtype='map',
+                                            subtype='background-map',
                                             index=self._instance_index),
                                  'figure'))
         figure = dash.callback_context.states[_id]

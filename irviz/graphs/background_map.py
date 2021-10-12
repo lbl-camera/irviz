@@ -58,3 +58,8 @@ class BackgroundMapGraph(MapGraph):
             self._selection_mask.z = np.ones_like(self._image.z) * np.NaN
 
         return self._update_figure()
+
+    def _id(self, instance_index):
+        _id = super(MapGraph, self)._id(instance_index)
+        _id['subtype'] = 'background-map'
+        return _id
