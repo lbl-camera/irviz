@@ -6,7 +6,7 @@ from plotly import graph_objects as go
 import dash
 
 from ryujin.utils.dash import targeted_callback
-from irviz.utils.math import nearest_bin
+from irviz.utils.math import nearest_bin, array_from_selection
 
 
 class SliceGraph(dcc.Graph):
@@ -264,23 +264,7 @@ class SliceGraph(dcc.Graph):
         return self._update_figure()
 
     def _show_selection_mask(self, selection):
-        # Check two cases:
-        #     1. selection is None: initial state (no selection) or user has dbl-clicked w/ lasso/selection tool
-        #     2. selection['points'] is empty: user has selected no points
-        if selection is not None and len(selection['points']) > 0:
-            # Get x,y from the raveled indexes
-            raveled_indexes = list(map(lambda point: point['pointIndex'],
-                                       filter(lambda point: point['curveNumber'] == 0,
-                                              selection['points'])))
-            mask = np.zeros(self._data[0].shape)
-            # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
-            mask.fill(np.NaN)
-            mask.ravel()[raveled_indexes] = 1
-            # Create overlay
-            self._selection_mask.z = mask
-        else:
-            self._selection_mask.z = np.ones(self._data[0].shape) * np.NaN
-
+        self._selection_mask.z = array_from_selection(selection, self._data[0].shape)
         return self._update_figure()
 
     @staticmethod
