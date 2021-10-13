@@ -273,6 +273,10 @@ class SliceGraph(dcc.Graph):
         self._data = data
         return self.update_slice_by_index(self._slice_index)
 
+    def set_clustering(self, clusters):
+        self._clusters.z = clusters
+        return self._update_figure()
+
     @staticmethod
     def _set_visibility(checked):
         if checked:
