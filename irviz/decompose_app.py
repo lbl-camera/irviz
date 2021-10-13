@@ -11,6 +11,7 @@ from irviz import DecompositionTuner
 from irviz.background_filters.emsc import emsc_background_single_spectrum
 from irviz.background_filters.gpr import gpr_based_background_single_spectrum
 from irviz.clustering_methods import agglomerative_clustering
+from irviz.clustering_methods.kmeans_clustering import kmeansClustering
 from irviz.decomposition_methods import kernel_PCA, simple_PCA
 from irviz.decomposition_methods.decomposition_quality_metrics import spectral_correlation
 from irviz.displays.background_isolator import BackgroundIsolator
@@ -138,7 +139,8 @@ if __name__ == "__main__":    # data, bounds = open_ir_file(TEST_FILE)
                                                  'map_mask': cluster_labels == i} for i, name in enumerate(cluster_label_names)],
                                 decomposition_functions={'Kernel PCA': kernel_PCA,
                                                          'Simple PCA': simple_PCA},
-                                cluster_functions={'Agglomerative Clustering': agglomerative_clustering},
+                                cluster_functions={'Agglomerative Clustering': agglomerative_clustering,
+                                                   'K-means Clustering': kmeansClustering},
                                 quality_functions={'Spectral Correlation': spectral_correlation})
 
     viewer.run_server(run_kwargs=dict(debug=True))
