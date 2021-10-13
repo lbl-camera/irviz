@@ -1,12 +1,12 @@
 import numpy as np
 from sklearn.cluster import KMeans
 from irviz.background_app import open_map_file
-from irviz.decomposition_methods.simple_PCA import masked_to_map, simplePCA
+from irviz.decomposition_methods.simple_PCA import masked_to_map, simple_PCA
 
 TEST_FILE = 'E:\\BP-area3a.h5'
 
 
-def kmeansClustering(mask, data_transform, n_clusters=5, random_state=0):
+def kmeansClustering(data_transform, mask, n_clusters=5, random_state=0):
     """
     K-means clustering
     Parameters
@@ -33,6 +33,6 @@ if __name__ == "__main__":
     mask = np.random.random(data.shape[1:3]) > 0.5
     control_regions = [{'region_min': 1200, 'region_max': 1400}, {'region_min': 2700, 'region_max': 3000}]
 
-    data_transform, vec = simplePCA(wavenumbers, data, mask, control_regions)
+    data_transform, vec = simple_PCA(wavenumbers, data, mask, control_regions)
     label_map = kmeansClustering(mask, data_transform)
     assert label_map.shape == (29, 42), "shape of label map is wrong."
