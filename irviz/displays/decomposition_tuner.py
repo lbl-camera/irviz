@@ -44,7 +44,7 @@ def cache_data(key, data, cache_path):
 
 
 def load_cache(key, cache_path):
-    h = h5.File(cache_path, 'r')
+    h = h5.File(cache_path, 'a')
     return h[key]
 
 
@@ -77,7 +77,7 @@ class TunerPanel(Panel):
         self.clustering_execute = dbc.Button('Execute', id='clustering-execute')
 
         self.decomposition_status = dcc.Store(id=dict(type='decomposition-status', pattern=True), data='')  # convert to dcc.store later
-        self.clustering_status = dbc.Label('', id='clustering-status')
+        self.clustering_status = dcc.Store(id=dict(type='clustering-status', pattern=True), data=False)
 
         self.cache_path = dcc.Store('cache-path', data=cache_path)
 
@@ -86,6 +86,7 @@ class TunerPanel(Panel):
                     self.decomposition_kwargs_editor,
                     self.decomposition_execute,
                     self.decomposition_status,
+                    html.Hr(),
                     self.clustering_kwargs_editor,
                     self.clustering_execute,
                     self.clustering_status,
@@ -176,20 +177,20 @@ class DecompositionTuner(ComposableDisplay):
         className = 'col-lg-12 p-0'
         graph_kwargs = dict(style=style, className=className, responsive=True)
 
-        components.append(MapGraph(instance_index=self._instance_index,
-                                   graph_kwargs=graph_kwargs,
-                                   **kwargs))
-        components.append(SpectraPlotGraph(instance_index=self._instance_index,
-                                                   # background_func=background_function,
-                                                   graph_kwargs=graph_kwargs,
-                                                   **kwargs))
+        map_graph = MapGraph(instance_index=self._instance_index,
+                             graph_kwargs=graph_kwargs,
+                             **kwargs)
+        spectra_graph = SpectraPlotGraph(instance_index=self._instance_index,
+                                         # background_func=background_function,
+                                         graph_kwargs=graph_kwargs,
+                                         **kwargs)
         kwargs['data'] = np.zeros((1, *kwargs['data'].shape[1:]))
         self.decomposition_graph = DecompositionGraph(instance_index=self._instance_index,
                                                       graph_kwargs=graph_kwargs,
                                                       cluster_labels=None,
                                                       cluster_label_names=None,
                                                       **kwargs)
-        components.append(self.decomposition_graph)
+        components.extend([map_graph, self.decomposition_graph, spectra_graph])
         # components.append(BackgroundMapGraph(instance_index=self._instance_index,
         #                                      graph_kwargs=graph_kwargs,
         #                                      # mask=mask,
@@ -236,20 +237,31 @@ class DecompositionTuner(ComposableDisplay):
                  map_data,
                  parameter_set['map_mask'] or np.ones(map_data.shape[1:], dtype=np.bool_),
                  parameter_set['selected_regions'] or [{'region_min': spectral_coords.min(),
-                                                        'region_max': spectral_coords.max()}])
+                                                        'region_max': spectral_coords.max()}],
+                 **values)
 
             cache_data('decomposition', decomposition, cache_path)
             cache_data('components', components, cache_path)
 
             return decomposition.shape[0]
 
-        def execute_clustering(n_clicks, data, selected_rows):
+        def execute_clustering(n_clicks, data, selected_rows, cache_path):
             parameter_set = data[selected_rows[0]]
             values = filter_values(parameter_set['clustering_function'], parameter_set['clustering_values'])
             print(f'Running {parameter_set["clustering_function"]} with parameters: {values}')
 
-            return 'Complete'
+            decomposition_data = load_cache('decomposition', cache_path)
 
+            clustering = cluster_funcs[parameter_set['clustering_function']] \
+                (decomposition_data,
+                 parameter_set['map_mask'] or np.ones(map_data.shape[1:], dtype=np.bool_),
+                 **values)
+
+            cache_data('clustering', clustering, cache_path)
+
+            return True
+
+        # Decomposition processing (background)
         app.long_callback(
             Output(self.tuner_panel.decomposition_status.id, "data"),
             Input(self.tuner_panel.decomposition_execute.id, "n_clicks"),
@@ -262,22 +274,33 @@ class DecompositionTuner(ComposableDisplay):
             prevent_initial_call=True
         )(execute_decomposition)
 
+        # Clustering processing (background)
+        app.long_callback(
+            Output(self.tuner_panel.clustering_status.id, "data"),
+            Input(self.tuner_panel.clustering_execute.id, "n_clicks"),
+            State(self.tuner_panel.parameter_set_list.data_table.id, 'data'),
+            State(self.tuner_panel.parameter_set_list.data_table.id, 'selected_rows'),
+            State(self.tuner_panel.cache_path.id, 'data'),
+            running=[
+                (Output(self.tuner_panel.clustering_execute.id, "disabled"), True, False),
+            ],
+            prevent_initial_call=True
+        )(execute_clustering)
+
+        # chained call returning from decomposition execute; displays result
         targeted_callback(self.update_decomposition,
                           Input(self.tuner_panel.decomposition_status.id, 'data'),
                           Output(self.decomposition_graph.id, 'figure'),
                           State(self.tuner_panel.cache_path.id, 'data'),
                           app=app)
 
-        # app.long_callback(
-        #     Output(self.tuner_panel.clustering_status.id, "children"),
-        #     Input(self.tuner_panel.clustering_execute.id, "n_clicks"),
-        #     State(self.tuner_panel.parameter_set_list.data_table.id, 'data'),
-        #     State(self.tuner_panel.parameter_set_list.data_table.id, 'selected_rows'),
-        #     running=[
-        #         (Output(self.tuner_panel.clustering_execute.id, "disabled"), True, False),
-        #     ],
-        #     prevent_initial_call=True
-        # )(execute_clustering)
+        # chained call returning from decomposition execute; displays result
+        targeted_callback(self.update_clustering,
+                          Input(self.tuner_panel.clustering_status.id, 'data'),
+                          Output(self.decomposition_graph.id, 'figure'),
+                          State(self.tuner_panel.cache_path.id, 'data'),
+                          app=app)
+
 
     def make_layout(self):
         return html.Div(html.Div(self.components, className='row'), className='container-fluid') #, style={'flexGrow': 1})
@@ -294,4 +317,10 @@ class DecompositionTuner(ComposableDisplay):
         cache_path = dash.callback_context.states[self.tuner_panel.cache_path.id+'.data']
         data = load_cache('decomposition', cache_path)
         figure = self.decomposition_graph.rebuild_component_heatmaps(data)
+        return figure
+
+    def update_clustering(self, status):
+        cache_path = dash.callback_context.states[self.tuner_panel.cache_path.id+'.data']
+        data = load_cache('clustering', cache_path)
+        figure = self.decomposition_graph.set_clustering(data)
         return figure

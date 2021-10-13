@@ -70,10 +70,17 @@ class DecompositionGraphPanel(Panel):
                           Output(self.decomposition_selector_layout.id, 'children'),
                           app=app)
 
+        # propagate check state to label via 'active' class name
         targeted_callback(self.update_check_state,
                           Input(dict(type='decomposition-component-toggle', index=MATCH), 'checked'),
                           Output(dict(type='decomposition-component-label', index=MATCH), 'className'),
                           State(dict(type='decomposition-component-label', index=MATCH), 'className'),
+                          app=app)
+
+        # enable cluster opacity slider when clustering updates
+        targeted_callback(lambda _: False,
+                          Input(dict(type='clustering-status', pattern=True), 'data'),
+                          Output(self._cluster_overlay_opacity.id, 'disabled'),
                           app=app)
 
     def build_item(self, i):
@@ -135,8 +142,6 @@ class DecompositionGraphPanel(Panel):
         else:
             className.remove('active')
         return ' '.join(list(className))
-
-
 
 
 class DecompositionGraph(SliceGraph):
