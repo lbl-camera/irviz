@@ -66,11 +66,12 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                              value=1
                                              )
 
-        self.region_list = RegionList(table_kwargs=dict(id='region-list'), )
-        self.anchor_points_list = AnchorPointList(table_kwargs=dict(id='anchor-point-list'))
+        self.region_list = RegionList(table_kwargs=dict(id=dict(type='region-list', index=self._instance_index)), )
+        self.anchor_points_list = AnchorPointList(table_kwargs=dict(id=dict(type='anchor-point-list', index=self._instance_index)))
         self.values_editor = KwargsEditor(self._instance_index, background_func)
         self.parameter_set_list = BackgroundIsolatorParameterSetList(table_kwargs=dict(id=dict(type='parameter-set-selector',
                                                                                                index=self._instance_index)))
+        self.parameter_set_list.record_template['values'] = self.values_editor.values
         # Initialize parameter set values to the default values of the background_func
         for parameter_set in parameter_sets or []:
             record = self.parameter_set_list.new_record()
@@ -102,7 +103,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             self._parameter_set_explorer_tabs,
             self._parameter_set_explorer_content
         ])
-        self.parameter_set_add = dbc.Button('Add Parameter Set', id='parameter-set-add')
 
     def init_callbacks(self, app):
         # update parameter set anchor points
@@ -159,7 +159,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         # Adds a new parameter set
         targeted_callback(self.add_parameter_set,
-                          Input(self.parameter_set_add.id, 'n_clicks'),
+                          Input(self.parameter_set_list.new_button.id, 'n_clicks'),
                           Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           app=app)
@@ -286,7 +286,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             dbc.Form(dbc.FormGroup([self.selection_mode])),
             dbc.Label("Parameter Sets"),
             self.parameter_set_list,
-            self.parameter_set_add,
             html.P(''),
             dbc.Form(dbc.FormGroup([self.parameter_set_explorer])),
         ]
@@ -412,7 +411,10 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                  'figure'))
         figure = dash.callback_context.states[_id]
         selection = next(iter(filter(lambda trace: trace.get('name') == 'selection', figure['data'])))['z']
-        y_indexes, x_indexes = np.argwhere(np.asarray(selection) == 1).T
+        if selection:
+            y_indexes, x_indexes = np.argwhere(np.asarray(selection) == 1).T
+        else:
+            y_indexes = x_indexes = []
 
         self._update_average_plot_with_indexes(y_indexes, x_indexes)  # two extra _update_figure happens here; it is ignored
         self._update_points(parameter_set['anchor_points'])
