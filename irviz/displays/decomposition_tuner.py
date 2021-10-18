@@ -13,7 +13,7 @@ from dash.exceptions import PreventUpdate
 from dash.long_callback import DiskcacheLongCallbackManager
 import h5py as h5
 
-from irviz.components.datalists import BackgroundIsolatorParameterSetList, ParameterSetList
+from irviz.components.datalists import BackgroundIsolatorParameterSetList, ParameterSetList, RegionList
 from irviz.components.kwarg_editor import StackedKwargsEditor, regularize_name
 from irviz.graphs import SpectraPlotGraph, DecompositionGraph, PairPlotGraph, MapGraph
 from irviz.graphs.background_map import BackgroundMapGraph
@@ -38,9 +38,8 @@ def cache_data(key, data, cache_path):
     print('cache_path:', cache_path)
     with h5.File(cache_path, 'a') as h:
         if key in h:
-            h[key][...] = data
-        else:
-            h.create_dataset(key, data=data)
+            del h[key]
+        h.create_dataset(key, data=data)
 
 
 def load_cache(key, cache_path):
@@ -62,16 +61,30 @@ class DecompositionParameterSetList(ParameterSetList):
                        'map_mask': None,
                        'selected_regions': []}
 
+    def duplicate_filter(self, key):  # keys of the record template that are duplicated from the active record rather than the template
+        return key in ['decomposition_function', 'decomposition_values', 'clustering_function', 'clustering_values']
+
 
 class TunerPanel(Panel):
     def __init__(self, instance_index, decomposition_funcs, clustering_funcs):
+        self.decomposition_kwargs_editor = StackedKwargsEditor(instance_index, decomposition_funcs, 'Decomposition Function', id='decomposition-func-selector',)
+        self.clustering_kwargs_editor = StackedKwargsEditor(instance_index, clustering_funcs, 'Cluster Function', id='clustering-func-selector')
+        self.region_list = RegionList(table_kwargs=dict(id=dict(type='region-list', index=instance_index)), )
+
+        # update record template based on func signatures
+        record_template = DecompositionParameterSetList.record_template
+        decomposition_values = self.decomposition_kwargs_editor.parameter_editor.values
+        clustering_values = self.clustering_kwargs_editor.parameter_editor.values
+        record_template['decomposition_values'] = decomposition_values
+        record_template['clustering_values'] = clustering_values
+        record_template['decomposition_function'] = next(iter(decomposition_funcs.keys()))
+        record_template['clustering_function'] = next(iter(clustering_funcs.keys()))
+
         self.parameter_set_list = DecompositionParameterSetList(table_kwargs=dict(
             id=dict(
                 type='parameter-set-selector',
-                index=instance_index)))
-
-        self.decomposition_kwargs_editor = StackedKwargsEditor(instance_index, decomposition_funcs, 'Decomposition Function', id='decomposition-func-selector',)
-        self.clustering_kwargs_editor = StackedKwargsEditor(instance_index, clustering_funcs, 'Cluster Function', id='clustering-func-selector')
+                index=instance_index)),
+            record_template=record_template)
 
         self.decomposition_execute = dbc.Button('Execute', id='decomposition-execute')
         self.clustering_execute = dbc.Button('Execute', id='clustering-execute')
@@ -81,15 +94,30 @@ class TunerPanel(Panel):
 
         self.cache_path = dcc.Store('cache-path', data=cache_path)
 
+        self._values_tab = dbc.Tab(label="Parameters",
+                                    tab_id=f'parameter-set-values-tab',
+                                    label_style={'padding': '0.5rem 1rem', },
+                                    children=[self.decomposition_kwargs_editor,
+                                              self.decomposition_execute,
+                                              self.decomposition_status,
+                                              html.Hr(),
+                                              self.clustering_kwargs_editor,
+                                              self.clustering_execute,
+                                              self.clustering_status])
+        self._regions_tab = dbc.Tab(label="Regions",
+                                    tab_id=f'parameter-set-regions-tab',
+                                    label_style={'padding': '0.5rem 1rem', },
+                                    children=[self.region_list])
+
+        tab_items = [self._values_tab, self._regions_tab]
+
+        tabs = dbc.Tabs(id=f'parameter-set-tabs-{instance_index}',
+                 active_tab=tab_items[0].tab_id,
+                 children=tab_items)
+
         children = [self.parameter_set_list,
                     html.Hr(),
-                    self.decomposition_kwargs_editor,
-                    self.decomposition_execute,
-                    self.decomposition_status,
-                    html.Hr(),
-                    self.clustering_kwargs_editor,
-                    self.clustering_execute,
-                    self.clustering_status,
+                    tabs,
                     self.cache_path
                     ]
 
@@ -101,33 +129,57 @@ class TunerPanel(Panel):
         self.decomposition_kwargs_editor.init_callbacks(app)
         self.clustering_kwargs_editor.init_callbacks(app)
 
+        # update parameter set stash when values change
         targeted_callback(partial(self._stash_values, key='decomposition_values', editor=self.decomposition_kwargs_editor.parameter_editor),
                           Input(self.decomposition_kwargs_editor.parameter_editor.id, 'n_submit'),
                           Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           app=app)
-
         targeted_callback(partial(self._stash_values, key='clustering_values', editor=self.clustering_kwargs_editor.parameter_editor),
                           Input(self.clustering_kwargs_editor.parameter_editor.id, 'n_submit'),
                           Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           app=app)
-
         targeted_callback(partial(self._stash_parameter_set_data, key='decomposition_function'),
                           Input(self.decomposition_kwargs_editor.func_selector.id, 'value'),
                           Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           app=app)
-
         targeted_callback(partial(self._stash_parameter_set_data, key='clustering_function'),
                           Input(self.clustering_kwargs_editor.func_selector.id, 'value'),
                           Output(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           State(self.parameter_set_list.data_table.id, 'selected_rows'),
                           app=app)
+
+        # Chained from above; update data lists when the parameter set list is updated
+        targeted_callback(self._update_decomposition_values,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          Output(self.decomposition_kwargs_editor.parameter_editor.id, 'children'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          app=app)
+        targeted_callback(self._update_clustering_values,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          Output(self.clustering_kwargs_editor.parameter_editor.id, 'children'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          app=app)
+        targeted_callback(self._update_decomposition_function,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          Output(self.decomposition_kwargs_editor.func_selector.id, 'value'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          app=app)
+        targeted_callback(self._update_clustering_function,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          Output(self.clustering_kwargs_editor.func_selector.id, 'value'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          app=app)
+
+    # def _stash_decomposition_func(self, func_name):
+    #     self._stash_parameter_set_data(func_name, 'decomposition_function')
+    #     self.parameter_set_list.record_template.update(self.decomposition_kwargs_editor.funcs[func_name])
 
     def _stash_parameter_set_data(self, data, key):
         _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'data'))
@@ -148,6 +200,24 @@ class TunerPanel(Panel):
             row = next(iter(dash.callback_context.states[_id]), None)
         if row is None or row > len(parameter_set_list_data)-1: raise PreventUpdate
         return row, parameter_set_list_data[row]
+
+    def _update_decomposition_values(self, selected_rows):
+        values = self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['decomposition_values']
+        # function = self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['decomposition_function']
+        # rebuild the child items
+        return self.decomposition_kwargs_editor.parameter_editor.build_children(values)
+
+    def _update_clustering_values(self, selected_rows):
+        values = self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['clustering_values']
+        # function = self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['decomposition_function']
+        # rebuild the child items
+        return self.clustering_kwargs_editor.parameter_editor.build_children(values)
+
+    def _update_decomposition_function(self, selected_rows):
+        return self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['decomposition_function']
+
+    def _update_clustering_function(self, selected_rows):
+        return self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['clustering_function']
 
 
 cache = diskcache.Cache(tempdir)
@@ -300,7 +370,6 @@ class DecompositionTuner(ComposableDisplay):
                           Output(self.decomposition_graph.id, 'figure'),
                           State(self.tuner_panel.cache_path.id, 'data'),
                           app=app)
-
 
     def make_layout(self):
         return html.Div(html.Div(self.components, className='row'), className='container-fluid') #, style={'flexGrow': 1})
