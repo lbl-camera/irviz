@@ -187,6 +187,7 @@ class StackedKwargsEditor(html.Div):
                                                             dbc.CardBody(children=self.parameter_editor)])
 
     def init_callbacks(self, app):
+        # hide children not related to current func
         for child in self.parameter_editor.children:
             targeted_callback(partial(self.update_visibility, name=child.id['name']),
                               Input(self.func_selector.id, 'value'),
