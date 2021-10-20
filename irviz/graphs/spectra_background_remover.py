@@ -277,9 +277,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
             data += [{'name': f'Region #{next(self.region_list.region_counter)}', 'region_min': round(x, self._precision), 'region_max': None}]
         return data
 
-    def _update_region_list(self, clickData):
-        return self.region_list.data_table.data
-
     @cached_property
     def configuration_panel(self):
         children = [

@@ -8,7 +8,7 @@ from dash import html, Input, State
 import dash_bootstrap_components as dbc
 from dash import dcc
 import numpy as np
-from dash._utils import create_callback_id
+from dash._utils import create_callback_id, stringify_id
 from dash.exceptions import PreventUpdate
 from dash.long_callback import DiskcacheLongCallbackManager
 import h5py as h5
@@ -17,6 +17,7 @@ from irviz.components.datalists import BackgroundIsolatorParameterSetList, Param
 from irviz.components.kwarg_editor import StackedKwargsEditor, regularize_name
 from irviz.graphs import SpectraPlotGraph, DecompositionGraph, PairPlotGraph, MapGraph
 from irviz.graphs.background_map import BackgroundMapGraph
+from irviz.graphs.region_spectra_plot import RegionSpectraPlot
 from irviz.graphs.slice import SliceGraph
 from irviz.graphs.spectra_background_remover import SpectraBackgroundRemover
 from ryujin.components import Panel, Output
@@ -67,6 +68,16 @@ class DecompositionParameterSetList(ParameterSetList):
 
 class TunerPanel(Panel):
     def __init__(self, instance_index, decomposition_funcs, clustering_funcs):
+        self.selection_mode = dbc.RadioItems(id=f'background-selection-mode-{instance_index}',
+                                             className='btn-group radio-group',
+                                             labelClassName='btn btn-secondary',
+                                             labelCheckedClassName='active',
+                                             options=[{'label': 'Standard Mode', 'value': 1},
+                                                      # {'label': 'Fixed Point Mode', 'value': 2},
+                                                      {'label': 'Fixed Region Mode', 'value': 2}],
+                                             value=1
+                                             )
+
         self.decomposition_kwargs_editor = StackedKwargsEditor(instance_index, decomposition_funcs, 'Decomposition Function', id='decomposition-func-selector',)
         self.clustering_kwargs_editor = StackedKwargsEditor(instance_index, clustering_funcs, 'Cluster Function', id='clustering-func-selector')
         self.region_list = RegionList(table_kwargs=dict(id=dict(type='region-list', index=instance_index)), )
@@ -115,7 +126,8 @@ class TunerPanel(Panel):
                  active_tab=tab_items[0].tab_id,
                  children=tab_items)
 
-        children = [self.parameter_set_list,
+        children = [self.selection_mode,
+                    self.parameter_set_list,
                     html.Hr(),
                     tabs,
                     self.cache_path
@@ -130,6 +142,12 @@ class TunerPanel(Panel):
         self.clustering_kwargs_editor.init_callbacks(app)
 
         # update parameter set stash when values change
+        targeted_callback(partial(self._stash_parameter_set_data, key='selected_regions'),
+                          Input(self.region_list.data_table.id, 'data'),
+                          Output(self.parameter_set_list.data_table.id, 'data'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          State(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          app=app)
         targeted_callback(partial(self._stash_values, key='decomposition_values', editor=self.decomposition_kwargs_editor.parameter_editor),
                           Input(self.decomposition_kwargs_editor.parameter_editor.id, 'n_submit'),
                           Output(self.parameter_set_list.data_table.id, 'data'),
@@ -176,6 +194,11 @@ class TunerPanel(Panel):
                           Output(self.clustering_kwargs_editor.func_selector.id, 'value'),
                           State(self.parameter_set_list.data_table.id, 'data'),
                           app=app)
+        targeted_callback(self._update_regions_list,
+                          Input(self.parameter_set_list.data_table.id, 'selected_rows'),
+                          Output(self.region_list.data_table.id, 'data'),
+                          State(self.parameter_set_list.data_table.id, 'data'),
+                          app=app)
 
     # def _stash_decomposition_func(self, func_name):
     #     self._stash_parameter_set_data(func_name, 'decomposition_function')
@@ -219,11 +242,15 @@ class TunerPanel(Panel):
     def _update_clustering_function(self, selected_rows):
         return self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['clustering_function']
 
+    def _update_regions_list(self, selected_rows):
+        return self._find_selected_parameter_set(row=next(iter(selected_rows), None))[-1]['selected_regions']
+
 
 cache = diskcache.Cache(tempdir)
 
 
 class DecompositionTuner(ComposableDisplay):
+    _precision = 2
     plugins = [
         # dl.plugins.FlexibleCallbacks(),
         # dl.plugins.HiddenComponents(),
@@ -250,7 +277,7 @@ class DecompositionTuner(ComposableDisplay):
         map_graph = MapGraph(instance_index=self._instance_index,
                              graph_kwargs=graph_kwargs,
                              **kwargs)
-        spectra_graph = SpectraPlotGraph(instance_index=self._instance_index,
+        self.spectra_graph = RegionSpectraPlot(instance_index=self._instance_index,
                                          # background_func=background_function,
                                          graph_kwargs=graph_kwargs,
                                          **kwargs)
@@ -260,7 +287,7 @@ class DecompositionTuner(ComposableDisplay):
                                                       cluster_labels=None,
                                                       cluster_label_names=None,
                                                       **kwargs)
-        components.extend([map_graph, self.decomposition_graph, spectra_graph])
+        components.extend([map_graph, self.decomposition_graph, self.spectra_graph])
         # components.append(BackgroundMapGraph(instance_index=self._instance_index,
         #                                      graph_kwargs=graph_kwargs,
         #                                      # mask=mask,
@@ -371,6 +398,25 @@ class DecompositionTuner(ComposableDisplay):
                           State(self.tuner_panel.cache_path.id, 'data'),
                           app=app)
 
+        # update parameter set anchor region
+        targeted_callback(self._add_selected_region,
+                          Input(self.spectra_graph.id, 'clickData'),
+                          Output(self.tuner_panel.region_list.data_table.id, 'data'),
+                          State(self.tuner_panel.region_list.data_table.id, 'data'),
+                          State(self.tuner_panel.selection_mode.id, 'value'),
+                          app=app)
+
+        # update plot figure on parameter set change
+        targeted_callback(self.update_figure_on_data_change,
+                          Input(self.tuner_panel.parameter_set_list.data_table.id, 'data'),
+                          Output(self.spectra_graph.id, 'figure'),
+                          State(self.tuner_panel.parameter_set_list.data_table.id, 'selected_rows'),
+                          # State(dict(type='slice_graph',
+                          #            subtype='background-map',
+                          #            index=self._instance_index),
+                          #       'figure'),
+                          app=app)
+
     def make_layout(self):
         return html.Div(html.Div(self.components, className='row'), className='container-fluid') #, style={'flexGrow': 1})
 
@@ -393,3 +439,30 @@ class DecompositionTuner(ComposableDisplay):
         data = load_cache('clustering', cache_path)
         figure = self.decomposition_graph.set_clustering(data)
         return figure
+
+    def _add_selected_region(self, click_data):
+        mode = dash.callback_context.states[f'{self.tuner_panel.selection_mode.id}.value'] or []
+        if not mode == 2:
+            raise PreventUpdate
+
+        x = click_data['points'][0]['x']
+
+        data = dash.callback_context.states[f'{stringify_id(self.tuner_panel.region_list.data_table.id)}.data'] or []
+
+        # look for a '_region_start' shape already in the figure indicated the previously clicked position
+        last_region = data[-1] if len(data) else {}
+
+        if 'region_max' in last_region and last_region['region_max'] is None:
+            region = sorted([last_region['region_min'], x])
+
+            data[-1]['region_min'] = round(region[0], self._precision)
+            data[-1]['region_max'] = round(region[1], self._precision)
+        else:
+            data += [{'name': f'Region #{next(self.tuner_panel.region_list.region_counter)}', 'region_min': round(x, self._precision), 'region_max': None}]
+        return data
+
+    def update_figure_on_data_change(self, data):
+        # Also, stash the new data for property access
+        self._parameter_sets = data
+        parameter_set = self.tuner_panel._find_selected_parameter_set(parameter_set_list_data=data)[-1]
+        return self.spectra_graph._update_regions(parameter_set['selected_regions'])
