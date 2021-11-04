@@ -1,3 +1,4 @@
+import enum
 import re
 from functools import partial
 from typing import Callable, Dict
@@ -21,7 +22,26 @@ def regularize_name(name):
     return ''.join([c for c in name if c not in [' ']])
 
 
-class SimpleItem(dbc.FormGroup):
+class BaseItem(dbc.FormGroup):
+    def __init__(self, name, base_id, title=None):
+        self.name = name
+        self.input = None
+        self.base_id = base_id
+        super(BaseItem, self).__init__(id={**base_id,
+                                             'name': name,
+                                             'layer': 'form_group'},)
+
+    def init_callbacks(self, app, stash_func):
+        targeted_callback(stash_func,
+                          Input({**self.id,
+                                 'layer': 'input'},
+                                'value'),
+                          Output(self.base_id, 'n_submit'),
+                          State(self.base_id, 'n_submit'),
+                          app=app)
+
+
+class SimpleItem(BaseItem):
     def __init__(self,
                  name,
                  base_id,
@@ -30,6 +50,7 @@ class SimpleItem(dbc.FormGroup):
                  debounce=True,
                  visible=True,
                  **kwargs):
+        super(SimpleItem, self).__init__(name, base_id, title)
         self.name = name
 
         self.label = dbc.Label(title or name)
@@ -39,15 +60,11 @@ class SimpleItem(dbc.FormGroup):
                                    'name': name,
                                    'layer': 'input'},
                                **kwargs)
-        style = {}
+        self.style = {}
         if not visible:
-            style['display'] = 'none'
-
-        super(SimpleItem, self).__init__(id={**base_id,
-                                             'name': name,
-                                             'layer': 'form_group'},
-                                         children=[self.label, self.input],
-                                         style=style)
+            self.style['display'] = 'none'
+            
+        self.children = [self.label, self.input]
 
 
 class FloatItem(SimpleItem):
@@ -66,11 +83,33 @@ class StrItem(SimpleItem):
         super(StrItem, self).__init__(*args, type='text', **kwargs)
 
 
+class EnumItem(BaseItem):
+    def __init__(self,
+                 name,
+                 base_id,
+                 value,
+                 visible=True,
+                 title=None):
+        super(EnumItem, self).__init__(name, base_id, title)
+        self.label = dbc.Label(title or name)
+        self.input = dbc.Select(id={**base_id,
+                                    'name': name,
+                                    'layer': 'input'},
+                                options=[{'label':name} for name in type(value).__members__.keys()],
+                                value=value.name)
+        self.enum_cls = type(value)
+        self.style = {}
+        if not visible:
+            self.style['display'] = 'none'
+        self.children = [self.label, html.Br(), self.input]
+
+
 class ParameterEditor(dbc.Form):
 
-    type_map = {float: FloatItem,
-                int: IntItem,
-                str: StrItem,
+    type_map = {'float': FloatItem,
+                'int': IntItem,
+                'str': StrItem,
+                'EnumMeta': EnumItem
                 }
 
     def __init__(self, _id, parameters, **kwargs):
@@ -80,14 +119,8 @@ class ParameterEditor(dbc.Form):
         self.children = self.build_children()
 
     def init_callbacks(self, app):
-        targeted_callback(self.stash_value,
-                          Input({**self.id,
-                                 'name': ALL,
-                                 'layer': 'input'},
-                                'value'),
-                          Output(self.id, 'n_submit'),
-                          State(self.id, 'n_submit'),
-                          app=app)
+        for child in self.children:
+            child.init_callbacks(app, self.stash_value)
 
     def stash_value(self, value):
         # find the changed item name from regex
@@ -106,29 +139,43 @@ class ParameterEditor(dbc.Form):
 
     @property
     def values(self):
-        return {param['name']: param.get('value', None) for param in self._parameters}
+        return {param['name']: param.get('value', None).name if param.get('type') == 'EnumMeta' else param.get('value', None)
+                for param in self._parameters}
 
     @property
     def parameters(self):
         return {param['name']: param for param in self._parameters}
 
     def _determine_type(self, parameter_dict):
-        if 'type' in parameter_dict:
-            if parameter_dict['type'] in self.type_map:
-                return parameter_dict['type']
-            elif parameter_dict['type'].__name__ in self.type_map:
-                return parameter_dict['type'].__name__
-        elif type(parameter_dict['value']) in self.type_map:
-            return type(parameter_dict['value'])
+        if 'type' not in parameter_dict:
+            if type(parameter_dict['value']).__name__ in self.type_map:
+                parameter_dict['type'] = type(parameter_dict['value']).__name__
+            elif type(parameter_dict['value'].__class__).__name__ in self.type_map:
+                parameter_dict['type'] = type(parameter_dict['value'].__class__).__name__
+
+        if 'type' not in parameter_dict:
+            raise TypeError(f'No item type could be determined for this parameter: {parameter_dict}')
+
+        if parameter_dict['type'] in self.type_map:
+            return parameter_dict['type']
+        # elif parameter_dict['type'].__name__ in self.type_map:
+        #     parameter_dict['type'] = parameter_dict['type'].__name__
+        #     return parameter_dict['type'].__name__
+        # elif issubclass(type(parameter_dict['value']), tuple(self.type_map)):
+        #     for type_ in self.type_map:
+        #         if issubclass(type(parameter_dict['value']), type_):
+        #             parameter_dict['type'] = type_.__name__
+        #             return type_
         raise TypeError(f'No item type could be determined for this parameter: {parameter_dict}')
 
     def build_children(self, values=None):
         children = []
         for parameter_dict in self._parameters:
+            type = self._determine_type(parameter_dict)
             parameter_dict = parameter_dict.copy()
             if values and parameter_dict['name'] in values:
                 parameter_dict['value'] = values[parameter_dict['name']]
-            type = self._determine_type(parameter_dict)
+            parameter_dict = parameter_dict.copy()
             parameter_dict.pop('type', None)
             item = self.type_map[type](**parameter_dict, base_id=self.id)
             children.append(item)
@@ -213,7 +260,11 @@ if __name__ == '__main__':
                                                           {'name': 'test2', 'value': 'blah'},
                                                           {'name': 'test3', 'value': 3.2, 'type': float}])
 
-    def my_func(a, b, c=1, d='blah', e=23.4):
+    class Test(enum.Enum):
+        a = 'x'
+        b = 'y'
+
+    def my_func(a, b, c=1, d='blah', e=23.4, f=Test.a):
         ...
 
     def my_func2(a, b, x=1, w='blah', z=23.4):
@@ -221,7 +272,7 @@ if __name__ == '__main__':
 
     kwarg_list = KwargsEditor(0, func=my_func)
 
-    func_editor = StackedKwargsEditor(1, funcs={'my_func': my_func, 'my_func2': my_func2})
+    func_editor = StackedKwargsEditor(1, funcs={'my_func': my_func, 'my_func2': my_func2}, selector_label='meh?')
 
     kwarg_list.init_callbacks(app)
     item_list.init_callbacks(app)
