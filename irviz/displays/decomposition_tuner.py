@@ -1,5 +1,7 @@
+import enum
+import inspect
 import tempfile
-from functools import cached_property, partial
+from functools import cached_property, partial, lru_cache
 import os
 
 import diskcache
@@ -17,6 +19,7 @@ from irviz.components.datalists import BackgroundIsolatorParameterSetList, Param
 from irviz.components.kwarg_editor import StackedKwargsEditor, regularize_name
 from irviz.graphs import SpectraPlotGraph, DecompositionGraph, PairPlotGraph, MapGraph
 from irviz.graphs.background_map import BackgroundMapGraph
+from irviz.graphs.metrics import MetricsGraph
 from irviz.graphs.region_spectra_plot import RegionSpectraPlot
 from irviz.graphs.slice import SliceGraph
 from irviz.graphs.spectra_background_remover import SpectraBackgroundRemover
@@ -44,13 +47,22 @@ def cache_data(key, data, cache_path):
 
 
 def load_cache(key, cache_path):
-    h = h5.File(cache_path, 'a')
-    return h[key]
+    with h5.File(cache_path, 'r') as h:
+        return h[key][:]
 
 
 def filter_values(prefix_name:  str, values:dict):
     regularized_name = regularize_name(prefix_name)
     return {name.removeprefix(regularized_name+'-'): value for name, value in values.items() if name.startswith(regularized_name)}
+
+
+def map_enum_values(values:dict, func):
+    values = values.copy()
+    parameters = inspect.signature(func).parameters
+    for param_name in parameters:
+        if isinstance(parameters[param_name].default, enum.Enum) and param_name in values:
+            values[param_name] = type(parameters[param_name].default).__members__[values[param_name]].value
+    return values
 
 
 class DecompositionParameterSetList(ParameterSetList):
@@ -125,6 +137,8 @@ class TunerPanel(Panel):
         tabs = dbc.Tabs(id=f'parameter-set-tabs-{instance_index}',
                  active_tab=tab_items[0].tab_id,
                  children=tab_items)
+
+        print('params:', self.parameter_set_list.data_table.data)
 
         children = [self.selection_mode,
                     self.parameter_set_list,
@@ -258,10 +272,9 @@ class DecompositionTuner(ComposableDisplay):
     ]
     long_callback_manager = DiskcacheLongCallbackManager(cache)
 
-    def init_components(self, decomposition_functions, *args, cluster_functions=None, quality_functions=None, **kwargs):
+    def init_components(self, decomposition_functions, *args, cluster_functions=None, **kwargs):
         self.decomposition_functions = decomposition_functions
         self.cluster_functions = cluster_functions
-        self.quality_functions = quality_functions
         self.data = kwargs.get('data')
         self.bounds = kwargs.get('bounds')
 
@@ -287,7 +300,17 @@ class DecompositionTuner(ComposableDisplay):
                                                       cluster_labels=None,
                                                       cluster_label_names=None,
                                                       **kwargs)
-        components.extend([map_graph, self.decomposition_graph, self.spectra_graph])
+        self.pair_plot = PairPlotGraph(instance_index=self._instance_index,
+                                       graph_kwargs=graph_kwargs,
+                                       cluster_labels=None,
+                                       cluster_label_names=None,
+                                       **kwargs)
+        self.quality_graph = MetricsGraph(instance_index=self._instance_index,
+                                          graph_kwargs=graph_kwargs,
+                                          cluster_labels=None,
+                                          cluster_label_names=None,
+                                          **kwargs)
+        components.extend([map_graph, self.decomposition_graph, self.spectra_graph, self.pair_plot, self.quality_graph])
         # components.append(BackgroundMapGraph(instance_index=self._instance_index,
         #                                      graph_kwargs=graph_kwargs,
         #                                      # mask=mask,
@@ -321,7 +344,9 @@ class DecompositionTuner(ComposableDisplay):
 
         def execute_decomposition(n_clicks, data, selected_rows, cache_path):
             parameter_set = data[selected_rows[0]]
-            values = filter_values(parameter_set['decomposition_function'], parameter_set['decomposition_values'])
+            decomposition_function = decomposition_funcs[parameter_set['decomposition_function']]
+            values = map_enum_values(filter_values(parameter_set['decomposition_function'], parameter_set['decomposition_values']),
+                                     decomposition_function)
             print(f'Running {parameter_set["decomposition_function"]} with parameters: {values}')
 
             if len(bounds[0]) == 2:
@@ -329,7 +354,8 @@ class DecompositionTuner(ComposableDisplay):
             else:
                 spectral_coords = bounds[0]
 
-            decomposition, components = decomposition_funcs[parameter_set['decomposition_function']] \
+
+            decomposition, components, quality = decomposition_function \
                 (spectral_coords,
                  map_data,
                  parameter_set['map_mask'] or np.ones(map_data.shape[1:], dtype=np.bool_),
@@ -339,6 +365,7 @@ class DecompositionTuner(ComposableDisplay):
 
             cache_data('decomposition', decomposition, cache_path)
             cache_data('components', components, cache_path)
+            cache_data('quality', quality, cache_path)
 
             return decomposition.shape[0]
 
@@ -390,12 +417,31 @@ class DecompositionTuner(ComposableDisplay):
                           Output(self.decomposition_graph.id, 'figure'),
                           State(self.tuner_panel.cache_path.id, 'data'),
                           app=app)
+        targeted_callback(self.update_pair_plot_decomposition,
+                          Input(self.tuner_panel.decomposition_status.id, 'data'),
+                          Output(self.pair_plot.id, 'figure'),
+                          State(self.tuner_panel.cache_path.id, 'data'),
+                          State(self.pair_plot.configuration_panel._decomposition_component_1.id, 'value'),
+                          State(self.pair_plot.configuration_panel._decomposition_component_2.id, 'value'),
+                          app=app)
+        targeted_callback(self.update_quality,
+                          Input(self.tuner_panel.decomposition_status.id, 'data'),
+                          Output(self.quality_graph.id, 'figure'),
+                          State(self.tuner_panel.cache_path.id, 'data'),
+                          app=app)
 
-        # chained call returning from decomposition execute; displays result
+        # chained call returning from clustering execute; displays result
         targeted_callback(self.update_clustering,
                           Input(self.tuner_panel.clustering_status.id, 'data'),
                           Output(self.decomposition_graph.id, 'figure'),
                           State(self.tuner_panel.cache_path.id, 'data'),
+                          app=app)
+        targeted_callback(self.update_pair_plot_clustering,
+                          Input(self.tuner_panel.clustering_status.id, 'data'),
+                          Output(self.pair_plot.id, 'figure'),
+                          State(self.tuner_panel.cache_path.id, 'data'),
+                          State(self.pair_plot.configuration_panel._decomposition_component_1.id, 'value'),
+                          State(self.pair_plot.configuration_panel._decomposition_component_2.id, 'value'),
                           app=app)
 
         # update parameter set anchor region
@@ -434,10 +480,28 @@ class DecompositionTuner(ComposableDisplay):
         figure = self.decomposition_graph.rebuild_component_heatmaps(data)
         return figure
 
+    def update_pair_plot_decomposition(self, status):
+        cache_path = dash.callback_context.states[self.tuner_panel.cache_path.id+'.data']
+        data = load_cache('decomposition', cache_path)
+        self.pair_plot.set_data(data)
+        return self.pair_plot.show_pair_plot()
+
+    def update_pair_plot_clustering(self, status):
+        cache_path = dash.callback_context.states[self.tuner_panel.cache_path.id+'.data']
+        clustering = load_cache('clustering', cache_path)
+        self.pair_plot.set_clustering(clustering)
+        return self.pair_plot.show_pair_plot()
+
     def update_clustering(self, status):
         cache_path = dash.callback_context.states[self.tuner_panel.cache_path.id+'.data']
         data = load_cache('clustering', cache_path)
         figure = self.decomposition_graph.set_clustering(data)
+        return figure
+
+    def update_quality(self, status):
+        cache_path = dash.callback_context.states[self.tuner_panel.cache_path.id+'.data']
+        data = np.expand_dims(load_cache('quality', cache_path), 0)
+        figure = self.quality_graph.set_data(data)
         return figure
 
     def _add_selected_region(self, click_data):
