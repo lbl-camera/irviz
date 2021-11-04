@@ -187,12 +187,6 @@ class SliceGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=app)
 
-        # update cluster overlay opacity
-        targeted_callback(self.update_opacity,
-                          Input(self.configuration_panel._cluster_overlay_opacity.id, 'value'),
-                          Output(self.id, 'figure'),
-                          app=app)
-
     def update_opacity(self, value):
         self._clusters.opacity = value
 

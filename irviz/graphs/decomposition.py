@@ -225,6 +225,12 @@ class DecompositionGraph(SliceGraph):
                           Output(self.id, 'figure'),
                           app=app)
 
+        # update cluster overlay opacity
+        targeted_callback(self.update_opacity,
+                          Input(self.configuration_panel._cluster_overlay_opacity.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=app)
+
     def set_color_scale(self, color_scale):
         i = int(re.findall('(?<="index":)\\d+(?=,)', dash.callback_context.triggered[0]['prop_id'])[0])
         color_scale = transparent_color_scales.get(color_scale, color_scale)
