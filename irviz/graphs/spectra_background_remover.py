@@ -66,7 +66,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                              value=1
                                              )
 
-        self.region_list = RegionList(table_kwargs=dict(id=dict(type='region-list', index=self._instance_index)), )
+        self.region_list = RegionList(table_kwargs=dict(id=dict(type='region-list', index=self._instance_index)))
         self.anchor_points_list = AnchorPointList(table_kwargs=dict(id=dict(type='anchor-point-list', index=self._instance_index)))
         self.values_editor = KwargsEditor(self._instance_index, background_func)
         self.parameter_set_list = BackgroundIsolatorParameterSetList(table_kwargs=dict(id=dict(type='parameter-set-selector',
