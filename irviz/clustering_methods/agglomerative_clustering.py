@@ -4,6 +4,7 @@ import einops
 
 
 def agglomerative_clustering(U,
+                             mask,
                              n_clusters=5):
     """
 
