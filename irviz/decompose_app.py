@@ -132,8 +132,11 @@ if __name__ == "__main__":    # data, bounds = open_ir_file(TEST_FILE)
     cluster_labels = np.argmax(decomposition, axis=0)
     cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
+    static_mask = np.random.random(data.shape[1:]) < .01  # randomly mask 1% of pixels
+
     viewer = DecompositionTuner(data=data,
                                 bounds=bounds,
+                                static_mask=static_mask,
                                 parameter_sets=[{'name': name,
                                                  'map_mask': cluster_labels == i} for i, name in enumerate(cluster_label_names)],
                                 decomposition_functions={'Kernel PCA': kernel_PCA,
