@@ -6,6 +6,8 @@ import dash_bootstrap_components as dbc
 
 
 class MetricsGraph(SliceGraph):
+    title = 'Quality'
+
     def __init__(self, *args, **kwargs):
         super(MetricsGraph, self).__init__(*args, **kwargs)
 
