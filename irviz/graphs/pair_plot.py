@@ -45,7 +45,7 @@ class PairPlotGraphPanel(Panel):
         self.visibility_toggle = dbc.Checkbox(id=dict(type='pair-plot-visibility', instance_index=instance_index), checked=True)
 
         children = [dbc.FormGroup([self.visibility_toggle,
-                                   dbc.Label('Show Decomposition Image')]),
+                                   dbc.Label('Show Pair Plot')]),
                     dbc.FormGroup([dbc.Label('Shown Components'),
                                    pair_plot_component_selector])]
 
