@@ -2,8 +2,7 @@ import numpy as np
 import einops
 
 
-def selection_brackets_to_bool_array(selection_brackets,
-                                     wavenumbers):
+def selection_brackets_to_bool_array(selection_brackets, wavenumbers):
     """
     Converts a list of selected wavenumber brackets into a single boolean array
 
@@ -17,10 +16,10 @@ def selection_brackets_to_bool_array(selection_brackets,
     Boolean array with selected wavenumbers
 
     """
-    results = np.zeros( wavenumbers.shape[-1] )
+    results = np.zeros(wavenumbers.shape[-1])
     for selector in selection_brackets:
-        low_w = min(selector)
-        high_w = max(selector)
+        low_w = min(selector.values())
+        high_w = max(selector.values())
         sel = (wavenumbers > low_w) & (wavenumbers < high_w)
         results[sel] = 1
     return results.astype(bool)
