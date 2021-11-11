@@ -108,7 +108,7 @@ class SliceGraph(dcc.Graph):
             self._clusters.z = cluster_labels  # NaNs are transparent
 
         self._shapes.extend([self._h_line, self._v_line])
-        self._traces = (traces or []) + [self._dummy_scatter, self._image, self._selection_mask, self._clusters]
+        self._traces = [self._dummy_scatter, self._image, self._selection_mask, self._clusters] + self._traces
 
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
@@ -120,7 +120,8 @@ class SliceGraph(dcc.Graph):
                 'subtype': ...,
                 'index': instance_index}
 
-    def _get_image_trace(self, data, bounds, **extra_kwargs):
+    @staticmethod
+    def _get_image_trace(data, bounds, **extra_kwargs):
         graph_bounds = dict(y0=bounds[1][0],
                             dy=(bounds[1][1] - bounds[1][0]) / (data.shape[0] - 1),
                             x0=bounds[2][0],
@@ -334,3 +335,6 @@ class SliceGraph(dcc.Graph):
     def selection_indices(self):
         """The indices of all currently selected points, returned as (y, x)"""
         return np.argwhere(self._selection_mask.z)
+
+    def append_trace(self, trace):
+        self._traces.append(trace)
