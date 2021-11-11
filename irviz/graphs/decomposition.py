@@ -44,12 +44,9 @@ class DecompositionGraphPanel(Panel):
                                                       instance_index=instance_index),
                                               checked=True)
 
-        children = [dbc.FormGroup([self.visibility_toggle,
-                                   dbc.Label('Show Decomposition Image')]),
-                    dbc.FormGroup([dbc.Label('Component Color Themes'),
-                                   self.decomposition_selector_layout]),
-                    dbc.FormGroup(
-                        [dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])]
+        children = [dbc.FormGroup([self.visibility_toggle, dbc.Label('Show Decomposition Image')]),
+                    dbc.FormGroup([dbc.Label('Component Color Themes'), self.decomposition_selector_layout]),
+                    dbc.FormGroup([dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])]
 
         super(DecompositionGraphPanel, self).__init__('Decomposition Image', children)
 
@@ -153,7 +150,7 @@ class DecompositionGraph(SliceGraph):
 
         self._component_traces = self._build_component_heatmaps(data)
 
-        kwargs['traces'] = self._component_traces
+        kwargs['traces'] = self._component_traces + kwargs.get('traces', [])
 
         super(DecompositionGraph, self).__init__(data,
                                                  instance_index,
@@ -164,8 +161,9 @@ class DecompositionGraph(SliceGraph):
                                                  **kwargs)
 
         # Hide the free image trace
-        self._image.visible = False
-        self.figure = self._update_figure()
+        self._traces.remove(self._image)
+        # self._image.visible = False
+        # self.figure = self._update_figure()
 
     def _build_component_heatmaps(self, data):
         traces = []
