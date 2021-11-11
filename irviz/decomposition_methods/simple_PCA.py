@@ -41,10 +41,11 @@ def select_regions(wavenumbers, data_map, control_regions):
 
     data_cube = []
     for ind1, ind2 in idx:
-        data_cube.append(data_map[:, :, ind1:ind2])
+        data_cube.append(data_map[:, :, ind1:ind2+1])
     data_cube = np.concatenate(data_cube, axis=2)
 
     return data_cube
+
 
 def masked_to_map(mask, data):
     """
@@ -99,10 +100,8 @@ def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5, met
     data_cube_transform = masked_to_map(mask, data_transform)
     data_cube_transform = da.from_array(data_cube_transform.transpose((2, 0, 1)))
 
-    try:
-        quality = metric(data_map, np.asarray(pca.components_), np.asarray(data_cube_transform), mask, control_regions)
-    except IndexError:   ######### TEMPORARY TRY FOR TESTING
-        quality = np.random.random(data_map.shape[1:]) * 100
+    quality = metric(wavenumbers, data_map, np.asarray(pca.components_), np.asarray(data_cube_transform), mask, control_regions)
+
     return data_cube_transform, pca.components_, quality
 
 def qscore_rms(wavenumbers, data_map, mask, control_regions, data_transform, components):
