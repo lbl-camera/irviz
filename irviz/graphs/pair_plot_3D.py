@@ -158,7 +158,7 @@ class PairPlot3DGraph(dcc.Graph):
                           app=app)
 
         # When any SliceGraph is clicked, update its highlighted point
-        targeted_callback(self.show_pair_plot,
+        targeted_callback(self.show_click,
                           Input({'type': 'slice_graph',
                                  'subtype': ALL,
                                  'index': self._instance_index},
@@ -211,13 +211,22 @@ class PairPlot3DGraph(dcc.Graph):
         """ Remake the figure to force a display update """
         fig = go.Figure(self._component_traces + [self.crosshair_trace])
         fig.update_layout(title=self.title,
-                          xaxis_title=self._xaxis_title,
-                          yaxis_title=self._yaxis_title)
+                          scene=dict(xaxis_title=self._xaxis_title,
+                                     yaxis_title=self._yaxis_title,
+                                     zaxis_title=self._zaxis_title), )
         return fig
 
     def show_selection(self, selected_points):
-        self.selected_points = selected_points
+        self.selected_points = [point['pointIndex'] for point in selected_points['points']] \
+            if selected_points is not None else None
         return self.show_pair_plot()
+
+    def show_click(self, click_data, component1=None, component2=None, component3=None):
+        if click_data is not None:
+            y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])
+            x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
+            self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
+        return self.show_pair_plot(component1, component2, component3)
 
     def show_pair_plot(self, component1=None, component2=None, component3=None):
         if not component3:
@@ -228,6 +237,18 @@ class PairPlot3DGraph(dcc.Graph):
         self._component_traces = []
         multi_mode = component3 == 'ALL'
         cluster_label_mode = len(match_components) == 1 and self._cluster_labels is not None
+
+        if self._crosshair_index is not None:
+            x = [self._data[component1].ravel()[self._crosshair_index] for component3 in match_components]
+            y = [self._data[component2].ravel()[self._crosshair_index] for component3 in match_components]
+            z = [self._data[component3].ravel()[self._crosshair_index] for component3 in match_components]
+            self.crosshair_trace.x = x
+            self.crosshair_trace.y = y
+            self.crosshair_trace.z = z
+
+        self._xaxis_title = f'Component #{component1 + 1}'
+        self._yaxis_title = f'Component #{component2 + 1}'
+        self._zaxis_title = f'Other components' if len(match_components) > 1 else f'Component #{component3 + 1}'
 
         for component3 in match_components:
             # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
