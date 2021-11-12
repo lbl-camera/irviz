@@ -157,13 +157,6 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                           State(self.parameter_set_list.data_table.id, 'data'),
                           app=app)
 
-        # Adds a new parameter set
-        targeted_callback(self.add_parameter_set,
-                          Input(self.parameter_set_list.new_button.id, 'n_clicks'),
-                          Output(self.parameter_set_list.data_table.id, 'data'),
-                          State(self.parameter_set_list.data_table.id, 'data'),
-                          app=app)
-
         # update parameter set stash when values change
         targeted_callback(partial(self._stash_parameter_set_data, key='anchor_points'),
                           Input(self.anchor_points_list.data_table.id, 'data'),
@@ -233,7 +226,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         anchor_trace_index = self.figure.data.index(self._anchor_points_trace)
         index = click_data['points'][0]['pointNumber']
-        data = dash.callback_context.states[f'{self.anchor_points_list.data_table.id}.data'] or []
+        data = dash.callback_context.states[f'{stringify_id(self.anchor_points_list.data_table.id)}.data'] or []
 
         if click_data['points'][0]['curveNumber'] == anchor_trace_index:
             # Remove point
@@ -263,7 +256,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
 
         x = click_data['points'][0]['x']
 
-        data = dash.callback_context.states[f'{self.region_list.data_table.id}.data'] or []
+        data = dash.callback_context.states[f'{stringify_id(self.region_list.data_table.id)}.data'] or []
 
         # look for a '_region_start' shape already in the figure indicated the previously clicked position
         last_region = data[-1] if len(data) else {}
