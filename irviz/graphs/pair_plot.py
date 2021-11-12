@@ -138,7 +138,7 @@ class PairPlotGraph(dcc.Graph):
                           app=app)
 
         # When any SliceGraph is clicked, update its highlighted point
-        targeted_callback(self.show_pair_plot,
+        targeted_callback(self.show_click,
                           Input({'type': 'slice_graph',
                                  'subtype': ALL,
                                  'index': self._instance_index},
@@ -198,7 +198,14 @@ class PairPlotGraph(dcc.Graph):
             if selected_points is not None else None
         return self.show_pair_plot()
 
-    def show_pair_plot(self, click_data=None, component1=None, component2=None):
+    def show_click(self, click_data, component1=None, component2=None):
+        if click_data is not None:
+            y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])
+            x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
+            self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
+        return self.show_pair_plot(component1, component2)
+
+    def show_pair_plot(self, component1=None, component2=None):
         if not component2:
             component1, component2, match_components = self._get_components()
         else:
@@ -207,11 +214,6 @@ class PairPlotGraph(dcc.Graph):
         self._component_traces = []
         multi_mode = component2 == 'ALL'
         cluster_label_mode = len(match_components) == 1 and self._cluster_labels is not None
-
-        if click_data is not None:
-            y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])
-            x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
-            self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
 
         if self._crosshair_index is not None:
             x = [self._data[component1].ravel()[self._crosshair_index] for component2 in match_components]
@@ -275,24 +277,6 @@ class PairPlotGraph(dcc.Graph):
             component2]
 
         return component1, component2, match_components
-
-    def update_selection(self, click_data):
-        component1, component2, match_components = self._get_components()
-
-        y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])
-        x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
-        self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
-
-        if self._crosshair_index is not None:
-            x = [self._data[component1].ravel()[self._crosshair_index] for component2 in match_components]
-            y = [self._data[component2].ravel()[self._crosshair_index] for component2 in match_components]
-            self.crosshair_trace.x = x
-            self.crosshair_trace.y = y
-
-        self._xaxis_title = f'Component #{component1 + 1}'
-        self._yaxis_title = f'Other components' if len(match_components) > 1 else f'Component #{component2 + 1}'
-
-        return self._update_figure()
 
     @staticmethod
     def _indexes_from_selection(selection):
