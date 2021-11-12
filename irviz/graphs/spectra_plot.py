@@ -95,7 +95,8 @@ class SpectraPlotGraph(dcc.Graph):
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
         self._avg_plot = go.Scattergl(name='average',
                                       mode='lines',
-                                      legendgroup='_average')
+                                      legendgroup='_average',
+                                      line=dict(color='blue'))
         self._upper_error_plot = go.Scatter(line=dict(width=0),
                                             marker=dict(color="#444"),
                                             hoverinfo='skip',
@@ -372,12 +373,13 @@ class SpectraPlotGraph(dcc.Graph):
                 filter(lambda shape: shape.visible is not False, current_figure.layout.shapes))  # visible defaults to None?
             shapes.extend(list(filter(lambda shape: shape.visible is False, current_figure.layout.shapes)))
             annotations = current_figure.layout.annotations
-        new_figure = go.Figure([*self._traces, self._plot,
+        new_figure = go.Figure([self._plot,
                                 self._avg_plot,
                                 self._weighted_sum,
                                 self._upper_error_plot,
                                 self._lower_error_plot,
-                                *self._component_plots])
+                                *self._component_plots,
+                                *self._traces])
         new_figure.update_layout(title=self.title,
                                  xaxis_title=self.xaxis_title,
                                  yaxis_title=self.yaxis_title)
