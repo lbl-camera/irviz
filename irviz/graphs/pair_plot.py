@@ -194,7 +194,7 @@ class PairPlotGraph(dcc.Graph):
         return fig
 
     def show_selection(self, selected_points):
-        self.selected_points = selected_points
+        self.selected_points = [point['pointIndex'] for point in selected_points['points']] if selected_points is not None else []
         return self.show_pair_plot()
 
     def show_pair_plot(self, component1=None, component2=None):
@@ -208,8 +208,6 @@ class PairPlotGraph(dcc.Graph):
         cluster_label_mode = len(match_components) == 1 and self._cluster_labels is not None
 
         for component2 in match_components:
-            # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
-            selected_points = self.selected_points
             try:
                 x = self._data[component1]
                 y = self._data[component2]
@@ -222,7 +220,7 @@ class PairPlotGraph(dcc.Graph):
                                                        marker={'color': 'rgba(0,0,0,0)'} if cluster_label_mode else None,
                                                        hoverinfo='skip' if cluster_label_mode else None,
                                                        showlegend=True if multi_mode else False,
-                                                       selectedpoints=selected_points,
+                                                       selectedpoints=self.selected_points,
                                                        name=f'Component #{component2 + 1}' if multi_mode else None))
 
             if cluster_label_mode:
@@ -230,8 +228,8 @@ class PairPlotGraph(dcc.Graph):
                 for i, name in enumerate(self._cluster_label_names):
                     label_mask = self._cluster_labels.ravel() == i
                     masked_selected_points = None
-                    if selected_points is not None:
-                        masked_selected_points = np.asarray(selected_points) - min_index
+                    if self.selected_points is not None:
+                        masked_selected_points = np.asarray(self.selected_points) - min_index
                         masked_selected_points = masked_selected_points[
                             np.logical_and(0 <= masked_selected_points, masked_selected_points < np.count_nonzero(label_mask))
                         ]
