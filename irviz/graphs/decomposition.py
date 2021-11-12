@@ -32,7 +32,7 @@ class DecompositionGraphPanel(Panel):
                                                    min=0,
                                                    max=1,
                                                    step=.05,
-                                                   value=.3,
+                                                   value=0,
                                                    className='centered-slider',
                                                    disabled=True if cluster_labels is None else False,
                                                    )
@@ -46,7 +46,8 @@ class DecompositionGraphPanel(Panel):
 
         children = [dbc.FormGroup([self.visibility_toggle, dbc.Label('Show Decomposition Image')]),
                     dbc.FormGroup([dbc.Label('Component Color Themes'), self.decomposition_selector_layout]),
-                    dbc.FormGroup([dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])]
+                    dbc.FormGroup([dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity]),
+                    ]
 
         super(DecompositionGraphPanel, self).__init__('Decomposition Image', children)
 
