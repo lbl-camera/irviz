@@ -63,6 +63,7 @@ class SpectraPlotGraph(dcc.Graph):
         self._bounds = bounds
         self._component_spectra = np.asarray(component_spectra)
         self._traces = traces or []
+        self._component_plots = []
 
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -111,16 +112,6 @@ class SpectraPlotGraph(dcc.Graph):
                                             hoverinfo='skip',
                                             mode='lines',
                                             legendgroup='_average')
-
-        if self._component_spectra.ndim != 2:
-            self._component_plots = []
-        else:
-            self._component_plots = [go.Scattergl(x=self._plot.x,
-                                                  y=self._component_spectra[i],
-                                                  name=f'Component #{i + 1}',
-                                                  visible='legendonly',
-                                                  legendgroup='_components')
-                                     for i in range(self._component_spectra.shape[0])]
 
         self._slicer_index = default_slice_index
         self._slicer_name = 'slicer'
@@ -217,6 +208,16 @@ class SpectraPlotGraph(dcc.Graph):
         if self._decomposition is not None and self._component_spectra is not None:
             self._weighted_sum.x = self._plot.x
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
+
+        if self._component_spectra.ndim != 2:
+            self._component_plots = []
+        else:
+            self._component_plots = [go.Scattergl(x=self._plot.x,
+                                                  y=self._component_spectra[i]*self._decomposition[i, _y_index, _x_index],
+                                                  name=f'Component #{i + 1}',
+                                                  visible='legendonly',
+                                                  legendgroup='_components')
+                                     for i in range(self._component_spectra.shape[0])]
 
         return self._update_figure()
 
