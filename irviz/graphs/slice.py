@@ -1,12 +1,12 @@
+import dash
 import numpy as np
 from dash import dcc
 from dash.dependencies import Input, Output, ALL, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
-import dash
 
+from irviz.utils.math import nearest_bin, array_from_selection
 from ryujin.utils.dash import targeted_callback
-from irviz.utils.math import nearest_bin
 
 
 class SliceGraph(dcc.Graph):
@@ -68,8 +68,8 @@ class SliceGraph(dcc.Graph):
         else:
             hovertemplate = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<extra></extra>'
 
-        default_slice_index = (data.shape[0] - 1) // 2
-        self._image = self._get_image_trace(data[default_slice_index],
+        self._slice_index = (data.shape[0] - 1) // 2
+        self._image = self._get_image_trace(data[self._slice_index],
                                             bounds,
                                             hovertemplate=hovertemplate,
                                             **extra_kwargs)
@@ -84,7 +84,7 @@ class SliceGraph(dcc.Graph):
                                                      opacity=0.3,
                                                      showscale=False,
                                                      hoverinfo='skip',
-                                                     name='selection',)
+                                                     name='selection', )
 
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))
@@ -108,7 +108,7 @@ class SliceGraph(dcc.Graph):
             self._clusters.z = cluster_labels  # NaNs are transparent
 
         self._shapes.extend([self._h_line, self._v_line])
-        self._traces = (traces or []) + [self._dummy_scatter, self._image, self._selection_mask, self._clusters]
+        self._traces = [self._dummy_scatter, self._image, self._selection_mask, self._clusters] + self._traces
 
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
@@ -120,7 +120,8 @@ class SliceGraph(dcc.Graph):
                 'subtype': ...,
                 'index': instance_index}
 
-    def _get_image_trace(self, data, bounds, **extra_kwargs):
+    @staticmethod
+    def _get_image_trace(data, bounds, **extra_kwargs):
         graph_bounds = dict(y0=bounds[1][0],
                             dy=(bounds[1][1] - bounds[1][0]) / (data.shape[0] - 1),
                             x0=bounds[2][0],
@@ -187,12 +188,6 @@ class SliceGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           app=app)
 
-        # update cluster overlay opacity
-        targeted_callback(self.update_opacity,
-                          Input(self.configuration_panel._cluster_overlay_opacity.id, 'value'),
-                          Output(self.id, 'figure'),
-                          app=app)
-
     def update_opacity(self, value):
         self._clusters.opacity = value
 
@@ -234,9 +229,11 @@ class SliceGraph(dcc.Graph):
 
     def update_slice(self, spectra_graph_click_data):
         slice = spectra_graph_click_data["points"][0]["x"]
-        slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
-        self._image.z = np.asarray(self._data[slice_index])
+        self._slice_index = nearest_bin(slice, self._bounds[0], self._data.shape[0])
+        return self.update_slice_by_index(self._slice_index)
 
+    def update_slice_by_index(self, index):
+        self._image.z = np.asarray(self._data[index])
         return self._update_figure()
 
     def _update_figure(self):
@@ -264,23 +261,15 @@ class SliceGraph(dcc.Graph):
         return self._update_figure()
 
     def _show_selection_mask(self, selection):
-        # Check two cases:
-        #     1. selection is None: initial state (no selection) or user has dbl-clicked w/ lasso/selection tool
-        #     2. selection['points'] is empty: user has selected no points
-        if selection is not None and len(selection['points']) > 0:
-            # Get x,y from the raveled indexes
-            raveled_indexes = list(map(lambda point: point['pointIndex'],
-                                       filter(lambda point: point['curveNumber'] == 0,
-                                              selection['points'])))
-            mask = np.zeros(self._data[0].shape)
-            # Cannot be 0s - must be NaNs (eval to None) so it doesn't affect underlying HeatMap
-            mask.fill(np.NaN)
-            mask.ravel()[raveled_indexes] = 1
-            # Create overlay
-            self._selection_mask.z = mask
-        else:
-            self._selection_mask.z = np.ones(self._data[0].shape) * np.NaN
+        self._selection_mask.z = array_from_selection(selection, self._data[0].shape)
+        return self._update_figure()
 
+    def set_data(self, data):
+        self._data = data
+        return self.update_slice_by_index(self._slice_index)
+
+    def set_clustering(self, clusters):
+        self._clusters.z = clusters
         return self._update_figure()
 
     @staticmethod
@@ -346,3 +335,6 @@ class SliceGraph(dcc.Graph):
     def selection_indices(self):
         """The indices of all currently selected points, returned as (y, x)"""
         return np.argwhere(self._selection_mask.z)
+
+    def append_trace(self, trace):
+        self._traces.append(trace)

@@ -1,22 +1,23 @@
 from sklearn.decomposition import KernelPCA as skKernelPCA
 import numpy as np
-from irviz.utils.mapper import einops_data_mapper
+from irviz.utils.mapper import einops_data_mapper, selection_brackets_to_bool_array
 
-def KernelPCA(wavenumbers,
-              spectral_map,
-              pixel_usage_mask,
-              spectral_mask,
-              n_components=0,
-              kernel="rbf",
-              gamma=0,
-              alpha=1e-4,
-              ):
+
+def kernel_PCA(wavenumbers,
+               spectral_map,
+               pixel_usage_mask,
+               spectral_mask,
+               n_components=0,
+               kernel="rbf",
+               gamma=0,
+               alpha=1e-4,
+               ):
     """
 
     Parameters
     ----------
     wavenumbers : the wavenumbers, an array of size (Nwav)
-    spectral_map : an (Nx,Ny,Nwav) array of spectral data
+    spectral_map : an (Nwav,Nx,Ny) array of spectral data
     pixel_usage_mask: a boolean map of size (Nx,Ny) with elements set to True for pixels of interest
     spectral_mask: A boolean array of size (Nwav) for spectral regions of interest
     n_components: The number of components we want to extract; if set to 0, it is determined automatically.
@@ -25,9 +26,10 @@ def KernelPCA(wavenumbers,
     alpha: Control parameter alpha. This value needs tuning if you want the reconstructed data to be meaningful.
 
     Returns:
-        U: Low dimensional representation of the spectra in n_components - this is a (Nx,Ny,n_component) array
-        V: Kernel PCA doesn't give basis vectors like normal PCA, so we return None
+        U: Low dimensional representation of the spectra in n_components - this is a (n_component,Nx,Ny) array
+        V: Kernel PCA doesn't give basis vectors like normal PCA, so we return np.empty([])
         Recon: The reconstructed data from the kernelPCA object
+        quality: (Nx, Ny) map describing the decomposition quality
     -------
 
     """
@@ -46,9 +48,11 @@ def KernelPCA(wavenumbers,
         pixel_usage_mask = np.ones(shape[1:]).astype(bool)
     if spectral_mask is None:
         spectral_mask = np.ones((shape[0])).astype(bool)
+    else:
+        spectral_mask = selection_brackets_to_bool_array(spectral_mask, wavenumbers)
 
     data_mapper_object = einops_data_mapper(spectral_map.shape, pixel_usage_mask, spectral_mask)
-    data = data_mapper_object.spectral_tensor_to_spectral_matrix(spectral_map)
+    data = data_mapper_object.spectral_tensor_to_spectral_matrix(np.asarray(spectral_map))
 
     # now we are ready for decomposition
     transformer = skKernelPCA(n_components=n_components,
@@ -62,8 +66,8 @@ def KernelPCA(wavenumbers,
     U_out = data_mapper_object.matrix_to_tensor(U)
     Recon_out = data_mapper_object.spectral_matrix_to_spectral_tensor(Recon)
 
-    V = None
-    return U_out, V, Recon_out
+    V = np.empty([])
+    return U_out, V, np.zeros(spectral_map.shape[1:])  # Recon_out TODO: Ask Peter if this is necessary
 
 
 

@@ -1,15 +1,10 @@
 import dash
 import numpy as np
+from dash import html
 from dash._utils import create_callback_id
 from dash.dependencies import Input, Output, State
-import dash_bootstrap_components as dbc
-from dash import dcc
-from dash import html
 
-from irviz.components import ColorScaleSelector
-from irviz.graphs.map import MapGraphPanel, MapGraph
-from irviz.graphs.slice import SliceGraph
-from ryujin.components import Panel
+from irviz.graphs.map import MapGraph
 from ryujin.utils.dash import targeted_callback
 
 __all__ = ['BackgroundMapGraph']
@@ -58,3 +53,8 @@ class BackgroundMapGraph(MapGraph):
             self._selection_mask.z = np.ones_like(self._image.z) * np.NaN
 
         return self._update_figure()
+
+    def _id(self, instance_index):
+        _id = super(MapGraph, self)._id(instance_index)
+        _id['subtype'] = 'background-map'
+        return _id

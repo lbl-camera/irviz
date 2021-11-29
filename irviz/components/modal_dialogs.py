@@ -1,4 +1,4 @@
-from typing import List, Any, Callable
+from typing import List, Callable
 
 import dash_bootstrap_components as dbc
 import dash_daq as daq
@@ -101,7 +101,6 @@ class SpectraAnnotationDialog(ModalDialog):
 
 class SliceAnnotationDialog(ModalDialog):
     def __init__(self, _id, **kwargs):
-
         name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
         name_form = dbc.FormGroup(
             [

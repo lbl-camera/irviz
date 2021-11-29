@@ -271,22 +271,22 @@ class Viewer(ComposableDisplay):
         self.annotations_panel = AnnotationsPanel(self._instance_index)
 
         self.spectra_annotation_dialog = SpectraAnnotationDialog('spectra-annotation-dialog',
-                                                                   success_callback=self._add_annotation_from_dialog,
-                                                                   success_output=Output(
-                                                                       self.annotations_panel.spectra_graph_annotations.id,
-                                                                       'children'),
-                                                                   open_input=Input(
-                                                                       self.annotations_panel.spectra_graph_add_annotation.id,
-                                                                       'n_clicks'))
+                                                                 success_callback=self._add_annotation_from_dialog,
+                                                                 success_output=Output(
+                                                                     self.annotations_panel.spectra_graph_annotations.id,
+                                                                     'children'),
+                                                                 open_input=Input(
+                                                                     self.annotations_panel.spectra_graph_add_annotation.id,
+                                                                     'n_clicks'))
 
         self.slice_annotation_dialog = SliceAnnotationDialog('slice-annotation-dialog',
-                                                               success_callback=self._add_slice_annotation_from_dialog,
-                                                               success_output=Output(
-                                                                   self.annotations_panel.slice_graph_annotations.id,
-                                                                   'children'),
-                                                               open_input=Input(
-                                                                   self.annotations_panel.slice_graph_add_annotation.id,
-                                                                   'n_clicks'))
+                                                             success_callback=self._add_slice_annotation_from_dialog,
+                                                             success_output=Output(
+                                                                 self.annotations_panel.slice_graph_annotations.id,
+                                                                 'children'),
+                                                             open_input=Input(
+                                                                 self.annotations_panel.slice_graph_add_annotation.id,
+                                                                 'n_clicks'))
 
         for annotation in self._annotations or []:
             self._add_spectra_annotation(annotation)

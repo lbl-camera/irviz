@@ -43,16 +43,18 @@ class AnchorPointList(DataList):
 
 
 class ParameterSetList(DataList):
-    record_template = {'name': None,
-                       'values': dict(),
-                       'map_mask': None,
-                       'anchor_points': [],
-                       'anchor_regions': [],
-                       'selected': False}
+    new_enabled = True
 
-    def __init__(self, *args, table_kwargs=None, **kwargs):
+    def __init__(self, *args, table_kwargs=None, record_template=None, **kwargs):
         self.parameter_set_counter = count(1)
         # TODO: once API established, update the kwargs being searched
+
+        # override record_template with parameter value
+        if record_template:
+            if self.record_template:
+                self.record_template.update(record_template)
+            else:
+                self.record_template = record_template
 
         # Always start with on record
         table_kwargs = table_kwargs or {}
@@ -70,6 +72,9 @@ class ParameterSetList(DataList):
         super(ParameterSetList, self).__init__(*args, table_kwargs=table_kwargs, **kwargs)
 
     def init_callbacks(self, app):
+        super(ParameterSetList, self).init_callbacks(app)
+
+        # Try to keep one row selected after data changes
         targeted_callback(self.assert_selected_row,
                           Input(self.data_table.id, 'data_previous'),
                           Output(self.data_table.id, 'selected_rows'),
@@ -93,3 +98,15 @@ class ParameterSetList(DataList):
         record = self.record_template.copy()
         record['name'] = name
         return record
+
+
+class BackgroundIsolatorParameterSetList(ParameterSetList):
+    record_template = {'name': None,
+                       'values': dict(),
+                       'map_mask': None,
+                       'anchor_points': [],
+                       'anchor_regions': [],
+                       'selected': False}
+
+    def duplicate_filter(self, key):  # keys of the record template that are duplicated from the active record rather than the template
+        return key in ['values']

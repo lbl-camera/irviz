@@ -1,13 +1,13 @@
 from functools import partial
 
-from dash import dcc
 import numpy as np
+from dash import dcc
 from dash.dependencies import ALL, Input, Output
 from dask import array as da
 from plotly import graph_objects as go
 
-from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
+from ryujin.utils.dash import targeted_callback
 
 __all__ = ['SpectraPlotGraph']
 
@@ -63,6 +63,7 @@ class SpectraPlotGraph(dcc.Graph):
         self._bounds = bounds
         self._component_spectra = np.asarray(component_spectra)
         self._traces = traces or []
+        self._component_plots = []
 
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -80,7 +81,7 @@ class SpectraPlotGraph(dcc.Graph):
             default_slice_index = x[np.abs(np.array(x) - default_slice_index).argmin()]
         else:
             x = bounds[0]
-            default_slice_index = x[len(x)//2]
+            default_slice_index = x[len(x) // 2]
 
         init_x_name = (self._bounds[2][0] + self._bounds[2][1]) / 2
         init_y_name = (self._bounds[1][0] + self._bounds[1][1]) / 2
@@ -95,7 +96,8 @@ class SpectraPlotGraph(dcc.Graph):
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
         self._avg_plot = go.Scattergl(name='average',
                                       mode='lines',
-                                      legendgroup='_average')
+                                      legendgroup='_average',
+                                      line=dict(color='blue'))
         self._upper_error_plot = go.Scatter(line=dict(width=0),
                                             marker=dict(color="#444"),
                                             hoverinfo='skip',
@@ -110,16 +112,6 @@ class SpectraPlotGraph(dcc.Graph):
                                             hoverinfo='skip',
                                             mode='lines',
                                             legendgroup='_average')
-
-        if self._component_spectra.ndim != 2:
-            self._component_plots = []
-        else:
-            self._component_plots = [go.Scattergl(x=self._plot.x,
-                                                  y=self._component_spectra[i],
-                                                  name=f'Component #{i + 1}',
-                                                  visible='legendonly',
-                                                  legendgroup='_components')
-                                     for i in range(self._component_spectra.shape[0])]
 
         self._slicer_index = default_slice_index
         self._slicer_name = 'slicer'
@@ -148,7 +140,7 @@ class SpectraPlotGraph(dcc.Graph):
         # When points are selected on the MapGraph, add additional statistics and components plots
         targeted_callback(self.update_average_plot,
                           Input({'type': 'slice_graph',
-                                 'subtype': 'map',
+                                 'subtype': ALL,
                                  'index': self._instance_index},
                                 'selectedData'),
                           Output(self.id, 'figure'),
@@ -216,6 +208,16 @@ class SpectraPlotGraph(dcc.Graph):
         if self._decomposition is not None and self._component_spectra is not None:
             self._weighted_sum.x = self._plot.x
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
+
+        if self._component_spectra.ndim != 2:
+            self._component_plots = []
+        else:
+            self._component_plots = [go.Scattergl(x=self._plot.x,
+                                                  y=self._component_spectra[i] * self._decomposition[i, _y_index, _x_index],
+                                                  name=f'Component #{i + 1}',
+                                                  visible='legendonly',
+                                                  legendgroup='_components')
+                                     for i in range(self._component_spectra.shape[0])]
 
         return self._update_figure()
 
@@ -372,12 +374,13 @@ class SpectraPlotGraph(dcc.Graph):
                 filter(lambda shape: shape.visible is not False, current_figure.layout.shapes))  # visible defaults to None?
             shapes.extend(list(filter(lambda shape: shape.visible is False, current_figure.layout.shapes)))
             annotations = current_figure.layout.annotations
-        new_figure = go.Figure([*self._traces, self._plot,
+        new_figure = go.Figure([self._plot,
                                 self._avg_plot,
                                 self._weighted_sum,
                                 self._upper_error_plot,
                                 self._lower_error_plot,
-                                *self._component_plots])
+                                *self._component_plots,
+                                *self._traces])
         new_figure.update_layout(title=self.title,
                                  xaxis_title=self.xaxis_title,
                                  yaxis_title=self.yaxis_title)

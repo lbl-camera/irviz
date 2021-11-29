@@ -2,8 +2,10 @@ from sklearn.cluster import AgglomerativeClustering
 import numpy as np
 import einops
 
-def agglomarativeclustering(U,
-                            n_clusters):
+
+def agglomerative_clustering(U,
+                             mask,
+                             n_clusters=5):
     """
 
     Parameters

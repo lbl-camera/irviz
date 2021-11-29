@@ -1,7 +1,7 @@
-import numpy as np
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
+import numpy as np
 from dash import dcc
+from dash.dependencies import Input, Output
 from plotly import graph_objects as go
 
 from irviz.components import ColorScaleSelector
@@ -109,6 +109,12 @@ class OpticalGraph(SliceGraph):
                           app=app)
 
         self.configuration_panel.init_callbacks(app)
+
+        # update cluster overlay opacity
+        targeted_callback(self.update_opacity,
+                          Input(self.configuration_panel._cluster_overlay_opacity.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=app)
 
     def _id(self, instance_index):
         _id = super(OpticalGraph, self)._id(instance_index)

@@ -1,5 +1,4 @@
-from dash import html
-from dash import dcc
+from dash import html, dcc
 
 from irviz.graphs.background_map import BackgroundMapGraph
 from irviz.graphs.spectra_background_remover import SpectraBackgroundRemover
@@ -24,7 +23,7 @@ class BackgroundIsolator(ComposableDisplay):
         className = 'col-lg-12 p-0'
         graph_kwargs = dict(style=style, className=className, responsive=True)
 
-        parameter_set = kwargs.get('parameter_sets',[{}])[0]
+        parameter_set = kwargs.get('parameter_sets', [{}])[0]
         mask = parameter_set.get('map_mask')
 
         components.append(SpectraBackgroundRemover(instance_index=self._instance_index,
@@ -35,12 +34,13 @@ class BackgroundIsolator(ComposableDisplay):
                                              graph_kwargs=graph_kwargs,
                                              mask=mask,
                                              **kwargs))
-        components.append(dcc.Interval('background-update', interval=1*1000))
+        components.append(dcc.Interval('background-update', interval=1 * 1000))
 
         return components
 
     def make_layout(self):
-        return html.Div(html.Div(self.components, className='row'), className='container-fluid') #, style={'flexGrow': 1})
+        return html.Div(html.Div(self.components, className='row'),
+                        className='container-fluid')  # , style={'flexGrow': 1})
 
     @property
     def parameter_sets(self):

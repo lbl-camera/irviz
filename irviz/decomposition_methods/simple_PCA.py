@@ -1,8 +1,12 @@
+import enum
+from functools import partial
+
 import numpy as np
 import dask.array as da
 from sklearn.decomposition import PCA
 from irviz.background_app import open_map_file
 from irviz.background_filters.gpr import find_nearest
+from irviz.quality_metrics import spectral_correlation
 
 TEST_FILE = 'E:\\BP-area3a.h5'
 
@@ -37,10 +41,11 @@ def select_regions(wavenumbers, data_map, control_regions):
 
     data_cube = []
     for ind1, ind2 in idx:
-        data_cube.append(data_map[:, :, ind1:ind2])
+        data_cube.append(data_map[:, :, ind1:ind2+1])
     data_cube = np.concatenate(data_cube, axis=2)
 
     return data_cube
+
 
 def masked_to_map(mask, data):
     """
@@ -65,7 +70,11 @@ def masked_to_map(mask, data):
     return data_cube
 
 
-def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5):
+class Metrics(enum.Enum):
+    Spectral_Correlation = partial(spectral_correlation)  # partial required here because enums hate functions
+
+
+def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5, metric:Metrics=Metrics.Spectral_Correlation):
     """
     perform PCA decomposition of data_map
 
@@ -83,14 +92,17 @@ def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5):
     pca.components_: PCA eigenvectors
     """
     data_map = np.array(data_map)
-    data_map = data_map.transpose((1, 2, 0))
-    data_cube = select_regions(wavenumbers, data_map, control_regions)
+    transposed_data_map = data_map.transpose((1, 2, 0))
+    data_cube = select_regions(wavenumbers, transposed_data_map, control_regions)
     data_list = data_cube[mask]
     pca = PCA(n_components=n_components)
     data_transform = pca.fit_transform(data_list)
     data_cube_transform = masked_to_map(mask, data_transform)
     data_cube_transform = da.from_array(data_cube_transform.transpose((2, 0, 1)))
-    return data_cube_transform, pca.components_
+
+    quality = metric(wavenumbers, data_map, np.asarray(pca.components_), np.asarray(data_cube_transform), mask, control_regions)
+
+    return data_cube_transform, pca.components_, quality
 
 def qscore_rms(wavenumbers, data_map, mask, control_regions, data_transform, components):
     """
@@ -124,7 +136,7 @@ if __name__ == "__main__":
     mask = np.random.random(data.shape[1:3]) > 0.5
     control_regions = [{'region_min': 1200, 'region_max': 1400}, {'region_min': 2700, 'region_max': 3000}]
 
-    data_transform, vec = simplePCA(wavenumbers, data, mask, control_regions)
+    data_transform, vec = simple_PCA(wavenumbers, data, mask, control_regions)
     assert data_transform.shape == (5, 29, 42), "shape of PCA transformed data is wrong."
     assert vec.shape.shape == (5, 260), "shape of PCA components are wrong."
 

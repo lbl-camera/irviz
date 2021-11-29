@@ -1,6 +1,30 @@
 import numpy as np
 import einops
 
+
+def selection_brackets_to_bool_array(selection_brackets, wavenumbers):
+    """
+    Converts a list of selected wavenumber brackets into a single boolean array
+
+    Parameters
+    ----------
+    selection_brackets: List of selection brackets (some number, some numner)
+    wavenumbers: an array of wavenumbers
+
+    Returns
+    -------
+    Boolean array with selected wavenumbers
+
+    """
+    results = np.zeros(wavenumbers.shape[-1])
+    for selector in selection_brackets:
+        low_w = min(selector.values())
+        high_w = max(selector.values())
+        sel = (wavenumbers > low_w) & (wavenumbers < high_w)
+        results[sel] = 1
+    return results.astype(bool)
+
+
 class einops_data_mapper(object):
     """
     This class allows one to map a tensor between (C X Y) and ( (X*Y) C ) forms.

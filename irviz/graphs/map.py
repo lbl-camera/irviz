@@ -1,7 +1,6 @@
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
-from dash import dcc
-from dash import html
+from dash import dcc, html
+from dash.dependencies import Input, Output
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs.slice import SliceGraph
@@ -82,6 +81,12 @@ class MapGraph(SliceGraph):
                           app=app)
 
         self.configuration_panel.init_callbacks(app)
+
+        # update cluster overlay opacity
+        targeted_callback(self.update_opacity,
+                          Input(self.configuration_panel._cluster_overlay_opacity.id, 'value'),
+                          Output(self.id, 'figure'),
+                          app=app)
 
     def _id(self, instance_index):
         _id = super(MapGraph, self)._id(instance_index)

@@ -1,22 +1,23 @@
 import warnings
 
-import einops
-import h5py as h5
+import h5pickle as h5
 import numpy as np
 import sklearn.decomposition
-from PIL import Image
 from dask import array as da
+from PIL import Image
+import einops
 
+from irviz import DecompositionTuner
 from irviz.background_filters.emsc import emsc_background_single_spectrum
 from irviz.background_filters.gpr import gpr_based_background_single_spectrum
-from irviz.displays.background_isolator import BackgroundIsolator
+from irviz.clustering_methods import agglomerative_clustering
+from irviz.clustering_methods.kmeans_clustering import kmeansClustering
+from irviz.decomposition_methods import kernel_PCA, simple_PCA
 
 TEST_FILE = 'E:\\BP-area3a.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 OPTICAL_TEST_FILE = 'E:\\BP-area3a_clean.JPG'
-
-
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 
 
@@ -116,7 +117,7 @@ def open_ir_file(h5_file):
     return da.from_array(data), bounds
 
 
-if __name__ == "__main__":  # data, bounds = open_ir_file(TEST_FILE)
+if __name__ == "__main__":    # data, bounds = open_ir_file(TEST_FILE)
     data, bounds = open_map_file(TEST_FILE)
     optical = np.flipud(open_optical_file(OPTICAL_TEST_FILE))
     model = sklearn.decomposition.PCA(n_components=3)
@@ -130,10 +131,20 @@ if __name__ == "__main__":  # data, bounds = open_ir_file(TEST_FILE)
     cluster_labels = np.argmax(decomposition, axis=0)
     cluster_label_names = ['Alpha', 'Bravo', 'Charlie']
 
-    viewer = BackgroundIsolator(data=data,
+    static_mask = np.random.random(data.shape[1:]) < .01  # randomly mask 1% of pixels
+
+    viewer = DecompositionTuner(data=data,
                                 bounds=bounds,
+                                static_mask=static_mask,
                                 parameter_sets=[{'name': name,
                                                  'map_mask': cluster_labels == i} for i, name in enumerate(cluster_label_names)],
-                                background_function=gpr_based_background_single_spectrum)
+                                decomposition_functions={'Kernel PCA': kernel_PCA,
+                                                         'Simple PCA': simple_PCA},
+                                cluster_functions={'Agglomerative Clustering': agglomerative_clustering,
+                                                   'K-means Clustering': kmeansClustering},
+                                spectra_axis_title='Wavenumber (cm⁻¹)',
+                                intensity_axis_title='Intensity',
+                                x_axis_title='X (μm)',
+                                y_axis_title='Y (μm)',)
 
-    viewer.run_server(run_kwargs=dict(debug=True))
+    viewer.run_server(run_kwargs=dict(debug=True, dev_tools_ui=True))

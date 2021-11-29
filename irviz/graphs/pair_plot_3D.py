@@ -12,10 +12,10 @@ from irviz.utils.math import nearest_bin
 from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
 
-__all__ = ['PairPlotGraph']
+__all__ = ['PairPlot3DGraph']
 
 
-class PairPlotGraphPanel(Panel):
+class PairPlot3DGraphPanel(Panel):
     def __init__(self, instance_index, component_count):
         radio_kwargs = dict(className='btn-group-vertical col-sm-auto',
                             labelClassName="btn btn-secondary",
@@ -27,40 +27,47 @@ class PairPlotGraphPanel(Panel):
 
         radio_kwargs['className'] = 'btn-group'  # wipe out other classes
 
-        self._decomposition_component_1 = dbc.RadioItems(id='component-selector-1', value=0, **radio_kwargs)
+        self._decomposition_component_1 = dbc.RadioItems(id='3D-component-selector-1', value=0, **radio_kwargs)
+        self._decomposition_component_2 = dbc.RadioItems(id='3D-component-selector-2', value=1, **radio_kwargs)
         radio_kwargs = radio_kwargs.copy()
         radio_kwargs['options'] = radio_kwargs['options'].copy() + [{'label': 'ALL', 'value': 'ALL'}]
-        self._decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
+        self._decomposition_component_3 = dbc.RadioItems(id='3D-component-selector-3', value=2, **radio_kwargs)
 
         pair_plot_component_selector = dbc.FormGroup(
             [
                 self._decomposition_component_1,
                 html.Br(),
                 self._decomposition_component_2,
+                html.Br(),
+                self._decomposition_component_3,
             ],
             className='radio-group',
         )
 
-        self.visibility_toggle = dbc.Checkbox(id=dict(type='pair-plot-visibility', instance_index=instance_index), checked=True)
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='3D-pair-plot-visibility', instance_index=instance_index), checked=True)
 
         children = [dbc.FormGroup([self.visibility_toggle,
-                                   dbc.Label('Show Pair Plot')]),
+                                   dbc.Label('Show 3D Pair Plot')]),
                     dbc.FormGroup([dbc.Label('Shown Components'),
                                    pair_plot_component_selector])]
 
-        super(PairPlotGraphPanel, self).__init__('Pair Plot', children)
+        super(PairPlot3DGraphPanel, self).__init__('3D Pair Plot', children)
 
     def init_callbacks(self, app):
-        super(PairPlotGraphPanel, self).init_callbacks(app)
+        super(PairPlot3DGraphPanel, self).init_callbacks(app)
 
         # Change number of items when decomposition changes
         targeted_callback(self.update_items_1,
                           Input(dict(type='decomposition-status', pattern=ALL), 'data'),
                           Output(self._decomposition_component_1.id, 'options'),
                           app=app)
-        targeted_callback(self.update_items_2,
+        targeted_callback(self.update_items_1,
                           Input(dict(type='decomposition-status', pattern=ALL), 'data'),
                           Output(self._decomposition_component_2.id, 'options'),
+                          app=app)
+        targeted_callback(self.update_items_2,
+                          Input(dict(type='decomposition-status', pattern=ALL), 'data'),
+                          Output(self._decomposition_component_3.id, 'options'),
                           app=app)
 
     def update_items_1(self, component_count):
@@ -74,11 +81,11 @@ class PairPlotGraphPanel(Panel):
         return options
 
 
-class PairPlotGraph(dcc.Graph):
-    title = 'Pair Plot'
+class PairPlot3DGraph(dcc.Graph):
+    title = '3D Pair Plot'
 
     def __init__(self, instance_index, data, bounds, cluster_labels, cluster_label_names, graph_kwargs=None, **kwargs):
-        self.configuration_panel = PairPlotGraphPanel(instance_index, data.shape[0])
+        self.configuration_panel = PairPlot3DGraphPanel(instance_index, data.shape[0])
 
         # Track if the selection help has been displayed yet, don't want to annoy users
         self._selection_help_displayed_already = False
@@ -86,7 +93,7 @@ class PairPlotGraph(dcc.Graph):
         # Cache our data for use in the callbacks
         self._instance_index = instance_index
         self._data = data
-        self._xaxis_title = self._yaxis_title = ''
+        self._xaxis_title = self._yaxis_title = self._zaxis_title = ''
         self._cluster_labels = cluster_labels
         self._cluster_label_names = cluster_label_names
         self._bounds = bounds
@@ -96,8 +103,9 @@ class PairPlotGraph(dcc.Graph):
         self.selected_points = None
 
         # Initialize persistent traces
-        self.crosshair_trace = go.Scattergl(x=[],
+        self.crosshair_trace = go.Scatter3d(x=[],
                                             y=[],
+                                            z=[],
                                             showlegend=False,
                                             mode='markers',
                                             marker={'color': 'white',
@@ -105,13 +113,13 @@ class PairPlotGraph(dcc.Graph):
                                                     'line': {'width': 2}},
                                             hoverinfo='skip')
 
-        figure = self.show_pair_plot(component1=0, component2=1)
-        super(PairPlotGraph, self).__init__(figure=figure,
-                                            id=self._id(),
-                                            **graph_kwargs or {})
+        figure = self.show_pair_plot(0, 1, 2)
+        super(PairPlot3DGraph, self).__init__(figure=figure,
+                                              id=self._id(),
+                                              **graph_kwargs or {})
 
     def _id(self):
-        return {'type': 'pair_plot',
+        return {'type': 'pair_plot_3d',
                 'index': self._instance_index,
                 'wildcard': True}  # The wildcard field is only here to enable 0-match patterns
 
@@ -128,12 +136,24 @@ class PairPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           State(self.configuration_panel._decomposition_component_1.id, 'value'),
                           State(self.configuration_panel._decomposition_component_2.id, 'value'),
+                          State(self.configuration_panel._decomposition_component_3.id, 'value'),
+
                           app=app)
         targeted_callback(self.show_pair_plot,
                           Input(self.configuration_panel._decomposition_component_2.id, 'value'),
                           Output(self.id, 'figure'),
                           State(self.configuration_panel._decomposition_component_1.id, 'value'),
                           State(self.configuration_panel._decomposition_component_2.id, 'value'),
+                          State(self.configuration_panel._decomposition_component_3.id, 'value'),
+
+                          app=app)
+        targeted_callback(self.show_pair_plot,
+                          Input(self.configuration_panel._decomposition_component_3.id, 'value'),
+                          Output(self.id, 'figure'),
+                          State(self.configuration_panel._decomposition_component_1.id, 'value'),
+                          State(self.configuration_panel._decomposition_component_2.id, 'value'),
+                          State(self.configuration_panel._decomposition_component_3.id, 'value'),
+
                           app=app)
 
         # When any SliceGraph is clicked, update its highlighted point
@@ -145,6 +165,7 @@ class PairPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           State(self.configuration_panel._decomposition_component_1.id, 'value'),
                           State(self.configuration_panel._decomposition_component_2.id, 'value'),
+                          State(self.configuration_panel._decomposition_component_3.id, 'value'),
                           app=app)
 
         # When any any SliceGraph is lasso'd, show that selection here too
@@ -156,6 +177,7 @@ class PairPlotGraph(dcc.Graph):
                           Output(self.id, 'figure'),
                           State(self.configuration_panel._decomposition_component_1.id, 'value'),
                           State(self.configuration_panel._decomposition_component_2.id, 'value'),
+                          State(self.configuration_panel._decomposition_component_3.id, 'value'),
                           app=app)
 
         # Set up help notifications for selection tools
@@ -188,8 +210,9 @@ class PairPlotGraph(dcc.Graph):
         """ Remake the figure to force a display update """
         fig = go.Figure(self._component_traces + [self.crosshair_trace])
         fig.update_layout(title=self.title,
-                          xaxis_title=self._xaxis_title,
-                          yaxis_title=self._yaxis_title)
+                          scene=dict(xaxis_title=self._xaxis_title,
+                                     yaxis_title=self._yaxis_title,
+                                     zaxis_title=self._zaxis_title), )
         return fig
 
     def show_selection(self, selected_points):
@@ -197,22 +220,104 @@ class PairPlotGraph(dcc.Graph):
             if selected_points is not None else None
         return self.show_pair_plot()
 
-    def show_click(self, click_data, component1=None, component2=None):
+    def show_click(self, click_data, component1=None, component2=None, component3=None):
         if click_data is not None:
             y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])
             x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
             self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
-        return self.show_pair_plot(component1, component2)
+        return self.show_pair_plot(component1, component2, component3)
 
-    def show_pair_plot(self, component1=None, component2=None):
-        if not component2:
-            component1, component2, match_components = self._get_components()
+    def show_pair_plot(self, component1=None, component2=None, component3=None):
+        if not component3:
+            component1, component2, component3, match_components = self._get_components()
         else:
-            component1, component2, match_components = self._get_components(component1, component2)
+            component1, component2, component3, match_components = self._get_components(component1, component2, component3)
 
         self._component_traces = []
-        multi_mode = component2 == 'ALL'
+        multi_mode = component3 == 'ALL'
         cluster_label_mode = len(match_components) == 1 and self._cluster_labels is not None
+
+        if self._crosshair_index is not None:
+            x = [self._data[component1].ravel()[self._crosshair_index] for component3 in match_components]
+            y = [self._data[component2].ravel()[self._crosshair_index] for component3 in match_components]
+            z = [self._data[component3].ravel()[self._crosshair_index] for component3 in match_components]
+            self.crosshair_trace.x = x
+            self.crosshair_trace.y = y
+            self.crosshair_trace.z = z
+
+        self._xaxis_title = f'Component #{component1 + 1}'
+        self._yaxis_title = f'Component #{component2 + 1}'
+        self._zaxis_title = f'Other components' if len(match_components) > 1 else f'Component #{component3 + 1}'
+
+        for component3 in match_components:
+            # Default None - Any non-array value passed to selectedpoints kwarg indicates there is no selection present
+            selected_points = self.selected_points
+            try:
+                x = self._data[component1]
+                y = self._data[component2]
+                z = self._data[component3]
+            except IndexError:
+                return self._update_figure()
+
+            self._component_traces.append(go.Scatter3d(x=np.asarray(x.ravel()),
+                                                       y=np.asarray(y.ravel()),
+                                                       z=np.asarray(z.ravel()),
+                                                       mode='markers',
+                                                       marker={'color': 'rgba(0,0,0,0)'} if cluster_label_mode else None,
+                                                       hoverinfo='skip' if cluster_label_mode else None,
+                                                       showlegend=True if multi_mode else False,
+                                                       # selectedpoints=selected_points,  # TODO: look into uirevision property to satisfy this
+                                                       name=f'Component #{component3 + 1}' if multi_mode else None))
+
+            if cluster_label_mode:
+                min_index = 0
+                for i, name in enumerate(self._cluster_label_names):
+                    label_mask = self._cluster_labels.ravel() == i
+                    masked_selected_points = None
+                    if selected_points is not None:
+                        masked_selected_points = np.asarray(selected_points) - min_index
+                        masked_selected_points = masked_selected_points[
+                            np.logical_and(0 <= masked_selected_points, masked_selected_points < np.count_nonzero(label_mask))
+                        ]
+                    trace = go.Scatter3d(x=np.asarray(x.ravel())[label_mask],
+                                         y=np.asarray(y.ravel())[label_mask],
+                                         z=np.asarray(z.ravel())[label_mask],
+                                         name=name,
+                                         mode='markers',
+                                         # selectedpoints=masked_selected_points,
+                                         )
+                    self._component_traces.append(trace)
+                    min_index += np.count_nonzero(label_mask)
+
+        return self._update_figure()
+
+    def _get_components(self, component1=None, component2=None, component3=None):
+        if component1 is None:
+            component1 = dash.callback_context.states[
+                stringify_id(self.configuration_panel._decomposition_component_1.id) + '.value']
+        if component2 is None:
+            component2 = dash.callback_context.states[
+                stringify_id(self.configuration_panel._decomposition_component_2.id) + '.value']
+        if component3 is None:
+            component3 = dash.callback_context.states[
+                stringify_id(self.configuration_panel._decomposition_component_3.id) + '.value']
+        if component1 is None or component2 is None or component3 is None:
+            raise PreventUpdate
+
+        multi_mode = component3 == 'ALL'
+        cluster_label_mode = not multi_mode and self._cluster_labels is not None
+
+        match_components = list(range(component1)) + list(range(component1 + 1, self._data.shape[0])) if multi_mode else [
+            component3]
+
+        return component1, component2, component3, match_components
+
+    def update_selection(self, click_data):
+        component1, component2, component3, match_components = self._get_components()
+
+        y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])  # TODO: How does this work in 3D?
+        x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
+        self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
 
         if self._crosshair_index is not None:
             x = [self._data[component1].ravel()[self._crosshair_index] for component2 in match_components]
@@ -223,59 +328,7 @@ class PairPlotGraph(dcc.Graph):
         self._xaxis_title = f'Component #{component1 + 1}'
         self._yaxis_title = f'Other components' if len(match_components) > 1 else f'Component #{component2 + 1}'
 
-        for component2 in match_components:
-            try:
-                x = self._data[component1]
-                y = self._data[component2]
-            except IndexError:
-                return self._update_figure()
-
-            self._component_traces.append(go.Scattergl(x=np.asarray(x.ravel()),
-                                                       y=np.asarray(y.ravel()),
-                                                       mode='markers',
-                                                       marker={'color': 'rgba(0,0,0,0)'} if cluster_label_mode else None,
-                                                       hoverinfo='skip' if cluster_label_mode else None,
-                                                       showlegend=True if multi_mode else False,
-                                                       selectedpoints=self.selected_points,
-                                                       name=f'Component #{component2 + 1}' if multi_mode else None))
-
-            if cluster_label_mode:
-                min_index = 0
-                for i, name in enumerate(self._cluster_label_names):
-                    label_mask = self._cluster_labels.ravel() == i
-                    masked_selected_points = None
-                    if self.selected_points is not None:
-                        masked_selected_points = np.asarray(self.selected_points) - min_index
-                        masked_selected_points = masked_selected_points[
-                            np.logical_and(0 <= masked_selected_points, masked_selected_points < np.count_nonzero(label_mask))
-                        ]
-                    trace = go.Scattergl(x=np.asarray(x.ravel())[label_mask],
-                                         y=np.asarray(y.ravel())[label_mask],
-                                         name=name,
-                                         mode='markers',
-                                         selectedpoints=masked_selected_points)
-                    self._component_traces.append(trace)
-                    min_index += np.count_nonzero(label_mask)
-
         return self._update_figure()
-
-    def _get_components(self, component1=None, component2=None):
-        if component1 is None:
-            component1 = dash.callback_context.states[
-                stringify_id(self.configuration_panel._decomposition_component_1.id) + '.value']
-        if component2 is None:
-            component2 = dash.callback_context.states[
-                stringify_id(self.configuration_panel._decomposition_component_2.id) + '.value']
-        if component1 is None or component2 is None:
-            raise PreventUpdate
-
-        multi_mode = component2 == 'ALL'
-        cluster_label_mode = not multi_mode and self._cluster_labels is not None
-
-        match_components = list(range(component1)) + list(range(component1 + 1, self._data.shape[0])) if multi_mode else [
-            component2]
-
-        return component1, component2, match_components
 
     @staticmethod
     def _indexes_from_selection(selection):
