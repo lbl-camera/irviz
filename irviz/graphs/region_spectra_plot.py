@@ -1,6 +1,3 @@
-from dash import Input, Output
-
-from ryujin.utils import targeted_callback
 from .spectra_plot import SpectraPlotGraph
 
 
@@ -24,4 +21,3 @@ class RegionSpectraPlot(SpectraPlotGraph):
                     self.figure.add_vline(region_min, name='_region_start', line_color="gray")
 
         return self._update_figure()
-

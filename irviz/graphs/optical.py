@@ -1,7 +1,7 @@
-import numpy as np
-from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
+import numpy as np
 from dash import dcc
+from dash.dependencies import Input, Output
 from plotly import graph_objects as go
 
 from irviz.components import ColorScaleSelector

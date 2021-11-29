@@ -1,12 +1,12 @@
+import dash
 import numpy as np
 from dash import dcc
 from dash.dependencies import Input, Output, ALL, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
-import dash
 
-from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin, array_from_selection
+from ryujin.utils.dash import targeted_callback
 
 
 class SliceGraph(dcc.Graph):
@@ -84,7 +84,7 @@ class SliceGraph(dcc.Graph):
                                                      opacity=0.3,
                                                      showscale=False,
                                                      hoverinfo='skip',
-                                                     name='selection',)
+                                                     name='selection', )
 
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))

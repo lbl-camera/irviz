@@ -1,17 +1,16 @@
 import dash
+import dash_bootstrap_components as dbc
 import numpy as np
+import phonetic_alphabet
+from dash import dcc, html
 from dash._utils import stringify_id
 from dash.dependencies import Output, Input, ALL, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
-import dash_bootstrap_components as dbc
-from dash import dcc
-from dash import html
-import phonetic_alphabet
 
+from irviz.utils.math import nearest_bin
 from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
-from irviz.utils.math import nearest_bin
 
 __all__ = ['PairPlotGraph']
 
@@ -294,6 +293,6 @@ class PairPlotGraph(dcc.Graph):
 
     def set_clustering(self, cluster_labels, label_names=None):
         if label_names is None:
-            label_names = [phonetic_alphabet.read(chr(65+i)) for i in range(np.unique(cluster_labels).size)]
+            label_names = [phonetic_alphabet.read(chr(65 + i)) for i in range(np.unique(cluster_labels).size)]
         self._cluster_labels = cluster_labels
         self._cluster_label_names = label_names

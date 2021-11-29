@@ -1,17 +1,16 @@
 import dash
+import dash_bootstrap_components as dbc
 import numpy as np
+import phonetic_alphabet
+from dash import dcc, html
 from dash._utils import stringify_id
 from dash.dependencies import Output, Input, ALL, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
-import dash_bootstrap_components as dbc
-from dash import dcc
-from dash import html
-import phonetic_alphabet
 
+from irviz.utils.math import nearest_bin
 from ryujin.components import Panel
 from ryujin.utils.dash import targeted_callback
-from irviz.utils.math import nearest_bin
 
 __all__ = ['PairPlot3DGraph']
 
@@ -116,8 +115,8 @@ class PairPlot3DGraph(dcc.Graph):
 
         figure = self.show_pair_plot(0, 1, 2)
         super(PairPlot3DGraph, self).__init__(figure=figure,
-                                            id=self._id(),
-                                            **graph_kwargs or {})
+                                              id=self._id(),
+                                              **graph_kwargs or {})
 
     def _id(self):
         return {'type': 'pair_plot_3d',
@@ -316,7 +315,7 @@ class PairPlot3DGraph(dcc.Graph):
     def update_selection(self, click_data):
         component1, component2, component3, match_components = self._get_components()
 
-        y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])   # TODO: How does this work in 3D?
+        y_index = nearest_bin(click_data["points"][0]["y"], self._bounds[1], self._data.shape[1])  # TODO: How does this work in 3D?
         x_index = nearest_bin(click_data["points"][0]["x"], self._bounds[2], self._data.shape[2])
         self._crosshair_index = np.ravel_multi_index((y_index, x_index), self._data.shape[1:])
 
@@ -347,6 +346,6 @@ class PairPlot3DGraph(dcc.Graph):
 
     def set_clustering(self, cluster_labels, label_names=None):
         if label_names is None:
-            label_names = [phonetic_alphabet.read(chr(65+i)) for i in range(np.unique(cluster_labels).size)]
+            label_names = [phonetic_alphabet.read(chr(65 + i)) for i in range(np.unique(cluster_labels).size)]
         self._cluster_labels = cluster_labels
         self._cluster_label_names = label_names

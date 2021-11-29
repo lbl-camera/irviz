@@ -13,7 +13,6 @@ from irviz.background_filters.gpr import gpr_based_background_single_spectrum
 from irviz.clustering_methods import agglomerative_clustering
 from irviz.clustering_methods.kmeans_clustering import kmeansClustering
 from irviz.decomposition_methods import kernel_PCA, simple_PCA
-from irviz.displays.background_isolator import BackgroundIsolator
 
 TEST_FILE = 'E:\\BP-area3a.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
@@ -142,6 +141,10 @@ if __name__ == "__main__":    # data, bounds = open_ir_file(TEST_FILE)
                                 decomposition_functions={'Kernel PCA': kernel_PCA,
                                                          'Simple PCA': simple_PCA},
                                 cluster_functions={'Agglomerative Clustering': agglomerative_clustering,
-                                                   'K-means Clustering': kmeansClustering})
+                                                   'K-means Clustering': kmeansClustering},
+                                spectra_axis_title='Wavenumber (cm⁻¹)',
+                                intensity_axis_title='Intensity',
+                                x_axis_title='X (μm)',
+                                y_axis_title='Y (μm)',)
 
     viewer.run_server(run_kwargs=dict(debug=True, dev_tools_ui=True))

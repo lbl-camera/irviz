@@ -1,13 +1,13 @@
 from functools import partial
 
-from dash import dcc
 import numpy as np
+from dash import dcc
 from dash.dependencies import ALL, Input, Output
 from dask import array as da
 from plotly import graph_objects as go
 
-from ryujin.utils.dash import targeted_callback
 from irviz.utils.math import nearest_bin
+from ryujin.utils.dash import targeted_callback
 
 __all__ = ['SpectraPlotGraph']
 
@@ -81,7 +81,7 @@ class SpectraPlotGraph(dcc.Graph):
             default_slice_index = x[np.abs(np.array(x) - default_slice_index).argmin()]
         else:
             x = bounds[0]
-            default_slice_index = x[len(x)//2]
+            default_slice_index = x[len(x) // 2]
 
         init_x_name = (self._bounds[2][0] + self._bounds[2][1]) / 2
         init_y_name = (self._bounds[1][0] + self._bounds[1][1]) / 2
@@ -213,7 +213,7 @@ class SpectraPlotGraph(dcc.Graph):
             self._component_plots = []
         else:
             self._component_plots = [go.Scattergl(x=self._plot.x,
-                                                  y=self._component_spectra[i]*self._decomposition[i, _y_index, _x_index],
+                                                  y=self._component_spectra[i] * self._decomposition[i, _y_index, _x_index],
                                                   name=f'Component #{i + 1}',
                                                   visible='legendonly',
                                                   legendgroup='_components')

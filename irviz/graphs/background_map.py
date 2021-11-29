@@ -1,15 +1,10 @@
 import dash
 import numpy as np
+from dash import html
 from dash._utils import create_callback_id
 from dash.dependencies import Input, Output, State
-import dash_bootstrap_components as dbc
-from dash import dcc
-from dash import html
 
-from irviz.components import ColorScaleSelector
-from irviz.graphs.map import MapGraphPanel, MapGraph
-from irviz.graphs.slice import SliceGraph
-from ryujin.components import Panel
+from irviz.graphs.map import MapGraph
 from ryujin.utils.dash import targeted_callback
 
 __all__ = ['BackgroundMapGraph']

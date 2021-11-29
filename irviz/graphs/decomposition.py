@@ -1,14 +1,13 @@
 import re
 
 import dash
+import dash_bootstrap_components as dbc
 import numpy as np
+from dash import html, dcc
 from dash._utils import stringify_id
 from dash.dependencies import Output, Input, ALL, MATCH, State
 from dash.exceptions import PreventUpdate
 from plotly import graph_objects as go
-import dash_bootstrap_components as dbc
-from dash import html
-from dash import dcc
 
 from irviz.components import ColorScaleSelector
 from irviz.graphs._colors import decomposition_color_scales, transparent_color_scales

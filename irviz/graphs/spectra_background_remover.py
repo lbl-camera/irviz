@@ -1,15 +1,13 @@
 import copy
+import threading
 import traceback
-import warnings
 from functools import cached_property, partial
 from typing import List, Callable, Dict
-import threading
 
 import dash
 import dash_bootstrap_components as dbc
-from dash import dcc
-from dash import html
 import numpy as np
+from dash import html
 from dash._utils import create_callback_id, stringify_id
 from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
@@ -17,7 +15,6 @@ from plotly import graph_objects as go
 
 from irviz.components.datalists import AnchorPointList, BackgroundIsolatorParameterSetList, RegionList
 from irviz.components.kwarg_editor import KwargsEditor
-
 from irviz.graphs import SpectraPlotGraph
 from ryujin.utils.dash import targeted_callback, remove_callback
 
@@ -32,7 +29,7 @@ def empty_callable():
 class SpectraBackgroundRemover(SpectraPlotGraph):
     _precision = 2
 
-    def __init__(self, *args, parameter_sets:List[Dict]=None, background_func: Callable=empty_callable, **kwargs):
+    def __init__(self, *args, parameter_sets: List[Dict] = None, background_func: Callable = empty_callable, **kwargs):
         self.background_func = background_func
         self._last_update_parameters_sem = threading.Semaphore()
         self.last_update_parameters = None
@@ -46,11 +43,11 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
                                                  line=dict(dash='dash', color='gray'),
                                                  marker=dict(size=16))
         self._background_corrected_trace = go.Scattergl(x=[],
-                                                 y=[],
-                                                 name=f'Background Corrected',
-                                                 # hoverinfo='skip',
-                                                 mode='lines',
-                                                 line=dict(dash='dot', color='red'))
+                                                        y=[],
+                                                        name=f'Background Corrected',
+                                                        # hoverinfo='skip',
+                                                        mode='lines',
+                                                        line=dict(dash='dot', color='red'))
 
         super(SpectraBackgroundRemover, self).__init__(*args,
                                                        traces=[self._anchor_points_trace,
@@ -323,7 +320,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         _id = create_callback_id(State(self.parameter_set_list.data_table.id, 'selected_rows'))
         if row is None and _id in dash.callback_context.states:
             row = next(iter(dash.callback_context.states[_id]), None)
-        if row is None or row > len(parameter_set_list_data)-1: raise PreventUpdate
+        if row is None or row > len(parameter_set_list_data) - 1: raise PreventUpdate
         return row, parameter_set_list_data[row]
 
     def _update_regions_list(self, selected_rows):
@@ -398,7 +395,7 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
         _id = create_callback_id(State(dict(type='slice_graph',
                                             subtype='background-map',
                                             index=self._instance_index),
-                                 'figure'))
+                                       'figure'))
         figure = dash.callback_context.states[_id]
         selection = next(iter(filter(lambda trace: trace.get('name') == 'selection', figure['data'])))['z']
         if selection:

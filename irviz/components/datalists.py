@@ -110,5 +110,3 @@ class BackgroundIsolatorParameterSetList(ParameterSetList):
 
     def duplicate_filter(self, key):  # keys of the record template that are duplicated from the active record rather than the template
         return key in ['values']
-
-

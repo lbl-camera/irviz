@@ -1,14 +1,11 @@
 import warnings
 
-import dash
-import dash_bootstrap_components as dbc
-import dash_html_components as html
 import h5py as h5
 import numpy as np
 import sklearn.decomposition
-from dask import array as da
 from PIL import Image
 from dash_bootstrap_templates import load_figure_template
+from dask import array as da
 
 from irviz.displays.viewer import Viewer
 
@@ -91,7 +88,7 @@ if __name__ == "__main__":
                         {'name': 'z',
                          'position': 900,
                          'color': '#34afdd'
-                        }
+                         }
                     ],
                     # error_func=partial(np.percentile, q=90, axis=1)
                     )

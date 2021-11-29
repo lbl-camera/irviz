@@ -1,15 +1,14 @@
 import enum
 import re
 from functools import partial
-from typing import Callable, Dict
 # noinspection PyUnresolvedReferences
 from inspect import signature, _empty
+from typing import Callable, Dict
 
 import dash
-from dash import html
 import dash_bootstrap_components as dbc
-from dash import dcc
-from dash.dependencies import Input, ALL, Output, State
+from dash import html
+from dash.dependencies import Input, Output, State
 
 from ryujin.utils import targeted_callback
 
@@ -28,8 +27,8 @@ class BaseItem(dbc.FormGroup):
         self.input = None
         self.base_id = base_id
         super(BaseItem, self).__init__(id={**base_id,
-                                             'name': name,
-                                             'layer': 'form_group'},)
+                                           'name': name,
+                                           'layer': 'form_group'}, )
 
     def init_callbacks(self, app, stash_func):
         targeted_callback(stash_func,
@@ -63,7 +62,7 @@ class SimpleItem(BaseItem):
         self.style = {}
         if not visible:
             self.style['display'] = 'none'
-            
+
         self.children = [self.label, self.input]
 
 
@@ -95,7 +94,7 @@ class EnumItem(BaseItem):
         self.input = dbc.Select(id={**base_id,
                                     'name': name,
                                     'layer': 'input'},
-                                options=[{'label':name} for name in type(value).__members__.keys()],
+                                options=[{'label': name} for name in type(value).__members__.keys()],
                                 value=value.name)
         self.enum_cls = type(value)
         self.style = {}
@@ -105,7 +104,6 @@ class EnumItem(BaseItem):
 
 
 class ParameterEditor(dbc.Form):
-
     type_map = {'float': FloatItem,
                 'int': IntItem,
                 'str': StrItem,
@@ -139,7 +137,8 @@ class ParameterEditor(dbc.Form):
 
     @property
     def values(self):
-        return {param['name']: param.get('value', None).name if param.get('type') == 'EnumMeta' else param.get('value', None)
+        return {param['name']: param.get('value', None).name if param.get('type') == 'EnumMeta' else param.get('value',
+                                                                                                               None)
                 for param in self._parameters}
 
     @property
@@ -191,7 +190,8 @@ class KwargsEditor(ParameterEditor):
         parameters = [{'name': name, 'value': param.default} for name, param in signature(func).parameters.items()
                       if param.default is not _empty]
 
-        super(KwargsEditor, self).__init__(dict(index=instance_index, type='kwargs-editor'), parameters=parameters, **kwargs)
+        super(KwargsEditor, self).__init__(dict(index=instance_index, type='kwargs-editor'), parameters=parameters,
+                                           **kwargs)
 
     @staticmethod
     def parameters_from_func(func, prefix=''):
@@ -207,7 +207,7 @@ class KwargsEditor(ParameterEditor):
 
 
 class StackedKwargsEditor(html.Div):
-    def __init__(self, instance_index, funcs: Dict[str, Callable], selector_label:str, id='kwargs-editor', **kwargs):
+    def __init__(self, instance_index, funcs: Dict[str, Callable], selector_label: str, id='kwargs-editor', **kwargs):
         self.func_selector = dbc.Select(id=dict(index=instance_index, type=id, layer='stack'),
                                         options=[{'label': name, 'value': name} for i, name in enumerate(funcs.keys())],
                                         value=next(iter(funcs.keys())))
@@ -243,7 +243,7 @@ class StackedKwargsEditor(html.Div):
                               app=app)
         self.parameter_editor.init_callbacks(app)
 
-    def update_visibility(self, value: str, name:str):
+    def update_visibility(self, value: str, name: str):
         if name.startswith(f'{regularize_name(value)}-'):
             return {'display': 'block'}
         else:
@@ -251,24 +251,27 @@ class StackedKwargsEditor(html.Div):
 
 
 if __name__ == '__main__':
-
     app_kwargs = {'external_stylesheets': [dbc.themes.BOOTSTRAP]}
     app = dash.Dash(__name__, **app_kwargs)
 
     item_list = ParameterEditor(_id={'type': 'parameter_editor'},
                                 parameters=[{'name': 'test', 'value': 2},
-                                                          {'name': 'test2', 'value': 'blah'},
-                                                          {'name': 'test3', 'value': 3.2, 'type': float}])
+                                            {'name': 'test2', 'value': 'blah'},
+                                            {'name': 'test3', 'value': 3.2, 'type': float}])
+
 
     class Test(enum.Enum):
         a = 'x'
         b = 'y'
 
+
     def my_func(a, b, c=1, d='blah', e=23.4, f=Test.a):
         ...
 
+
     def my_func2(a, b, x=1, w='blah', z=23.4):
         ...
+
 
     kwarg_list = KwargsEditor(0, func=my_func)
 
@@ -281,5 +284,5 @@ if __name__ == '__main__':
     app.layout = html.Div([
         # item_list,
         #                    kwarg_list,
-                           func_editor])
+        func_editor])
     app.run_server(debug=True)

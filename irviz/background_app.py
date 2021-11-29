@@ -1,11 +1,11 @@
 import warnings
 
+import einops
 import h5py as h5
 import numpy as np
 import sklearn.decomposition
-from dask import array as da
 from PIL import Image
-import einops
+from dask import array as da
 
 from irviz.background_filters.emsc import emsc_background_single_spectrum
 from irviz.background_filters.gpr import gpr_based_background_single_spectrum
@@ -15,6 +15,8 @@ TEST_FILE = 'E:\\BP-area3a.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 OPTICAL_TEST_FILE = 'E:\\BP-area3a_clean.JPG'
+
+
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 
 
@@ -114,7 +116,7 @@ def open_ir_file(h5_file):
     return da.from_array(data), bounds
 
 
-if __name__ == "__main__":    # data, bounds = open_ir_file(TEST_FILE)
+if __name__ == "__main__":  # data, bounds = open_ir_file(TEST_FILE)
     data, bounds = open_map_file(TEST_FILE)
     optical = np.flipud(open_optical_file(OPTICAL_TEST_FILE))
     model = sklearn.decomposition.PCA(n_components=3)
