@@ -33,7 +33,7 @@ class PairPlot3DGraphPanel(Panel):
         radio_kwargs['options'] = radio_kwargs['options'].copy() + [{'label': 'ALL', 'value': 'ALL'}]
         self._decomposition_component_3 = dbc.RadioItems(id='3D-component-selector-3', value=2, **radio_kwargs)
 
-        pair_plot_component_selector = dbc.FormGroup(
+        pair_plot_component_selector = html.Div(
             [
                 self._decomposition_component_1,
                 html.Br(),
@@ -41,15 +41,15 @@ class PairPlot3DGraphPanel(Panel):
                 html.Br(),
                 self._decomposition_component_3,
             ],
-            className='radio-group',
+            className='radio-group mb-3',
         )
 
-        self.visibility_toggle = dbc.Checkbox(id=dict(type='3D-pair-plot-visibility', instance_index=instance_index), checked=True)
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='3D-pair-plot-visibility', instance_index=instance_index), value=True)
 
-        children = [dbc.FormGroup([self.visibility_toggle,
-                                   dbc.Label('Show 3D Pair Plot')]),
-                    dbc.FormGroup([dbc.Label('Shown Components'),
-                                   pair_plot_component_selector])]
+        children = [html.Div([self.visibility_toggle,
+                                   dbc.Label('Show 3D Pair Plot')], className='mb-3'),
+                    html.Div([dbc.Label('Shown Components'),
+                                   pair_plot_component_selector], className='mb-3')]
 
         super(PairPlot3DGraphPanel, self).__init__('3D Pair Plot', children)
 
@@ -190,7 +190,7 @@ class PairPlot3DGraph(dcc.Graph):
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'value'),
                           Output(self.id, 'style'),
                           app=app)
 

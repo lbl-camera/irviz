@@ -12,7 +12,7 @@ __all__ = ['MapGraph']
 
 class MapGraphPanel(Panel):
     def __init__(self, instance_index, cluster_labels):
-        self.visibility_toggle = dbc.Checkbox(id=dict(type='map-visibility', instance_index=instance_index), checked=True)
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='map-visibility', instance_index=instance_index), value=True)
         self._map_color_scale_selector = ColorScaleSelector(_id='map-color-scale-selector',
                                                             value='Viridis')
         self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity',
@@ -26,12 +26,15 @@ class MapGraphPanel(Panel):
                                                    disabled=True if cluster_labels is None else False,
                                                    )
 
-        map_settings_form = dbc.Form([dbc.FormGroup([dbc.Label("Map Color Scale"), self._map_color_scale_selector]),
-                                      dbc.FormGroup(
-                                          [dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])])
+        map_settings_form = dbc.Form([html.Div([dbc.Label("Map Color Scale"),
+                                                self._map_color_scale_selector],
+                                               className='mb-3'),
+                                      html.Div([dbc.Label("Cluster Label Overlay Opacity"),
+                                                self._cluster_overlay_opacity],
+                                               className='mb-3')])
 
-        children = [dbc.FormGroup([self.visibility_toggle,
-                                   dbc.Label('Show Map Image')]),
+        children = [html.Div([dbc.Label('Show Map Image'), self.visibility_toggle,],
+                             className='mb-3'),
                     map_settings_form]
 
         super(MapGraphPanel, self).__init__('Map Image', children)
@@ -63,7 +66,7 @@ class MapGraph(SliceGraph):
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'value'),
                           Output(self.id, 'style'),
                           app=app)
 

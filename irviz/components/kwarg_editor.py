@@ -21,14 +21,15 @@ def regularize_name(name):
     return ''.join([c for c in name if c not in [' ']])
 
 
-class BaseItem(dbc.FormGroup):
+class BaseItem(html.Div):
     def __init__(self, name, base_id, title=None):
         self.name = name
         self.input = None
         self.base_id = base_id
         super(BaseItem, self).__init__(id={**base_id,
                                            'name': name,
-                                           'layer': 'form_group'}, )
+                                           'layer': 'form_group'},
+                                       className='mb-3')
 
     def init_callbacks(self, app, stash_func):
         targeted_callback(stash_func,

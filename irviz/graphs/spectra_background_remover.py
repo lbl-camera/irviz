@@ -270,11 +270,11 @@ class SpectraBackgroundRemover(SpectraPlotGraph):
     @cached_property
     def configuration_panel(self):
         children = [
-            dbc.Form(dbc.FormGroup([self.selection_mode])),
+            dbc.Form(self.selection_mode),
             dbc.Label("Parameter Sets"),
             self.parameter_set_list,
             html.P(''),
-            dbc.Form(dbc.FormGroup([self.parameter_set_explorer])),
+            dbc.Form([self.parameter_set_explorer]),
         ]
         return 'Background Isolator', children
 

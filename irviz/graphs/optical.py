@@ -1,5 +1,8 @@
 import dash_bootstrap_components as dbc
 import numpy as np
+from dash import dcc, html
+from dash.dependencies import Input, Output
+import dash_bootstrap_components as dbc
 from dash import dcc
 from dash.dependencies import Input, Output
 from plotly import graph_objects as go
@@ -15,7 +18,7 @@ __all__ = ['OpticalGraph']
 class OpticalGraphPanel(Panel):
     def __init__(self, instance_index, cluster_labels):
         self.visibility_toggle = dbc.Checkbox(id=dict(type='optical-visibility', instance_index=instance_index),
-                                              checked=True)
+                                              value=True)
         self.color_scale_selector = ColorScaleSelector(_id={'type': 'color-scale-selector',
                                                             'subtype': 'optical',
                                                             'index': instance_index},
@@ -31,12 +34,15 @@ class OpticalGraphPanel(Panel):
                                                    disabled=True if cluster_labels is None else False,
                                                    )
 
-        children = [dbc.FormGroup([self.visibility_toggle,
-                                   dbc.Label('Show Optical Image')]),
-                    dbc.FormGroup([dbc.Label('Color Theme'),
-                                   self.color_scale_selector]),
-                    dbc.FormGroup(
-                        [dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity])]
+        children = [html.Div([dbc.Label('Show Optical Image'),
+                             self.visibility_toggle],
+                             className='mb-3'),
+                    html.Div([dbc.Label('Color Theme'),
+                                   self.color_scale_selector],
+                                  className='mb-3'),
+                    html.Div([dbc.Label("Cluster Label Overlay Opacity"),
+                              self._cluster_overlay_opacity],
+                             className='mb-3')]
 
         super(OpticalGraphPanel, self).__init__('Optical Image', children)
 
@@ -98,7 +104,7 @@ class OpticalGraph(SliceGraph):
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'value'),
                           Output(self.id, 'style'),
                           app=app)
 

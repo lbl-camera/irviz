@@ -21,7 +21,7 @@ class PairPlotGraphPanel(Panel):
                             labelClassName="btn btn-secondary",
                             labelCheckedClassName="active",
                             options=[{'label': f'{i + 1}', 'value': i}
-                                     for i in range(component_count)]
+                                     for i in range(component_count)],
 
                             )
 
@@ -32,21 +32,21 @@ class PairPlotGraphPanel(Panel):
         radio_kwargs['options'] = radio_kwargs['options'].copy() + [{'label': 'ALL', 'value': 'ALL'}]
         self._decomposition_component_2 = dbc.RadioItems(id='component-selector-2', value=1, **radio_kwargs)
 
-        pair_plot_component_selector = dbc.FormGroup(
+        pair_plot_component_selector = html.Div(
             [
                 self._decomposition_component_1,
                 html.Br(),
                 self._decomposition_component_2,
             ],
-            className='radio-group',
+            className='radio-group mb-3',
         )
 
-        self.visibility_toggle = dbc.Checkbox(id=dict(type='pair-plot-visibility', instance_index=instance_index), checked=True)
+        self.visibility_toggle = dbc.Checkbox(id=dict(type='pair-plot-visibility', instance_index=instance_index), value=True)
 
-        children = [dbc.FormGroup([self.visibility_toggle,
-                                   dbc.Label('Show Pair Plot')]),
-                    dbc.FormGroup([dbc.Label('Shown Components'),
-                                   pair_plot_component_selector])]
+        children = [html.Div([dbc.Label('Show Pair Plot'),
+                              self.visibility_toggle], className='mb-3'),
+                    html.Div([dbc.Label('Shown Components'),
+                                   pair_plot_component_selector], className='mb-3')]
 
         super(PairPlotGraphPanel, self).__init__('Pair Plot', children)
 
@@ -168,7 +168,7 @@ class PairPlotGraph(dcc.Graph):
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'value'),
                           Output(self.id, 'style'),
                           app=app)
 

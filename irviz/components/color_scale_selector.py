@@ -17,7 +17,7 @@ def _noop(_, name):
 
 
 class ColorScaleSelector(dbc.DropdownMenu):
-    def __init__(self, _id, value='Greys', values=None, app=None):
+    def __init__(self, _id, value='Greys', values=None, app=None, **kwargs):
         """
         A DropDown which automatically swaps its label when an item is selected. This one is designed for use in selecting
         from a list of color scales. The above list of styles is not complete, and Dash/plotly support two key styles with
@@ -47,9 +47,9 @@ class ColorScaleSelector(dbc.DropdownMenu):
                 _id_copy = _id + '-' + name
             self.children.append(dbc.DropdownMenuItem(name, id=_id_copy))
 
-        kwargs = dict(label=value,
-                      children=self.children,
-                      id=_id)
+        kwargs['label'] = value
+        kwargs['children'] = self.children
+        kwargs['id'] = _id
         super(ColorScaleSelector, self).__init__(**kwargs)
 
         if app:

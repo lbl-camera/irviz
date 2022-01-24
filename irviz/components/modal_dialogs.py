@@ -3,6 +3,7 @@ from typing import List, Callable
 import dash_bootstrap_components as dbc
 import dash_daq as daq
 from dash.dependencies import Input, Output, State
+from dash import html
 
 from ryujin.utils.dash import targeted_callback
 
@@ -59,7 +60,7 @@ class ModalDialog(dbc.Modal):
 class SpectraAnnotationDialog(ModalDialog):
     def __init__(self, _id, **kwargs):
         name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
-        name_form = dbc.FormGroup(
+        name_form = html.Div(
             [
                 dbc.Label("Name"),
                 name_input
@@ -67,22 +68,24 @@ class SpectraAnnotationDialog(ModalDialog):
                 #     "little text below the input component",
                 #     color="secondary",
                 # ),
-            ]
+            ], className='mb-3'
         )
         lower_bound_input = dbc.Input(type="number", id=f'{_id}-lower-bound', step=1, required=True)
-        lower_bound_form = dbc.FormGroup(
+        lower_bound_form = html.Div(
             [
                 dbc.Label("Lower bound"),
                 lower_bound_input
             ],
             id="styled-numeric-input",
+            className='mb-3'
         )
         upper_bound_input = dbc.Input(type="number", id=f'{_id}-upper-bound', step=1, required=False)
-        upper_bound_form = dbc.FormGroup(
+        upper_bound_form = html.Div(
             [
                 dbc.Label("Upper bound (optional)"),
                 upper_bound_input
-            ]
+            ],
+            className='mb-3'
         )
 
         color_input = daq.ColorPicker(id=f'{_id}-color-picker',
@@ -102,7 +105,7 @@ class SpectraAnnotationDialog(ModalDialog):
 class SliceAnnotationDialog(ModalDialog):
     def __init__(self, _id, **kwargs):
         name_input = dbc.Input(type="input", id=f'{_id}-name', placeholder="Enter annotation name", required=True)
-        name_form = dbc.FormGroup(
+        name_form = html.Div(
             [
                 dbc.Label("Name"),
                 name_input
@@ -110,7 +113,8 @@ class SliceAnnotationDialog(ModalDialog):
                 #     "little text below the input component",
                 #     color="secondary",
                 # ),
-            ]
+            ],
+            className='mb-3'
         )
 
         color_input = daq.ColorPicker(id=f'{_id}-color-picker',

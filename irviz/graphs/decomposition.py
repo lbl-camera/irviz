@@ -37,15 +37,18 @@ class DecompositionGraphPanel(Panel):
                                                    )
         items = [self.build_item(i) for i in range(component_count)]
 
-        self.decomposition_selector_layout = dbc.FormGroup(items, id='decomposition-selector-layout')
+        self.decomposition_selector_layout = html.Div(items, id='decomposition-selector-layout', className='mb-3')
 
         self.visibility_toggle = dbc.Checkbox(id=dict(type='decomposition-visibility',
                                                       instance_index=instance_index),
-                                              checked=True)
+                                              value=True)
 
-        children = [dbc.FormGroup([self.visibility_toggle, dbc.Label('Show Decomposition Image')]),
-                    dbc.FormGroup([dbc.Label('Component Color Themes'), self.decomposition_selector_layout]),
-                    dbc.FormGroup([dbc.Label("Cluster Label Overlay Opacity"), self._cluster_overlay_opacity]),
+        children = [html.Div([ dbc.Label('Show Decomposition Image'),
+                              self.visibility_toggle], className='mb-3'),
+                    html.Div([dbc.Label('Component Color Themes'),
+                              self.decomposition_selector_layout], className='mb-3'),
+                    html.Div([dbc.Label("Cluster Label Overlay Opacity"),
+                              self._cluster_overlay_opacity], className='mb-3'),
                     ]
 
         super(DecompositionGraphPanel, self).__init__('Decomposition Image', children)
@@ -57,7 +60,7 @@ class DecompositionGraphPanel(Panel):
 
         # Disable sliders when their component is hidden
         targeted_callback(self.disable_slider,
-                          Input(dict(type='decomposition-component-toggle', index=MATCH), 'checked'),
+                          Input(dict(type='decomposition-component-toggle', index=MATCH), 'value'),
                           Output(dict(type='component-opacity', index=MATCH), 'disabled'),
                           app=app)
 
@@ -69,7 +72,7 @@ class DecompositionGraphPanel(Panel):
 
         # propagate check state to label via 'active' class name
         targeted_callback(self.update_check_state,
-                          Input(dict(type='decomposition-component-toggle', index=MATCH), 'checked'),
+                          Input(dict(type='decomposition-component-toggle', index=MATCH), 'value'),
                           Output(dict(type='decomposition-component-label', index=MATCH), 'className'),
                           State(dict(type='decomposition-component-label', index=MATCH), 'className'),
                           app=app)
@@ -82,7 +85,7 @@ class DecompositionGraphPanel(Panel):
 
     def build_item(self, i):
         checkbox = dbc.Checkbox(id=dict(type='decomposition-component-toggle', index=i),
-                                 checked=(i==0),
+                                 value=(i==0),
                                  style=dict(display='none'),
                                  # className='btn-group-vertical col-sm-auto',
                                  # labelClassName="btn btn-secondary",
@@ -90,13 +93,14 @@ class DecompositionGraphPanel(Panel):
                                 )
         check_label = dbc.Label(id=dict(type='decomposition-component-label', index=i),
                                 children=f'{i+1}',
-                                className='btn btn-secondary' + (' active' if checkbox.checked else ''),
+                                className='btn btn-secondary col-auto' + (' active' if checkbox.value else ''),
                                 html_for=stringify_id(checkbox.id))
         color_scale_selector = ColorScaleSelector({'type': 'decomposition-color-scale-selector',
                             'index': i},
                            values=decomposition_color_scales,
                            value=decomposition_color_scales[
                                i % len(decomposition_color_scales)],
+                           className='col-auto'
                            )
         slider = dcc.Slider(
             id={'type': 'component-opacity',
@@ -201,7 +205,7 @@ class DecompositionGraph(SliceGraph):
 
         # Wire-up visibility toggle
         targeted_callback(self._set_visibility,
-                          Input(self.configuration_panel.visibility_toggle.id, 'checked'),
+                          Input(self.configuration_panel.visibility_toggle.id, 'value'),
                           Output(self.id, 'style'),
                           app=app)
 
@@ -213,7 +217,7 @@ class DecompositionGraph(SliceGraph):
 
         # Show components when selected
         targeted_callback(self.show_component,
-                          Input(dict(type='decomposition-component-toggle', index=ALL), 'checked'),
+                          Input(dict(type='decomposition-component-toggle', index=ALL), 'value'),
                           Output(self.id, 'figure'),
                           app=app)
 

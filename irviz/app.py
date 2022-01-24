@@ -13,7 +13,9 @@ TEST_FILE = 'E:\\BP-area3a.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/ir_stxm.h5'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 OPTICAL_TEST_FILE = 'E:\\BP-area3a_clean.JPG'
-OPTICAL_TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a_clean.JPG'
+
+
+# OPTICAL_TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a_clean.JPG'
 # TEST_FILE = '/home/ihumphrey/Dev/irviz/data/BP-area3a.h5'
 
 
