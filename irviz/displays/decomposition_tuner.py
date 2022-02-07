@@ -51,7 +51,7 @@ def load_cache(key, cache_path):
 
 def filter_values(prefix_name: str, values: dict):
     regularized_name = regularize_name(prefix_name)
-    return {name.removeprefix(regularized_name + '-'): value for name, value in values.items() if
+    return {name[len(regularized_name)+1]: value for name, value in values.items() if
             name.startswith(regularized_name)}
 
 
