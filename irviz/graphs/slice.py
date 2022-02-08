@@ -41,6 +41,9 @@ class SliceGraph(dcc.Graph):
         self._annotation_traces = []
         self._shapes = shapes or []
         self._cluster_labels = cluster_labels
+        self._layout = dict(xaxis=dict(autorange=True),
+                            yaxis=dict(autorange=True, constrain='range', scaleanchor="x", scaleratio=1),
+                            autosize=False)
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
 
@@ -113,6 +116,7 @@ class SliceGraph(dcc.Graph):
         figure = self._update_figure()
         super(SliceGraph, self).__init__(figure=figure,
                                          id=self._id(instance_index),
+                                         config=dict(doubleClick=False),
                                          **graph_kwargs or {})
 
     def _id(self, instance_index):
@@ -193,25 +197,33 @@ class SliceGraph(dcc.Graph):
 
         return self._update_figure()
 
-    def sync_zoom(self, relayoutData):
-        figure = self._update_figure()
+    def reset_zoom(self, blah):
+        return self._update_figure()
 
+    def sync_zoom(self, relayoutData):
         if f'"type":"{self.id["type"]}"' in dash.callback_context.triggered[0]['prop_id']:
             # Don't self-update
-            if f'"subtype":"{self.id["subtype"]}"' in dash.callback_context.triggered[0]['prop_id']:
-                raise PreventUpdate
+            # if f'"subtype":"{self.id["subtype"]}"' in dash.callback_context.triggered[0]['prop_id']:
+            #     raise PreventUpdate
 
             try:
-                figure['layout']['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
+                if 'autosize' in relayoutData:
+                    del relayoutData['autosize']
+                    raise PreventUpdate
+                if 'xaxis.range[0]' in relayoutData:
+                    self._layout['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
                                                       relayoutData['xaxis.range[1]']]
-                figure['layout']['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
+                    self._layout['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
                                                       relayoutData['yaxis.range[1]']]
-                figure['layout']['xaxis']['autorange'] = False
-                figure['layout']['yaxis']['autorange'] = False
+                    self._layout['xaxis']['autorange'] = False
+                    self._layout['yaxis']['autorange'] = False
+                if 'xaxis.autorange' in relayoutData:
+                    self._layout['xaxis']['autorange'] = relayoutData['xaxis.autorange']
+                    self._layout['yaxis']['autorange'] = relayoutData['yaxis.autorange']
             except KeyError:  # ignore when we haven't already zoomed
                 pass
 
-            return figure
+            return self._update_figure()
 
         raise PreventUpdate
 
@@ -237,15 +249,11 @@ class SliceGraph(dcc.Graph):
         return self._update_figure()
 
     def _update_figure(self):
-        fig = go.Figure(self._traces + self._annotation_traces)
+        fig = go.Figure(self._traces + self._annotation_traces, layout=self._layout)
         fig.update_layout(title=self.title,
                           xaxis_title=self.xaxis_title,
                           yaxis_title=self.yaxis_title,
                           )
-        fig.update_yaxes(autorange=True,
-                         constrain='range')
-        if self.aspect_locked:
-            fig.update_yaxes(scaleanchor="x", scaleratio=1)
         for shape in self._shapes:
             fig.add_shape(shape)
         return fig
