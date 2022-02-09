@@ -13,7 +13,8 @@ __all__ = ['MapGraph']
 class MapGraphPanel(Panel):
     def __init__(self, instance_index, cluster_labels):
         self.visibility_toggle = dbc.Checkbox(id=dict(type='map-visibility', instance_index=instance_index), value=True)
-        self._map_color_scale_selector = ColorScaleSelector(_id='map-color-scale-selector',
+        self._map_color_scale_selector = ColorScaleSelector(subtype='map',
+                                                            instance_index=0,
                                                             value='Viridis')
         self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity',
                                                        'index': instance_index,

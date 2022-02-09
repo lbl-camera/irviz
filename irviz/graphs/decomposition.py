@@ -95,13 +95,13 @@ class DecompositionGraphPanel(Panel):
                                 children=f'{i+1}',
                                 className='btn btn-secondary col-auto' + (' active' if checkbox.value else ''),
                                 html_for=stringify_id(checkbox.id))
-        color_scale_selector = ColorScaleSelector({'type': 'decomposition-color-scale-selector',
-                            'index': i},
-                           values=decomposition_color_scales,
-                           value=decomposition_color_scales[
-                               i % len(decomposition_color_scales)],
-                           className='col-auto'
-                           )
+        color_scale_selector = ColorScaleSelector(subtype='decomposition',
+                                                  instance_index=i,
+                                                  values=decomposition_color_scales,
+                                                  value=decomposition_color_scales[
+                                                      i % len(decomposition_color_scales)],
+                                                  className='col-auto'
+                                                  )
         slider = dcc.Slider(
             id={'type': 'component-opacity',
                 'index': i},
@@ -223,7 +223,7 @@ class DecompositionGraph(SliceGraph):
 
         # Update the color scale when new item is selected
         targeted_callback(self.set_color_scale,
-                          Input({'type': 'decomposition-color-scale-selector', 'index': ALL}, 'label'),
+                          Input({'type': 'color-scale-selector', 'subtype':'decomposition', 'index': ALL}, 'label'),
                           Output(self.id, 'figure'),
                           app=app)
 
