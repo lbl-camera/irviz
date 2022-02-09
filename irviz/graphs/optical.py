@@ -19,10 +19,7 @@ class OpticalGraphPanel(Panel):
     def __init__(self, instance_index, cluster_labels):
         self.visibility_toggle = dbc.Checkbox(id=dict(type='optical-visibility', instance_index=instance_index),
                                               value=True)
-        self.color_scale_selector = ColorScaleSelector(_id={'type': 'color-scale-selector',
-                                                            'subtype': 'optical',
-                                                            'index': instance_index},
-                                                       )
+        self.color_scale_selector = ColorScaleSelector(subtype='optical', instance_index=instance_index)
         self._cluster_overlay_opacity = dcc.Slider(id={'type': 'cluster-opacity',
                                                        'index': instance_index,
                                                        'subtype': 'optical'},
