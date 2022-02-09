@@ -1,7 +1,7 @@
 from sklearn.decomposition import KernelPCA as skKernelPCA
 import numpy as np
 from irviz.utils.mapper import einops_data_mapper, selection_brackets_to_bool_array
-
+from irviz.quality_metrics import spectral_correlation_from_map
 
 def kernel_PCA(wavenumbers,
                spectral_map,
@@ -65,9 +65,9 @@ def kernel_PCA(wavenumbers,
 
     U_out = data_mapper_object.matrix_to_tensor(U)
     Recon_out = data_mapper_object.spectral_matrix_to_spectral_tensor(Recon)
-
+    Q = spectral_correlation_from_map.spectral_correlation_from_map(wavenumbers, spectral_map, Recon_out, pixel_usage_mask, spectral_mask)
     V = np.empty([])
-    return U_out, V, np.zeros(spectral_map.shape[1:])  # Recon_out TODO: Ask Peter if this is necessary
+    return U_out, V, Q  # Recon_out TODO: Ask Peter if this is necessary
 
 
 
