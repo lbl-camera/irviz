@@ -1,11 +1,7 @@
-from sklearn.decomposition import KernelPCA as skKernelPCA
 import numpy as np
 from irviz.utils.mapper import einops_data_mapper, selection_brackets_to_bool_array
 from irviz.decomposition_methods import kernel_PCA
-import einops
-from irviz.quality_metrics import spectral_correlation_from_map
 import umap
-
 
 def kernel_PCA_UMAP(wavenumbers,
                     spectral_map,
@@ -20,7 +16,6 @@ def kernel_PCA_UMAP(wavenumbers,
                     umapUseFraction=1.0
                ):
     """
-
     Parameters
     ----------
     wavenumbers : the wavenumbers, an array of size (Nwav)
@@ -29,13 +24,11 @@ def kernel_PCA_UMAP(wavenumbers,
     spectral_mask : A selection of which wavenumbers to use
     kernel_components : The number of components use in kernelPCA.
     kernel : the kernel for kernel PCA ; rbf is fine
-    kernel_gamma : the gamme parameter. default 0 is ok
-    kernel_alpha : might need tuning for optimal reconstruction. default of 1e-3 should be ok.
-    umap_neighbours : The number of neighbours used in UMAP
-    umap_min_dist : the minimum distance in umap
-    umap_dens_lambda : the densmap lambda parameter to use in UMAP
-    umap_random_state : random state variable to make things reproducable
-    umap_use_fraction : determines how much data is used for umap, speeds things up if needed
+    kernelGamma : the gamme parameter. default 0 is ok
+    kernelAlpha : might need tuning for optimal reconstruction. default of 1e-3 should be ok.
+    umapDensLambda : the densmap lambda parameter to use in UMAP
+    umapRandomState : random state variable to make things reproducable
+    umapUseFraction : determines how much data is used for umap, speeds things up if needed
 
     Returns
     -------
@@ -54,7 +47,6 @@ def kernel_PCA_UMAP(wavenumbers,
                          kernel=kernel,
                          gamma=kernelGamma,
                          alpha=kernelAlpha)
-    print(U.shape, "<-----")
     # now that we have a kernel PCA embedding U, we run a Umap on it.
 
     pseudo_mask = np.ones(kernelComponents)
@@ -81,17 +73,4 @@ def kernel_PCA_UMAP(wavenumbers,
     # map it back to where we need it
     umap_U = mapping_object.matrix_to_tensor(transformed_data)
     return umap_U, _V, Q
-
-
-
-
-
-
-
-
-
-
-
-
-
 
