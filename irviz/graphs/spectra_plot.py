@@ -1,8 +1,10 @@
 from functools import partial
 
+import dash
 import numpy as np
 from dash import dcc
-from dash.dependencies import ALL, Input, Output
+from dash.dependencies import ALL, Input, Output, State
+from dash.exceptions import PreventUpdate
 from dask import array as da
 from plotly import graph_objects as go
 
@@ -64,6 +66,10 @@ class SpectraPlotGraph(dcc.Graph):
         self._component_spectra = np.asarray(component_spectra)
         self._traces = traces or []
         self._component_plots = []
+        self._layout = dict(xaxis=dict(autorange='reversed'),
+                            yaxis=dict(autorange=True),
+                            autosize=False
+                            )
 
         self.xaxis_title = kwargs.pop('xaxis_title', '')
         self.yaxis_title = kwargs.pop('yaxis_title', '')
@@ -132,6 +138,7 @@ class SpectraPlotGraph(dcc.Graph):
 
         super(SpectraPlotGraph, self).__init__(id=self._id(instance_index),
                                                figure=fig,
+                                               config=dict(doubleClick=False),
                                                **graph_kwargs or {},
                                                )
 
@@ -193,6 +200,41 @@ class SpectraPlotGraph(dcc.Graph):
                                 'children'),
                           Output(self.id, 'figure'),
                           app=app)
+
+        # cache viewport
+        targeted_callback(self.sync_zoom,
+                          Input({'type': 'spectraplot',
+                                 'index': self._instance_index},
+                                'relayoutData'),
+                          Output(self.id, 'figure'),
+                          State({'type': 'spectraplot',
+                                 'index': self._instance_index},
+                                'figure'),
+                          app=app)
+
+    def sync_zoom(self, relayoutData):
+        print(relayoutData)
+        if f'"type":"{self.id["type"]}"' in dash.callback_context.triggered[0]['prop_id']:
+            try:
+                if 'autosize' in relayoutData:
+                    del relayoutData['autosize']
+                    raise PreventUpdate
+                if 'xaxis.range[0]' in relayoutData:
+                    self._layout['xaxis']['range'] = [relayoutData['xaxis.range[0]'],
+                                                      relayoutData['xaxis.range[1]']]
+                    self._layout['yaxis']['range'] = [relayoutData['yaxis.range[0]'],
+                                                      relayoutData['yaxis.range[1]']]
+                    self._layout['xaxis']['autorange'] = False
+                    self._layout['yaxis']['autorange'] = False
+                if 'xaxis.autorange' in relayoutData:
+                    self._layout['xaxis']['autorange'] = relayoutData['xaxis.autorange']
+                    self._layout['yaxis']['autorange'] = relayoutData['yaxis.autorange']
+            except KeyError:  # ignore when we haven't already zoomed
+                pass
+
+            return self._update_figure()
+
+        raise PreventUpdate
 
     def show_click(self, click_data):
         y = click_data["points"][0]["y"]
@@ -380,12 +422,10 @@ class SpectraPlotGraph(dcc.Graph):
                                 self._upper_error_plot,
                                 self._lower_error_plot,
                                 *self._component_plots,
-                                *self._traces])
+                                *self._traces], layout=self._layout)
         new_figure.update_layout(title=self.title,
                                  xaxis_title=self.xaxis_title,
                                  yaxis_title=self.yaxis_title)
-        if self._invert_spectra_axis:
-            new_figure.update_xaxes(autorange="reversed")
 
         # Always add the slicer line
         new_figure.add_vline(x=self._slicer_index,
