@@ -3,7 +3,7 @@ import numpy as np
 from dash import dcc
 from dash.dependencies import Input, Output, ALL, State
 from dash.exceptions import PreventUpdate
-from plotly import graph_objects as go
+from plotly import graph_objects as go, colors
 
 from irviz.utils.math import nearest_bin, array_from_selection
 from ryujin.utils.dash import targeted_callback
@@ -102,13 +102,14 @@ class SliceGraph(dcc.Graph):
         # Add another transparent heatmap overlay for labels
         self._clusters = self._get_image_trace(np.ones_like(data[0]) * np.NaN,
                                                bounds,
-                                               colorscale='Portland',
+                                               colorscale=colors.qualitative.D3,
                                                opacity=0.3,
                                                showscale=False,
                                                hoverinfo='skip', )
 
         if cluster_labels is not None:
             self._clusters.z = cluster_labels  # NaNs are transparent
+            self._clusters.colorscale = self._make_cluster_colors(cluster_labels)
 
         self._shapes.extend([self._h_line, self._v_line])
         self._traces = [self._dummy_scatter, self._image, self._selection_mask, self._clusters] + self._traces
@@ -258,6 +259,12 @@ class SliceGraph(dcc.Graph):
             fig.add_shape(shape)
         return fig
 
+    def _make_cluster_colors(self, z):
+        color_scale = []
+        for i in range(z.max()-z.min()+1):
+            color_scale.append(colors.qualitative.D3[i % len(colors.qualitative.D3)])
+        return color_scale
+
     def show_click(self, click_data):
         y_index = click_data["points"][0]["y"]
         x_index = click_data["points"][0]["x"]
@@ -278,6 +285,7 @@ class SliceGraph(dcc.Graph):
 
     def set_clustering(self, clusters):
         self._clusters.z = clusters
+        self._clusters.colorscale = self._make_cluster_colors(clusters)
         return self._update_figure()
 
     @staticmethod

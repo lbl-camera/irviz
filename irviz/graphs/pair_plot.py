@@ -6,7 +6,7 @@ from dash import dcc, html
 from dash._utils import stringify_id
 from dash.dependencies import Output, Input, ALL, State
 from dash.exceptions import PreventUpdate
-from plotly import graph_objects as go
+from plotly import graph_objects as go, colors
 
 from irviz.utils.math import nearest_bin
 from ryujin.components import Panel
@@ -223,7 +223,7 @@ class PairPlotGraph(dcc.Graph):
         self._xaxis_title = f'Component #{component1 + 1}'
         self._yaxis_title = f'Other components' if len(match_components) > 1 else f'Component #{component2 + 1}'
 
-        for component2 in match_components:
+        for i, component2 in enumerate(match_components):
             try:
                 x = self._data[component1]
                 y = self._data[component2]
@@ -253,7 +253,8 @@ class PairPlotGraph(dcc.Graph):
                                          y=np.asarray(y.ravel())[label_mask],
                                          name=name,
                                          mode='markers',
-                                         selectedpoints=masked_selected_points)
+                                         selectedpoints=masked_selected_points,
+                                         marker={'color': colors.qualitative.D3[i % len(colors.qualitative.Vivid)]})
                     self._component_traces.append(trace)
                     min_index += np.count_nonzero(label_mask)
 
