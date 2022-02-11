@@ -6,7 +6,7 @@ from dash import dcc, html
 from dash._utils import stringify_id
 from dash.dependencies import Output, Input, ALL, State
 from dash.exceptions import PreventUpdate
-from plotly import graph_objects as go
+from plotly import graph_objects as go, colors
 
 from irviz.utils.math import nearest_bin
 from ryujin.components import Panel
@@ -284,6 +284,7 @@ class PairPlot3DGraph(dcc.Graph):
                                          z=np.asarray(z.ravel())[label_mask],
                                          name=name,
                                          mode='markers',
+                                         marker={'color': colors.qualitative.D3[i % len(colors.qualitative.Vivid)]}
                                          # selectedpoints=masked_selected_points,
                                          )
                     self._component_traces.append(trace)
