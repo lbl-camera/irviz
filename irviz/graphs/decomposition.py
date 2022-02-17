@@ -278,6 +278,13 @@ class DecompositionGraph(SliceGraph):
         trace = self._component_traces[i]
         trace.visible = checked
         trace.showscale = len(list(filter(lambda trace: trace.visible, self._component_traces))) < 2
+
+        if next(filter(lambda trace: trace.visible, self._component_traces), False):
+            self._clusters.hoverinfo = 'skip'
+        else:
+            self._clusters.hoverinfo = 'none'
+
+
         self._update_opacity()
 
         return self._update_figure()
