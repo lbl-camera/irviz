@@ -66,7 +66,7 @@ class einops_data_mapper(object):
         """
         data = einops.rearrange(spectral_map, " Nwav Nx Ny -> (Nx Ny) Nwav")
         data = data[:, self.spectral_mask]
-        data = data[self.spatial_mask_flat]
+        data = data[self.spatial_mask_flat, :]
         return data
 
     def matrix_to_tensor(self, data):
@@ -138,3 +138,60 @@ class einops_data_mapper(object):
                                        X=self.tensor_shape[1],
                                        Y=self.tensor_shape[2])
         return output_data
+
+class multiset_mapper(object):
+    def __init__(self, tensor_shapes, spatial_masks, spectral_mask):
+        self.tensor_shapes = tensor_shapes
+        self.spatial_masks = spatial_masks
+        self.spectral_mask = spectral_mask
+
+        self.mapper_objects = []
+        for tshape, spat_mask in zip(tensor_shapes, spatial_masks):
+            this_obj = einops_data_mapper(tshape, spat_mask, self.spectral_mask)
+            self.mapper_objects.append(this_obj)
+
+        self.matrix_data_ids = []
+        self.Nmaps = len(tensor_shapes)
+        count=0
+        for mobj in self.mapper_objects:
+            tmp = np.zeros(mobj.N_obs)+count
+            self.matrix_data_ids.append(tmp)
+            count += 1
+        self.matrix_data_ids = np.hstack(self.matrix_data_ids)
+
+    def spectral_tensor_to_spectral_matrix(self, spectral_maps):
+        results = []
+        for this_map, this_obj in zip(spectral_maps, self.mapper_objects):
+            this_matrix = this_obj.spectral_tensor_to_spectral_matrix(this_map)
+            results.append(this_matrix)
+        results = np.vstack(results)
+        return results
+
+    def matrix_to_tensor(self, data):
+        results = []
+        for ii in range(self.Nmaps):
+            sel = self.matrix_data_ids == ii
+            this_data = data[sel]
+            this_tensor = self.mapper_objects[ii].matrix_to_tensor(this_data)
+            results.append(this_tensor)
+        return results
+
+    def spectral_matrix_to_spectral_tensor(self, data):
+        results = []
+        for ii in range(self.Nmaps):
+            sel = self.matrix_data_ids == ii
+            this_data = data[sel]
+            this_tensor = self.mapper_objects[ii].spectraL_matrix_to_spectral_tensor(this_data)
+            results.append(this_tensor)
+        return results
+
+
+
+
+
+
+
+
+
+
+
