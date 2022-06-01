@@ -261,7 +261,7 @@ class SliceGraph(dcc.Graph):
 
     def _make_cluster_colors(self, z):
         color_scale = []
-        for i in range(z.max()-z.min()+1):
+        for i in range(int(z.max()-z.min())+1):
             color_scale.append(colors.qualitative.D3[i % len(colors.qualitative.D3)])
         return color_scale
 

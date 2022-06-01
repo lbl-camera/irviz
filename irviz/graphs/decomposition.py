@@ -254,7 +254,7 @@ class DecompositionGraph(SliceGraph):
 
     def _update_opacity(self):
         # Get a sum of all enabled slider values minus the first enabled value
-        total = 0
+        total = 1
         for slider in self.configuration_panel._component_opacity_sliders:
             if not slider.disabled:
                 total += slider.value
