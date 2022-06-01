@@ -8,6 +8,7 @@ from plotly import graph_objects as go, colors
 from irviz.utils.math import nearest_bin, array_from_selection
 from ryujin.utils.dash import targeted_callback
 
+# TODO: allow decomosition but no component spectra
 
 class SliceGraph(dcc.Graph):
     """Dash Graph for viewing 2D slices of 3D data.
@@ -67,14 +68,13 @@ class SliceGraph(dcc.Graph):
         extra_kwargs = {}
         if cluster_label_names is not None and cluster_labels is not None:
             extra_kwargs['text'] = np.asarray(cluster_label_names)[cluster_labels]
-            hovertemplate = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<br />Label: %{{text}}<extra></extra>'
+            extra_kwargs['hovertemplate'] = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<br />Label: %{{text}}<extra></extra>'
         else:
-            hovertemplate = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<extra></extra>'
+            extra_kwargs['hovertemplate'] = f'{self.xaxis_title}: %{{x}}<br />{self.yaxis_title}: %{{y}}<br />I: %{{z}}<extra></extra>'
 
         self._slice_index = (data.shape[0] - 1) // 2
         self._image = self._get_image_trace(data[self._slice_index],
                                             bounds,
-                                            hovertemplate=hovertemplate,
                                             **extra_kwargs)
         if mask is None:
             mask = np.ones_like(data[0]) * np.NaN
@@ -87,7 +87,8 @@ class SliceGraph(dcc.Graph):
                                                      opacity=0.3,
                                                      showscale=False,
                                                      hoverinfo='skip',
-                                                     name='selection', )
+                                                     name='selection',
+                                                     **extra_kwargs)
 
         x, y = np.meshgrid(np.linspace(bounds[2][0], bounds[2][1], data.shape[2]),
                            np.linspace(bounds[1][0], bounds[1][1], data.shape[1]))
@@ -105,7 +106,9 @@ class SliceGraph(dcc.Graph):
                                                colorscale=colors.qualitative.D3,
                                                opacity=0.3,
                                                showscale=False,
-                                               hoverinfo='skip', )
+                                               hoverinfo='skip',
+                                               **extra_kwargs
+                                               )
 
         if cluster_labels is not None:
             self._clusters.z = cluster_labels  # NaNs are transparent
