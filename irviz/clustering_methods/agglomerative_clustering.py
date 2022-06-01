@@ -1,15 +1,10 @@
 from sklearn.cluster import AgglomerativeClustering
 import numpy as np
-import einops
-
-from sklearn.neighbors import LocalOutlierFactor
-
+from irviz.utils.mapper import einops_data_mapper
+from irviz.utils.mapper import multiset_mapper
 def agglomerative_clustering(U,
                              mask,
-                             n_clusters=5,
-                             outlier_neighbours=3,
-                             outlier_p=2,
-                             outlier_contamination=0.005):
+                             n_clusters=5):
     """
 
     Parameters
@@ -20,48 +15,47 @@ def agglomerative_clustering(U,
     Returns: A cluster map of size (Nx,Ny), can contain Nones
     -------
     """
+
+    shape = U.shape
+    if mask is None:
+        mask = np.ones(shape[1:]).astype(bool)
+
+    pseudo_mask = np.ones((shape[0])).astype(bool)
+
+    data_mapper_object = einops_data_mapper(U.shape, mask, pseudo_mask)
+    U_flat = data_mapper_object.spectral_tensor_to_spectral_matrix(np.asarray(U))
     assert n_clusters > 1
 
-    U_flat = einops.rearrange(U, "C Nx Ny -> (Nx Ny) C" )
-    sel = ~np.isnan(U_flat)
-    sel = np.sum(sel, axis=1).astype(bool)
-    original_indices = np.arange(sel.shape[0])
-    U_data = U_flat[sel, :]
-    first_pass = original_indices[sel]
+    clustering = AgglomerativeClustering(n_clusters=n_clusters-1).fit(U_flat)
+    labels = clustering.labels_.reshape(-1,1)
+    cluster_map = data_mapper_object.matrix_to_tensor(labels)
 
-    # first we find outliers
-    if outlier_contamination < 0:
-        outlier_detector = LocalOutlierFactor(n_neighbors=outlier_neighbours,
-                                                            algorithm='auto',
-                                                            leaf_size=30,
-                                                            metric='minkowski',
-                                                            p=outlier_p,
-                                                            metric_params=None,
-                                                            contamination=outlier_contamination,
-                                                            novelty=False,
-                                                            n_jobs=None)
-        outliers = outlier_detector.fit_predict(U_data)
-        sel2 = outliers < 0
-    else:
-        sel2 = np.zeros( sel.shape )
-    second_pass = first_pass[~sel2]
-    outlier_indices = first_pass[sel2]
+    return cluster_map[0,...]
 
-    culled_data = U_data[~sel2,:]
-    # do the clustering
-    clustering = AgglomerativeClustering(n_clusters=n_clusters-1).fit(culled_data)
-    cluster_map = np.zeros( (U.shape[1], U.shape[2]) )
-    cluster_map = einops.rearrange(cluster_map, "Nx Ny -> (Nx Ny)")
+def multimap_aglomerative_clustering(Us, masks, n_clusters):
+    shapes = []
+    make_masks = False
+    if masks is None:
+        masks = []
+        make_masks = True
 
-    # fill in pixels we didn't use with Nones
-    cluster_map[~sel] = None
+    for U in Us:
+        shape = U.shape
+        shapes.append(shape)
+        if make_masks:
+            masks.append(np.ones(shape[1:]).astype(bool))
+    pseudo_mask = np.ones(shapes[0][0]).astype(bool)
+    mapobj = multiset_mapper(shapes, masks, pseudo_mask)
+    U_flat = mapobj.spectral_tensor_to_spectral_matrix(Us)
 
-    # the outliers will have index n_clusters
-    cluster_map[ outlier_indices ] = n_clusters-1
-
-    # place labels
-    cluster_map[second_pass] = clustering.labels_
-
-    # reshape
-    cluster_map = einops.rearrange(cluster_map, "(Nx Ny) -> Nx Ny", Nx=U.shape[1], Ny=U.shape[2])
+    clustering = AgglomerativeClustering(n_clusters=n_clusters).fit(U_flat)
+    labels = clustering.labels_.reshape(-1,1)
+    cluster_map = mapobj.matrix_to_tensor(labels)
     return cluster_map
+
+
+
+
+
+
+
