@@ -2,8 +2,14 @@ import numpy as np
 from dash.exceptions import PreventUpdate
 from sklearn import gaussian_process
 from sklearn.gaussian_process.kernels import ConstantKernel as C, RBF
+from scipy.spatial import ConvexHull
 
 __all__ = ['gpr_based_background_single_spectrum']
+
+
+def convex_hull(wavenumbers, spectrum):
+    points = np.hstack( wave)
+
 
 
 def find_nearest(array, value):
