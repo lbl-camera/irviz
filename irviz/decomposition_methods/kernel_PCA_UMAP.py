@@ -1,7 +1,13 @@
 import numpy as np
-from irviz.utils.mapper import einops_data_mapper, selection_brackets_to_bool_array
-from irviz.decomposition_methods import kernel_PCA
+from scipy.signal import savgol_filter
+from scipy.sparse.linalg import svds
+from irviz.utils.mapper import einops_data_mapper, selection_brackets_to_bool_array, multiset_mapper
+from irviz.decomposition_methods.kernel_PCA import svd_map
 import umap
+from sklearn.decomposition import KernelPCA as skKernelPCA
+
+
+
 
 def kernel_PCA_UMAP(wavenumbers,
                     spectral_map,
@@ -39,14 +45,20 @@ def kernel_PCA_UMAP(wavenumbers,
     """
 
     # first we run kernelPCA
-    U, _V, Q = kernel_PCA(wavenumbers=wavenumbers,
+    """U, _V, Q = kernel_PCA(wavenumbers=wavenumbers,
                          spectral_map=spectral_map,
                          pixel_usage_mask=pixel_usage_mask,
                          spectral_mask=spectral_mask,
                          n_components=kernelComponents,
                          kernel=kernel,
                          gamma=kernelGamma,
-                         alpha=kernelAlpha)
+                         alpha=kernelAlpha)"""
+
+    U, _V, Q = svd_map(wavenumbers=wavenumbers,
+                         spectral_map=spectral_map,
+                         pixel_usage_mask=pixel_usage_mask,
+                         spectral_mask=spectral_mask,
+                         n_components=kernelComponents)
     # now that we have a kernel PCA embedding U, we run a Umap on it.
 
     pseudo_mask = np.ones(kernelComponents)
@@ -63,8 +75,8 @@ def kernel_PCA_UMAP(wavenumbers,
 
     # now build a UMAP reducer
     reducer = umap.UMAP(
-        densmap=True,
-        dens_lambda=umapDensLambda,
+        #densmap=True,
+        #dens_lambda=umapDensLambda,
         random_state=umapRandomState,
         verbose=False).fit(data_for_umap)
 
@@ -73,4 +85,152 @@ def kernel_PCA_UMAP(wavenumbers,
     # map it back to where we need it
     umap_U = mapping_object.matrix_to_tensor(transformed_data)
     return umap_U, _V, Q
+
+
+def derivative_kernelPCA_UMAP(wavenumbers,
+                                  spectral_map,
+                                  pixel_usage_mask,
+                                  spectral_mask,
+                                  kernelComponents=6,
+                                  #kernel="rbf",
+                                  #kernelGamma=0,
+                                  #kernelAlpha=1e-3,
+                                  umapDensLambda=3.0,
+                                  umapRandomState=42,
+                                  #umapUseFraction=1.0,
+                                  windowLength=11,
+                                  polyOrder=5,
+                                  derivativeOrder=1):
+    """
+
+    Parameters
+    ----------
+    wavenumbers :
+    spectral_map :
+    pixel_usage_mask :
+    spectral_mask :
+    kernelComponents :
+    kernel :
+    kernelGamma :
+    kernelAlpha :
+    umapDensLambda :
+    umapRandomState :
+    umapUseFraction :
+    windowLength :
+    polyOrder :
+    derivativeOrder :
+
+    Returns
+    -------
+
+    """
+
+    print(pixel_usage_mask.shape, np.sum(pixel_usage_mask))
+
+
+    kernel = "rbf"
+    kernelGamma = 0
+    kernelAlpha = 1e-3
+    #umapDensLambda = 5.0,
+    #umapRandomState = 42,
+    umapUseFraction = 1.0
+    windowLength = 7
+    polyOrder = 3
+    #derivativeOrder = 1
+
+    if polyOrder > windowLength:
+        windowLength = windowLength + polyOrder
+    if derivativeOrder > polyOrder:
+        polyOrder = polyOrder + derivativeOrder
+
+    snd_der_map = savgol_filter(spectral_map,
+                                window_length=windowLength,
+                                polyorder=polyOrder,
+                                deriv=derivativeOrder,
+                                delta=1.0,
+                                axis= 0 ,
+                                mode='interp', cval=0.0)
+
+    umap_U, _V, Q = kernel_PCA_UMAP(wavenumbers,
+                                    snd_der_map,
+                                    pixel_usage_mask,
+                                    spectral_mask,
+                                    kernelComponents=kernelComponents,
+                                    kernel=kernel,
+                                    kernelGamma=kernelGamma,
+                                    kernelAlpha=kernelAlpha,
+                                    umapDensLambda=umapDensLambda,
+                                    umapRandomState=umapRandomState,
+                                    umapUseFraction=umapUseFraction)
+    return umap_U, _V, Q
+
+
+def multimap_SVD_UMAP(wavenumbers,
+                            spectral_maps,
+                            pixel_usage_masks,
+                            spectral_mask,
+                            kernelComponents=10,
+                            umapDensLambda=1.0,
+                            umapRandomState=42,
+                            windowLength=7,
+                            polyOrder=3,
+                            derivativeOrder=1):
+    kernel = "rbf"
+    gamma = 0.0
+    alpha = 0.001
+    umapUseFraction = 0.5
+
+    # first we need to get derivatives
+    these_maps = []
+    shapes = []
+    for this_map in spectral_maps:
+        print("derivative")
+        this_derivative = savgol_filter(this_map,
+                                          window_length=windowLength,
+                                          polyorder=polyOrder,
+                                          deriv=derivativeOrder,
+                                          delta=1.0,
+                                          axis=0,
+                                          mode='interp', cval=0.0)
+        these_maps.append(this_derivative)
+        shapes.append(this_derivative.shape)
+
+    # build a multiset mapper object
+    mapper_object = multiset_mapper(shapes, pixel_usage_masks, spectral_mask)
+
+    # get a spectral matrix
+    spectral_matrix = mapper_object.spectral_tensor_to_spectral_matrix(these_maps)
+    print(spectral_matrix.shape)
+
+
+    # now we are ready for decomposition
+    #transformer = skKernelPCA(n_components=kernelComponents,
+    #                        kernel=kernel,
+    #                        gamma=gamma,
+    #                        alpha=alpha,
+    #                        fit_inverse_transform=False)
+
+    U,S,V = svds(spectral_matrix, k=kernelComponents)
+    #U = transformer.fit_transform(spectral_matrix)
+    print(U.shape)
+    # now build a UMAP reducer
+    print("umap1")
+    reducer = umap.UMAP(
+        #densmap=True,
+        #dens_lambda=umapDensLambda,
+
+        random_state=umapRandomState,
+        verbose=False).fit(U)
+    print("umap2")
+    transformed_data = reducer.transform(U)
+    print(transformed_data.shape)
+
+    print("remap")
+    # we now need to split the U's back into individual maps
+    Umap_maps = mapper_object.matrix_to_tensor(transformed_data)
+
+    U = mapper_object.matrix_to_tensor(U)
+
+    return U, Umap_maps, reducer
+
 

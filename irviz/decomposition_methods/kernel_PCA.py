@@ -2,15 +2,16 @@ from sklearn.decomposition import KernelPCA as skKernelPCA
 import numpy as np
 from irviz.utils.mapper import einops_data_mapper, selection_brackets_to_bool_array
 from irviz.quality_metrics import spectral_correlation_from_map
+from scipy.sparse.linalg import svds
 
 def kernel_PCA(wavenumbers,
                spectral_map,
                pixel_usage_mask,
                spectral_mask,
-               n_components=0,
+               n_components=10,
                kernel="rbf",
                gamma=0,
-               alpha=1e-4,
+               alpha=1e-3,
                ):
     """
 
@@ -72,7 +73,38 @@ def kernel_PCA(wavenumbers,
 
 
 
+def svd_map(wavenumbers,
+               spectral_map,
+               pixel_usage_mask,
+               spectral_mask,
+               n_components=10,
+               ):
+    """
 
+
+    """
+
+
+    shape = spectral_map.shape
+    if pixel_usage_mask is None:
+        pixel_usage_mask = np.ones(shape[1:]).astype(bool)
+    if spectral_mask is None:
+        spectral_mask = np.ones((shape[0])).astype(bool)
+    else:
+        spectral_mask = selection_brackets_to_bool_array(spectral_mask, wavenumbers)
+
+    data_mapper_object = einops_data_mapper(spectral_map.shape, pixel_usage_mask, spectral_mask)
+    data = data_mapper_object.spectral_tensor_to_spectral_matrix(np.asarray(spectral_map))
+
+    # now we are ready for decomposition
+
+    U, S, V = svds(data, k=n_components)
+    Recon = None #transformer.inverse_transform(U)
+    U_out = data_mapper_object.matrix_to_tensor(U)
+    Recon_out =  np.empty([]) #data_mapper_object.spectral_matrix_to_spectral_tensor(Recon)
+    Q =  np.empty([])  #spectral_correlation_from_map.spectral_correlation_from_map(wavenumbers, spectral_map, Recon_out, pixel_usage_mask, spectral_mask)
+    #V = np.empty([])
+    return U_out, V, Q  # Recon_out TODO: Ask Peter if this is necessary
 
 
 

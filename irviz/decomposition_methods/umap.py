@@ -5,7 +5,7 @@ from irviz.utils.mapper import selection_brackets_to_bool_array
 
 
 def umap_decompose(wavenumbers,
-              spectral_map,
+                  spectral_map,
               pixel_usage_mask,
               spectral_mask,
               n_dims=2):
@@ -26,6 +26,7 @@ def umap_decompose(wavenumbers,
 
     """
 
+
     # engineer in default behavior
     assert n_dims > 0
     shape = spectral_map.shape
@@ -37,9 +38,12 @@ def umap_decompose(wavenumbers,
         spectral_mask = selection_brackets_to_bool_array(spectral_mask, wavenumbers)
     data_mapper_object = einops_data_mapper(spectral_map.shape, pixel_usage_mask, spectral_mask)
     data = data_mapper_object.spectral_tensor_to_spectral_matrix(spectral_map)
+    print(np.min(data), np.max(data), data.shape)
+
+
+
     embedder = umap.UMAP(n_components=n_dims)
     U = embedder.fit_transform(data)
     U_out = data_mapper_object.matrix_to_tensor(U)
-    print("HIER")
     return U_out, np.ones(U_out.shape), np.zeros(U_out.shape[1:])
 

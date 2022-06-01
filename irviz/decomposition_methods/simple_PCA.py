@@ -72,6 +72,7 @@ def masked_to_map(mask, data):
 
 class Metrics(enum.Enum):
     Spectral_Correlation = partial(spectral_correlation)  # partial required here because enums hate functions
+    Spectral_Correlation2 = partial(spectral_correlation)
 
 
 def simple_PCA(wavenumbers, data_map, mask, control_regions, n_components=5, metric:Metrics=Metrics.Spectral_Correlation):
