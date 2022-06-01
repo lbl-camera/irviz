@@ -347,6 +347,7 @@ class PairPlot3DGraph(dcc.Graph):
 
     def set_clustering(self, cluster_labels, label_names=None):
         if label_names is None:
-            label_names = [phonetic_alphabet.read(chr(65 + i)) for i in range(np.unique(cluster_labels).size)]
+            sel = ~np.isnan(cluster_labels)
+            label_names = [phonetic_alphabet.read(chr(65 + i)) for i in range(np.unique(cluster_labels[sel]).size)]
         self._cluster_labels = cluster_labels
         self._cluster_label_names = label_names
