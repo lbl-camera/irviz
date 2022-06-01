@@ -254,7 +254,7 @@ class PairPlotGraph(dcc.Graph):
                                          name=name,
                                          mode='markers',
                                          selectedpoints=masked_selected_points,
-                                         marker={'color': colors.qualitative.D3[i % len(colors.qualitative.Vivid)]})
+                                         marker={'color': colors.qualitative.D3[i % len(colors.qualitative.D3)]})
                     self._component_traces.append(trace)
                     min_index += np.count_nonzero(label_mask)
 
@@ -294,6 +294,7 @@ class PairPlotGraph(dcc.Graph):
 
     def set_clustering(self, cluster_labels, label_names=None):
         if label_names is None:
-            label_names = [phonetic_alphabet.read(chr(65 + i)) for i in range(np.unique(cluster_labels).size)]
+            sel = ~np.isnan(cluster_labels)
+            label_names = [phonetic_alphabet.read(chr(65 + i)) for i in range(np.unique(cluster_labels[sel]).size)]
         self._cluster_labels = cluster_labels
         self._cluster_label_names = label_names
