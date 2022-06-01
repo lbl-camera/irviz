@@ -61,7 +61,7 @@ class SpectraPlotGraph(dcc.Graph):
         self._invert_spectra_axis = invert_spectra_axis
         self._error_func = error_func or partial(np.std, axis=1)
         self._bounds = bounds
-        self._component_spectra = np.asarray(component_spectra)
+        self._component_spectra = component_spectra
         self._traces = traces or []
         self._component_plots = []
 
@@ -91,9 +91,11 @@ class SpectraPlotGraph(dcc.Graph):
                                   mode='lines')
         self._weighted_sum = go.Scattergl(name=f'weighted component sum',
                                           mode='lines')
+
         if self._decomposition is not None and self._component_spectra is not None:
             self._weighted_sum.x = x
             self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
+
         self._avg_plot = go.Scattergl(name='average',
                                       mode='lines',
                                       legendgroup='_average',
@@ -207,17 +209,22 @@ class SpectraPlotGraph(dcc.Graph):
         # update the weighted sum
         if self._decomposition is not None and self._component_spectra is not None:
             self._weighted_sum.x = self._plot.x
-            self._weighted_sum.y = np.dot(self._decomposition[:, _y_index, _x_index], self._component_spectra)
+            self._weighted_sum.y = np.asarray(np.dot(self._decomposition[:, _y_index, _x_index],
+                                                     self._component_spectra))
 
-        if self._component_spectra.ndim != 2:
+        if self._component_spectra is None:
             self._component_plots = []
+
         else:
-            self._component_plots = [go.Scattergl(x=self._plot.x,
-                                                  y=self._component_spectra[i] * self._decomposition[i, _y_index, _x_index],
-                                                  name=f'Component #{i + 1}',
-                                                  visible='legendonly',
-                                                  legendgroup='_components')
-                                     for i in range(self._component_spectra.shape[0])]
+            if self._component_spectra.ndim != 2:
+                self._component_plots = []
+            else:
+                self._component_plots = [go.Scattergl(x=self._plot.x,
+                                                      y=self._component_spectra[i] * self._decomposition[i, _y_index, _x_index],
+                                                      name=f'Component #{i + 1}',
+                                                      visible='legendonly',
+                                                      legendgroup='_components')
+                                         for i in range(self._component_spectra.shape[0])]
 
         return self._update_figure()
 
