@@ -11,7 +11,7 @@ irviz
 
 Python package for doing science.
 
-* Free software: 3-clause BSD license
+* Free software: check license
 * Documentation: (COMING SOON!) https://.github.io/irviz.
 
 Features
